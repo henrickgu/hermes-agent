@@ -1,4 +1,4 @@
-import { type AppendMessage, AssistantRuntimeProvider, type ThreadMessage } from '@assistant-ui/react'
+﻿import { type AppendMessage, AssistantRuntimeProvider, type ThreadMessage } from '@assistant-ui/react'
 import { useStore } from '@nanostores/react'
 import { useQuery } from '@tanstack/react-query'
 import type { ReadableAtom } from 'nanostores'
@@ -84,6 +84,7 @@ import { advanceTranscriptWindow, type TranscriptWindowState } from './transcrip
 interface ChatViewProps extends Omit<React.ComponentProps<'div'>, 'onSubmit'> {
   gateway: HermesGateway | null
   modelMenuContent?: React.ReactNode
+  reasoningMenuContent?: React.ReactNode
   onToggleSelectedPin: () => void
   onDeleteSelectedSession: () => void
   onCancel: () => Promise<void> | void
@@ -134,13 +135,13 @@ function ChatHeader({
 
   const title = activeStoredSession ? sessionTitle(activeStoredSession) : NEW_SESSION_TITLE
 
-  // Which agent/persona owns this chat — glanceable in the header once a
+  // Which agent/persona owns this chat â€” glanceable in the header once a
   // second profile exists, so the open session's ownership is never ambiguous
   // (#66003). Single-profile users see the unchanged header.
   const showProfileTag = profiles.length > 1 && Boolean(activeStoredSession)
 
   // Pins live on the durable lineage-root id, but selectedSessionId is the live
-  // (tip) id — resolve through the loaded row so the menu reflects the pin
+  // (tip) id â€” resolve through the loaded row so the menu reflects the pin
   // state after auto-compression rotates the id.
   const selectedIsPinned = activeStoredSession
     ? pinnedSessionIds.includes(sessionPinId(activeStoredSession))
@@ -149,7 +150,7 @@ function ChatHeader({
       : false
 
   // Secondary windows (new-session scratch, subagent watch, cmd-click pop-out)
-  // are compact side panels — they drop the session-actions header + border
+  // are compact side panels â€” they drop the session-actions header + border
   // entirely. A brand-new draft has nothing to pin/delete/rename either.
   if (isAuxiliaryWindow() || (!selectedSessionId && !activeSessionId && !isRoutedSessionView)) {
     return null
@@ -188,7 +189,7 @@ interface ChatRuntimeBoundaryProps {
   onEdit: (message: AppendMessage) => Promise<void>
   onReload: (parentId: string | null) => Promise<void>
   onThreadMessagesChange: (messages: readonly ThreadMessage[]) => void
-  /** Route points at an unloaded session — render empty until resume swaps in
+  /** Route points at an unloaded session â€” render empty until resume swaps in
    *  the new transcript, so the previous session's messages don't linger. */
   suppressMessages: boolean
 }
@@ -200,10 +201,10 @@ const NO_MESSAGES: ChatMessage[] = []
  *
  * Keep-alive keeps every ever-active tab MOUNTED (tree-group.tsx), so without
  * this gate a hidden tab re-renders its entire thread on every streaming
- * delta flush (~30×/s) — five busy tabs quintuple the per-token render cost
+ * delta flush (~30Ã—/s) â€” five busy tabs quintuple the per-token render cost
  * and the app crawls. Hidden tabs freeze their transcript instead (status
  * dots stay live through the separate status atoms) and catch up in one
- * commit on reveal — the subscribe fires immediately with the current value.
+ * commit on reveal â€” the subscribe fires immediately with the current value.
  */
 function useMessagesWhileVisible($messages: ReadableAtom<ChatMessage[]>): ChatMessage[] {
   const visible = usePaneVisible()
@@ -223,9 +224,9 @@ function useMessagesWhileVisible($messages: ReadableAtom<ChatMessage[]>): ChatMe
  * Owns the $messages subscription and the assistant-ui external-store runtime.
  *
  * Isolated from ChatView so the per-token delta flush (which replaces the
- * $messages atom ~30×/s during streaming) only re-renders this component and
+ * $messages atom ~30Ã—/s during streaming) only re-renders this component and
  * the runtime provider. The children (Thread, ChatBar) are created by
- * ChatView, whose render output is stable across flushes — so React bails out
+ * ChatView, whose render output is stable across flushes â€” so React bails out
  * of re-rendering them by element identity and the stream's render cost stays
  * confined to the streaming message's own subtree.
  */
@@ -288,7 +289,7 @@ function ChatRuntimeBoundary({
 
   const expandWindow = useCallback(() => {
     // The store window still holds older messages: growing pages is enough.
-    // Otherwise the whole in-memory transcript is already materialized — if
+    // Otherwise the whole in-memory transcript is already materialized â€” if
     // the REST tail hydration was truncated, fetch the next older page and
     // PREPEND it to the session store before growing, so the grown window has
     // something older to show. Fire-and-forget: the prepend lands through the
@@ -304,7 +305,7 @@ function ChatRuntimeBoundary({
         profile: tailProfile,
         // Stale-response guard: a session switch remounts/re-keys this view;
         // checking the live atoms (not captured props) discards a page that
-        // resolves after the user moved on — same pattern as isCurrentResume.
+        // resolves after the user moved on â€” same pattern as isCurrentResume.
         isCurrent: () => view.$storedId.get() === storedId && view.$runtimeId.get() === runtimeId,
         applyOlderPage: olderPage => {
           sessionTileDelegate()?.updateSession(runtimeId, state => {
@@ -360,6 +361,7 @@ const ChatViewContent = memo(function ChatViewContent({
   className,
   gateway,
   modelMenuContent,
+  reasoningMenuContent,
   onToggleSelectedPin,
   onDeleteSelectedSession,
   onCancel,
@@ -388,7 +390,7 @@ const ChatViewContent = memo(function ChatViewContent({
   const location = useLocation()
   const { t } = useI18n()
   // The view this surface renders: the primary route-driven session (global
-  // atoms) or a tile's session slice — same component either way.
+  // atoms) or a tile's session slice â€” same component either way.
   const view = useSessionView()
   const composerScope = useComposerScope()
   const composerSurfaceId = useComposerSurfaceId()
@@ -397,8 +399,8 @@ const ChatViewContent = memo(function ChatViewContent({
   const storedId = useStore(view.$storedId)
   // Multi-pane dimming: only the focused surface paints at full strength, so
   // two sessions side by side read as "this one, and that one over there".
-  // A selector, not a plain useStore — the focused id changes on click, and a
-  // boolean bails every other surface out of the re-render. Sole surface ⇒
+  // A selector, not a plain useStore â€” the focused id changes on click, and a
+  // boolean bails every other surface out of the re-render. Sole surface â‡’
   // always focused (the atom falls back to the primary's selection), so a
   // single-pane workspace never dims.
   const surfaceFocused = useStoreSelector($focusedStoredSessionId, focused => focused === storedId)
@@ -410,11 +412,12 @@ const ChatViewContent = memo(function ChatViewContent({
   const busy = useStore(view.$busy)
   const activeGatewayProfile = useStore($activeGatewayProfile)
   const contextSuggestions = useStore($contextSuggestions)
-  // Per-session (SessionView) reads — a tile IS its session, so these come
+  // Per-session (SessionView) reads â€” a tile IS its session, so these come
   // from the view slice, not the global atoms (which track the primary only).
   const currentCwd = useStore(view.$cwd)
   const currentModel = useStore(view.$model)
   const currentProvider = useStore(view.$provider)
+  const currentReasoningEffort = useStore(view.$reasoningEffort)
   // A pet anywhere (in-window or popped out) owns the hearts; composer only when none.
   const petActive = useStore($petActive)
   const petOverlayActive = useStore($petOverlayActive)
@@ -427,8 +430,8 @@ const ChatViewContent = memo(function ChatViewContent({
   const introPersonality = useStore($introPersonality)
   const introSeed = useStore($introSeed)
   const introSplash = useStore($introSplash)
-  // PERF: ChatView must not subscribe to the view's $messages — the atom is
-  // replaced on every streaming delta flush (~30×/s) and a subscription here
+  // PERF: ChatView must not subscribe to the view's $messages â€” the atom is
+  // replaced on every streaming delta flush (~30Ã—/s) and a subscription here
   // re-renders the entire chat shell (header, chat bar, thread wrapper) per
   // token. The runtime that DOES need the messages lives in
   // ChatRuntimeBoundary below; this component only needs streaming-stable
@@ -441,7 +444,7 @@ const ChatViewContent = memo(function ChatViewContent({
 
   // Durable composer/queue scope (lineage root) so auto-compression tip rotation
   // does not wipe an in-progress draft or orphan /queue entries. For the
-  // primary view, the route is authoritative over the store selection — the
+  // primary view, the route is authoritative over the store selection â€” the
   // latter can be momentarily null/stale mid-switch, which used to leak into
   // the composer's scope key (#59305). A tile has no route, so it always uses
   // its own selection directly.
@@ -456,7 +459,7 @@ const ChatViewContent = memo(function ChatViewContent({
   // When the tip row arrives after compression, migrate any tip-keyed stash onto
   // the durable lineage key before the composer remounts onto that key.
   //
-  // ONLY same-conversation rekeys (tip → root). The route-driven queueSessionKey
+  // ONLY same-conversation rekeys (tip â†’ root). The route-driven queueSessionKey
   // can flip to Session B a frame before the store selection leaves Session A;
   // migrating on bare inequality would re-home A's queued prompts onto B and
   // auto-drain them into the wrong chat.
@@ -472,15 +475,15 @@ const ChatViewContent = memo(function ChatViewContent({
   // Transcript-side stops (the streaming message's hover Stop, the runtime's
   // cancel) are explicit halts, same as the composer's Stop button: park any
   // queued turns so the interrupt doesn't roll straight into the next one.
-  // ChatBar wraps its own onCancel internally — its send-now-while-busy path
-  // needs the raw interrupt — so it still receives the unwrapped prop.
+  // ChatBar wraps its own onCancel internally â€” its send-now-while-busy path
+  // needs the raw interrupt â€” so it still receives the unwrapped prop.
   const haltRun = useCallback(() => {
     parkQueuedPrompts(queueSessionKey || activeSessionId)
 
     return onCancel()
   }, [activeSessionId, onCancel, queueSessionKey])
 
-  // A tile IS its session — no route involved, never "mismatched".
+  // A tile IS its session â€” no route involved, never "mismatched".
   const routedSessionId = isPrimary ? routeSessionId(location.pathname) : selectedSessionId
   const isRoutedSessionView = Boolean(routedSessionId)
 
@@ -490,7 +493,7 @@ const ChatViewContent = memo(function ChatViewContent({
   // waiting for the resume effect (which paints a frame later) to clear them.
   const routeSessionMismatch = isPrimary ? isRouteSessionMismatch(routedSessionId, selectedSessionId, sessions) : false
 
-  // The compact new-session pop-out skips the wordmark/tagline intro — it's a
+  // The compact new-session pop-out skips the wordmark/tagline intro â€” it's a
   // scratch window, not the full-height empty state. The Appearance toggle
   // turns it off everywhere else.
   const showIntro = shouldShowIntro({
@@ -507,7 +510,7 @@ const ChatViewContent = memo(function ChatViewContent({
   // Session is still loading if the route references a session we haven't
   // resumed yet. Brand-new routed drafts are empty on purpose once a runtime
   // is bound. A session the list already knows has history must keep the
-  // loader up until a display-authoritative transcript arrives — including
+  // loader up until a display-authoritative transcript arrives â€” including
   // the unproven warm-cache hold, where the runtime is bound but messages
   // are still suppressed.
   //
@@ -535,7 +538,7 @@ const ChatViewContent = memo(function ChatViewContent({
   const threadLoading = threadLoadingState(loadingSession, busy, awaitingResponse, lastVisibleIsUser)
   // Hide the composer in the exhausted error state too: there's no live runtime
   // to send to until a retry rebinds one. Watch windows are pure spectators of a
-  // subagent run driven elsewhere — no composer, transcript is read-only.
+  // subagent run driven elsewhere â€” no composer, transcript is read-only.
   const showChatBar = !loadingSession && !resumeExhausted && !isWatchWindow()
   const threadKey = selectedSessionId || activeSessionId || (isRoutedSessionView ? location.pathname : 'new')
 
@@ -550,6 +553,12 @@ const ChatViewContent = memo(function ChatViewContent({
     [currentModel, currentProvider, modelOptionsQuery.data]
   )
 
+  const currentProviderOptions = modelOptionsQuery.data?.providers?.find(
+    provider => provider.slug === currentProvider || (provider.aliases?.includes(currentProvider) ?? false)
+  )
+
+  const supportsReasoning = currentProviderOptions?.capabilities?.[currentModel]?.reasoning ?? true
+
   const chatBarState = useMemo<ChatBarState>(
     () => ({
       model: {
@@ -558,7 +567,10 @@ const ChatViewContent = memo(function ChatViewContent({
         canSwitch: gatewayOpen,
         loading: !gatewayOpen || (!currentModel && !currentProvider),
         modelMenuContent,
-        quickModels
+        quickModels,
+        reasoningEffort: currentReasoningEffort,
+        reasoningMenuContent,
+        supportsReasoning
       },
       tools: {
         enabled: true,
@@ -570,7 +582,18 @@ const ChatViewContent = memo(function ChatViewContent({
         active: false
       }
     }),
-    [contextSuggestions, currentModel, currentProvider, gatewayOpen, modelMenuContent, quickModels, t.composer.addContext]
+    [
+      contextSuggestions,
+      currentModel,
+      currentProvider,
+      currentReasoningEffort,
+      gatewayOpen,
+      modelMenuContent,
+      quickModels,
+      reasoningMenuContent,
+      supportsReasoning,
+      t.composer.addContext
+    ]
   )
 
   // Drop files anywhere in the conversation area, not just on the composer
@@ -578,7 +601,7 @@ const ChatViewContent = memo(function ChatViewContent({
   // the gateway resolves directly, so they stay inline `@file:` refs. OS/Finder
   // drops carry absolute local paths that don't exist on a remote gateway (and
   // images need byte upload for vision), so route them through the attachment
-  // pipeline — otherwise the local path leaks into the prompt verbatim.
+  // pipeline â€” otherwise the local path leaks into the prompt verbatim.
   const onDropFiles = useCallback(
     (candidates: DroppedFile[]) => {
       const { inAppRefs, osDrops } = partitionDroppedFiles(candidates)
@@ -595,19 +618,19 @@ const ChatViewContent = memo(function ChatViewContent({
     [composerScope.target, currentCwd, onAttachDroppedItems]
   )
 
-  // Session drags are POINTER drags (session-drag.ts) — never native DnD.
+  // Session drags are POINTER drags (session-drag.ts) â€” never native DnD.
   // The drop zone below only handles files; session drops commit through the
   // drag session itself, which routes a center/link drop to this surface's
   // composer via `data-composer-target`.
   const { dragKind, dropHandlers } = useFileDropZone({ enabled: showChatBar, onDropFiles })
 
   // While a session drag targets one of this surface's EDGES or a tab strip,
-  // the zone overlay/caret owns the visual — the link overlay stands down.
+  // the zone overlay/caret owns the visual â€” the link overlay stands down.
   // It shows for the whole drag on every chat surface otherwise (the drag
   // session's global sentinel, not a per-surface hover chain).
   // COMPUTED booleans, never the raw `$dropHint`: the hint churns on every
   // pointer-crossing of every drag (pane drags included), and a re-render
-  // here is the WHOLE surface — thread, composer, header — per mounted tile.
+  // here is the WHOLE surface â€” thread, composer, header â€” per mounted tile.
   const sessionDragging = useStore($sessionTileDragging)
   const sessionEdgeHover = useStore($sessionTileEdgeHover)
 
@@ -702,17 +725,17 @@ const ChatViewContent = memo(function ChatViewContent({
           <ChatDropOverlay kind={overlayKind} />
           <ChatSwapOverlay profile={gatewaySwapTarget} />
           {/* Paint-first wake (#89843): transcript is live, profile gate still
-              settling in the background — subtle badge, not an overlay. */}
+              settling in the background â€” subtle badge, not an overlay. */}
           {isPrimary && !gatewaySwapTarget && <ChatSyncBadge profile={hydrationSyncProfile} />}
         </div>
         {/* Composer renders OUTSIDE the contain:[layout paint] wrapper above:
-            that wrapper is a containing block for — and clips — position:fixed
+            that wrapper is a containing block for â€” and clips â€” position:fixed
             descendants, so the popped-out (fixed) composer would anchor to the
             chat column (which shifts/resizes with the sidebars) and get clipped
             off-screen instead of floating against the viewport. As a sibling it
             anchors to the outer relative container instead: docked is absolute
             (identical placement), floating resolves against the viewport. Both
-            states stay mounted here, so dock⇄float never remounts the editor. */}
+            states stay mounted here, so dockâ‡„float never remounts the editor. */}
         {showChatBar && (
           <Suspense fallback={<ChatBarFallback />}>
             <ChatBar
