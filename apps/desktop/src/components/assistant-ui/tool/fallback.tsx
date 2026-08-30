@@ -50,6 +50,7 @@ import { recordPreviewArtifact } from '@/store/preview-status'
 import { sessionApprovalRequest } from '@/store/prompts'
 import { $toolInlineDiff } from '@/store/tool-diffs'
 import { $toolRowDismissed, dismissToolRow } from '@/store/tool-dismiss'
+import { $toolEditsCollapsedByDefault } from '@/store/tool-edits-collapsed'
 import { $anyToolDisclosureOpen, $toolDisclosureOpen, $toolViewMode, setToolDisclosureOpen } from '@/store/tool-view'
 
 import { APPROVAL_TOOLS, PendingToolApproval } from './approval'
@@ -374,7 +375,11 @@ function ToolEntry({ part }: ToolEntryProps) {
   const sideDiff = useStore($toolInlineDiff(toolCallId ?? ''))
   const inlineDiff = stripInlineDiffChrome(sideDiff) || inlineDiffFromResult(result)
   const isFileEdit = isFileEditTool(toolName)
-  const defaultOpen = Boolean(inlineDiff)
+  const toolEditsCollapsedByDefault = useStore($toolEditsCollapsedByDefault)
+  // A file edit's diff is the deliverable, so it opens by default — unless the
+  // user prefers a quieter transcript, in which case every edit row mounts
+  // collapsed and stays one click away.
+  const defaultOpen = Boolean(inlineDiff) && !(isFileEdit && toolEditsCollapsedByDefault)
   const open = useDisclosureOpen(disclosureId, defaultOpen)
   const canDismiss = !isPending && !embedded
   // Only animate entries that mount while their message is actively

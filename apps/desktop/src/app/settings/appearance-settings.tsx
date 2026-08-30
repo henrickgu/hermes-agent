@@ -23,6 +23,7 @@ import { $reasoningCollapsedByDefault, setReasoningCollapsedByDefault } from '@/
 import { $sessionListDensity, type SessionListDensity, setSessionListDensity } from '@/store/session-list-density'
 import { $tabStripDefault, setTabStripDefault, type TabStripDefault } from '@/store/tabstrip-prefs'
 import { $retiredTips, $tipsEnabled, resetTips, setTipsEnabled } from '@/store/tips'
+import { $toolEditsCollapsedByDefault, setToolEditsCollapsedByDefault } from '@/store/tool-edits-collapsed'
 import { $toolViewMode, setToolViewMode } from '@/store/tool-view'
 import { $toursEnabled, setToursEnabled } from '@/store/tours'
 import {
@@ -348,6 +349,7 @@ export function AppearanceSettings() {
   const { themeName, mode, resolvedMode, availableThemes, setTheme, setMode } = useTheme()
   const toolViewMode = useStore($toolViewMode)
   const reasoningCollapsedByDefault = useStore($reasoningCollapsedByDefault)
+  const toolEditsCollapsedByDefault = useStore($toolEditsCollapsedByDefault)
   const sessionListDensity = useStore($sessionListDensity)
   const tabStripDefault = useStore($tabStripDefault)
   const zoomPercent = useStore($zoomPercent)
@@ -862,6 +864,24 @@ export function AppearanceSettings() {
             }
             description={a.reasoningCollapsedDesc}
             title={a.reasoningCollapsedTitle}
+          />
+
+          <ListRow
+            action={
+              <SegmentedControl
+                onChange={id => {
+                  triggerHaptic('selection')
+                  setToolEditsCollapsedByDefault(id === 'on')
+                }}
+                options={[
+                  { id: 'off', label: t.common.off },
+                  { id: 'on', label: t.common.on }
+                ]}
+                value={toolEditsCollapsedByDefault ? 'on' : 'off'}
+              />
+            }
+            description={a.toolEditsCollapsedDesc}
+            title={a.toolEditsCollapsedTitle}
           />
 
           <ListRow

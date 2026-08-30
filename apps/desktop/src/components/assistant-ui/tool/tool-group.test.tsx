@@ -6,6 +6,7 @@ import { $displayTimestamps } from '@/store/display-timestamps'
 import { clearAllPrompts, setApprovalRequest } from '@/store/prompts'
 import { $activeSessionId } from '@/store/session'
 import { clearDismissedToolRows } from '@/store/tool-dismiss'
+import { $toolEditsCollapsedByDefault } from '@/store/tool-edits-collapsed'
 import { $toolDisclosureStates } from '@/store/tool-view'
 
 import { stubThreadEnvironment, stubThreadViewportSize, ThreadRuntime } from '../test-utils'
@@ -389,6 +390,7 @@ beforeEach(() => {
   clearAllPrompts()
   $activeSessionId.set('sess-1')
   $toolDisclosureStates.set({})
+  $toolEditsCollapsedByDefault.set(false)
   clearDismissedToolRows()
 })
 
@@ -448,6 +450,41 @@ describe('a file edit among ordinary activity', () => {
 
     await waitFor(() => {
       expect(container.querySelector('[data-tool-row][data-file-edit]')).not.toBeNull()
+    })
+  })
+})
+
+// The same edit card, but with the desktop preference for a quieter transcript
+// on: the row mounts collapsed, and opening it is one explicit click.
+describe('collapsed-by-default file edits', () => {
+  it('mounts the edit row collapsed when the preference is on', async () => {
+    $toolEditsCollapsedByDefault.set(true)
+
+    const { container } = render(<GroupHarness message={editBetweenRunsMessage()} />)
+
+    await waitFor(() => {
+      expect(container.querySelector('[data-tool-row]')).not.toBeNull()
+    })
+
+    expect(container.querySelector('[data-tool-row][data-tool-open]')).toBeNull()
+  })
+
+  it('still opens on click — the diff is one explicit click away', async () => {
+    $toolEditsCollapsedByDefault.set(true)
+
+    const { container } = render(<GroupHarness message={editBetweenRunsMessage()} />)
+
+    const rowToggle = await waitFor(() => {
+      const toggle = container.querySelector('[data-tool-row] button[aria-expanded="false"]')
+      expect(toggle).not.toBeNull()
+
+      return toggle as Element
+    })
+
+    fireEvent.click(rowToggle)
+
+    await waitFor(() => {
+      expect(container.querySelector('[data-tool-row][data-tool-open]')).not.toBeNull()
     })
   })
 })
