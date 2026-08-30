@@ -530,6 +530,8 @@ export const zh: Translations = {
       toolViewDesc: '产品模式隐藏原始工具数据；技术模式显示完整输入/输出。',
       reasoningCollapsedTitle: '默认折叠推理过程',
       reasoningCollapsedDesc: '保留流式推理内容，但在您打开前保持折叠。',
+      dimUnfocusedChatsTitle: '淡化未聚焦的对话',
+      dimUnfocusedChatsDesc: '淡化并降低当前对话旁其他已打开对话的饱和度。',
       uiScaleTitle: '界面缩放',
       uiScaleDesc: (percent: number) =>
         `缩放整个应用的文字和界面。也可使用 Cmd/Ctrl 加 +、- 或 0 调整。当前：${percent}%`,
@@ -2519,6 +2521,7 @@ export const zh: Translations = {
 
   composer: {
     message: '消息',
+    addContext: '添加上下文',
     wakingProfile: profile => `正在唤醒 ${profile}…`,
     placeholderStarting: '正在启动 Hermes…',
     placeholderReconnecting: '正在重新连接 Hermes…',

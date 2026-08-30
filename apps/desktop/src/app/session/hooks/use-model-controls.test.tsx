@@ -2,6 +2,7 @@ import { QueryClient } from '@tanstack/react-query'
 import { act, cleanup, render, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import type { ClientSessionState } from '@/app/types'
 import { getGlobalModelInfo } from '@/hermes'
 import { modelOptionsQueryKey } from '@/lib/model-options'
 import { $activeGatewayProfile } from '@/store/profile'
@@ -24,6 +25,7 @@ const setGlobalModel = vi.fn()
 const notify = vi.fn()
 const notifyError = vi.fn()
 const dismissNotification = vi.fn()
+const sessionUpdate = vi.fn()
 
 vi.mock('@/hermes', () => ({
   getGlobalModelInfo: vi.fn(),
@@ -36,7 +38,7 @@ vi.mock('@/store/session-states', async importOriginal => {
 
   return {
     ...actual,
-    sessionTileDelegate: () => null
+    sessionTileDelegate: () => ({ updateSession: sessionUpdate })
   }
 })
 
@@ -85,6 +87,7 @@ describe('useModelControls', () => {
     setCurrentModel('')
     setCurrentModelSource('')
     setCurrentProvider('')
+    sessionUpdate.mockReset()
   })
 
   afterEach(() => {
@@ -95,6 +98,7 @@ describe('useModelControls', () => {
     setCurrentModel('')
     setCurrentModelSource('')
     setCurrentProvider('')
+    sessionUpdate.mockReset()
   })
 
   it('applies the global model when there is no active runtime session', async () => {
@@ -274,6 +278,32 @@ describe('useModelControls', () => {
       value: 'claude-sonnet-4.6 --provider anthropic --global'
     })
     expect(requestGateway).not.toHaveBeenCalledWith('slash.exec', expect.anything())
+  })
+
+  it('paints the active session slice before the gateway confirms the model switch', async () => {
+    $activeSessionId.set('session-1')
+    setCurrentModel('qwen3.7-plus')
+    setCurrentProvider('opencode-go')
+    const pendingSwitch = deferred<Record<string, unknown>>()
+    const requestGateway = vi.fn(() => pendingSwitch.promise as never)
+    let controls!: Controls
+
+    render(<Harness onReady={value => (controls = value)} requestGateway={requestGateway} />)
+
+    const switchPromise = controls.selectModel({ model: 'glm-5.3', provider: 'opencode-go' })
+
+    expect(sessionUpdate).toHaveBeenCalledTimes(1)
+    expect(sessionUpdate).toHaveBeenCalledWith('session-1', expect.any(Function))
+
+    const optimistic = sessionUpdate.mock.calls[0][1]({
+      model: 'qwen3.7-plus',
+      provider: 'opencode-go'
+    } as ClientSessionState)
+
+    expect(optimistic).toMatchObject({ model: 'glm-5.3', provider: 'opencode-go' })
+
+    pendingSwitch.resolve({})
+    await expect(switchPromise).resolves.toBe(true)
   })
 
   it('keeps a mid-turn pick painted and skips the refetch that would repaint the old model', async () => {

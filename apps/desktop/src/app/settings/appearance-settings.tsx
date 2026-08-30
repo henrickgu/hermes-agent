@@ -46,6 +46,7 @@ import {
   TRANSLUCENCY_STEP,
   TRANSLUCENCY_SUPPORTED
 } from '@/store/translucency'
+import { $dimUnfocusedChats, setDimUnfocusedChats } from '@/store/unfocused-chat-dimming'
 import { $vibeHeartsEnabled, setVibeHeartsEnabled } from '@/store/vibe-hearts-enabled'
 import { $zoomPercent, setZoomPercent } from '@/store/zoom'
 import { getBaseColors, useTheme } from '@/themes/context'
@@ -348,6 +349,7 @@ export function AppearanceSettings() {
   const { themeName, mode, resolvedMode, availableThemes, setTheme, setMode } = useTheme()
   const toolViewMode = useStore($toolViewMode)
   const reasoningCollapsedByDefault = useStore($reasoningCollapsedByDefault)
+  const dimUnfocusedChats = useStore($dimUnfocusedChats)
   const sessionListDensity = useStore($sessionListDensity)
   const tabStripDefault = useStore($tabStripDefault)
   const zoomPercent = useStore($zoomPercent)
@@ -740,6 +742,14 @@ export function AppearanceSettings() {
             description={a.composerPopoutDesc}
             label={a.composerPopoutTitle}
             onChange={setComposerPopoutGesturesEnabled}
+          />
+
+          <ToggleRow
+            checked={dimUnfocusedChats}
+            description={a.dimUnfocusedChatsDesc}
+            id={appearanceSettingElementId(APPEARANCE_SETTING_IDS.dimUnfocusedChats)}
+            label={a.dimUnfocusedChatsTitle}
+            onChange={setDimUnfocusedChats}
           />
 
           <ListRow

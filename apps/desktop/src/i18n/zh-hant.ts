@@ -356,6 +356,8 @@ export const zhHant = defineLocale({
       toolViewDesc: '產品模式會隱藏原始工具 payload；技術模式會顯示完整輸入/輸出。',
       reasoningCollapsedTitle: '預設摺疊推理過程',
       reasoningCollapsedDesc: '保留串流推理內容，但在您開啟前維持摺疊。',
+      dimUnfocusedChatsTitle: '淡化未聚焦的對話',
+      dimUnfocusedChatsDesc: '淡化並降低目前對話旁其他已開啟對話的飽和度。',
       uiScaleTitle: '介面縮放',
       uiScaleDesc: (percent: number) =>
         `縮放整個應用程式的文字與介面。也可使用 Cmd/Ctrl 加 +、- 或 0 調整。目前：${percent}%`,
@@ -1946,6 +1948,7 @@ export const zhHant = defineLocale({
 
   composer: {
     message: '訊息',
+    addContext: '新增脈絡',
     wakingProfile: profile => `正在喚醒 ${profile}…`,
     placeholderStarting: '正在啟動 Hermes...',
     placeholderReconnecting: '正在重新連線至 Hermes…',

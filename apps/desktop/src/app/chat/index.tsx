@@ -50,6 +50,7 @@ import {
 } from '@/store/session'
 import { $focusedStoredSessionId, sessionTileDelegate } from '@/store/session-states'
 import { $transcriptTailBySessionId, transcriptTailState } from '@/store/transcript-tail'
+import { $dimUnfocusedChats, shouldDimUnfocusedChat } from '@/store/unfocused-chat-dimming'
 import { isAuxiliaryWindow, isWatchWindow } from '@/store/windows'
 import type { ModelOptionsResponse } from '@/types/hermes'
 
@@ -401,6 +402,7 @@ const ChatViewContent = memo(function ChatViewContent({
   // always focused (the atom falls back to the primary's selection), so a
   // single-pane workspace never dims.
   const surfaceFocused = useStoreSelector($focusedStoredSessionId, focused => focused === storedId)
+  const dimUnfocusedChats = useStore($dimUnfocusedChats)
   // Dock anchor for a session drop onto this surface: the workspace pane for the
   // primary, this tile's pane id for a tile. Read by the session-drop bridge.
   const sessionAnchor = isPrimary ? 'workspace' : `session-tile:${storedId ?? ''}`
@@ -560,7 +562,7 @@ const ChatViewContent = memo(function ChatViewContent({
       },
       tools: {
         enabled: true,
-        label: 'Add context',
+        label: t.composer.addContext,
         suggestions: contextSuggestions
       },
       voice: {
@@ -568,7 +570,7 @@ const ChatViewContent = memo(function ChatViewContent({
         active: false
       }
     }),
-    [contextSuggestions, currentModel, currentProvider, gatewayOpen, modelMenuContent, quickModels]
+    [contextSuggestions, currentModel, currentProvider, gatewayOpen, modelMenuContent, quickModels, t.composer.addContext]
   )
 
   // Drop files anywhere in the conversation area, not just on the composer
@@ -618,7 +620,7 @@ const ChatViewContent = memo(function ChatViewContent({
         className
       )}
       data-chat-surface=""
-      data-chat-unfocused={surfaceFocused ? undefined : ''}
+      data-chat-unfocused={shouldDimUnfocusedChat(dimUnfocusedChats, surfaceFocused) ? '' : undefined}
       data-composer-surface-id={composerSurfaceId}
       data-composer-target={composerScope.target}
       data-session-anchor={sessionAnchor}

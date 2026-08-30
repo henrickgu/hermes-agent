@@ -208,8 +208,13 @@ export function useModelControls({ queryClient, requestGateway }: ModelControlsO
           setCurrentModel(selection.model)
           setCurrentProvider(selection.provider)
           markComposerSelectionManual()
-        } else if (liveSessionId) {
-          // Optimistic tile paint — session.info will confirm; rollback on error.
+        }
+
+        if (liveSessionId) {
+          // Every live surface renders from its per-session slice, including
+          // the primary workspace pane. Updating only the sticky composer
+          // atoms made the pill and the open catalog disagree until the
+          // gateway's session.info confirmation arrived.
           sessionTileDelegate()?.updateSession(liveSessionId, state => ({
             ...state,
             model: selection.model,
@@ -227,7 +232,9 @@ export function useModelControls({ queryClient, requestGateway }: ModelControlsO
           setCurrentModel(prevModel)
           setCurrentProvider(prevProvider)
           setCurrentModelSource(prevSource)
-        } else if (liveSessionId) {
+        }
+
+        if (liveSessionId) {
           sessionTileDelegate()?.updateSession(liveSessionId, state => ({
             ...state,
             model: prevModel,

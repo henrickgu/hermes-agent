@@ -366,6 +366,8 @@ export const ja = defineLocale({
       toolViewDesc: 'プロダクト表示は生のツールペイロードを隠し、テクニカル表示は入出力をすべて表示します。',
       reasoningCollapsedTitle: '思考ブロックをデフォルトで折りたたむ',
       reasoningCollapsedDesc: 'ストリーミング中の推論を、開くまで折りたたんだまま利用できるようにします。',
+      dimUnfocusedChatsTitle: 'フォーカス外の会話を薄く表示',
+      dimUnfocusedChatsDesc: '使用中の会話の横に開いている会話を薄くグレースケール表示します。',
       uiScaleTitle: 'UI スケール',
       uiScaleDesc: (percent: number) =>
         `アプリ全体の文字と UI を拡大縮小します。Cmd/Ctrl と +、-、0 でも変更できます。現在: ${percent}%`,
@@ -2014,6 +2016,7 @@ export const ja = defineLocale({
 
   composer: {
     message: 'メッセージ',
+    addContext: 'コンテキストを追加',
     wakingProfile: profile => `${profile} を起動中…`,
     placeholderStarting: 'Hermes を起動中...',
     placeholderReconnecting: 'Hermes に再接続中…',

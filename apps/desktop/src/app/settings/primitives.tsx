@@ -159,12 +159,14 @@ export function ToggleRow({
   checked,
   description,
   disabled,
+  id,
   label,
   onChange
 }: {
   checked: boolean
   description?: string
   disabled?: boolean
+  id?: string
   label: string
   onChange: (on: boolean) => void
 }) {
@@ -182,6 +184,7 @@ export function ToggleRow({
         />
       }
       description={description}
+      id={id}
       title={label}
     />
   )

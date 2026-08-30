@@ -171,6 +171,15 @@ export function useSettingsSearchCatalog(enabled: boolean) {
     },
     {
       context: appearanceContext,
+      description: appearance.dimUnfocusedChatsDesc,
+      icon: Palette,
+      id: `setting:${APPEARANCE_SETTING_IDS.dimUnfocusedChats}`,
+      keywords: ['focus', 'dim', 'grayscale', 'multi-pane'],
+      label: appearance.dimUnfocusedChatsTitle,
+      target: { setting: APPEARANCE_SETTING_IDS.dimUnfocusedChats, view: 'config:appearance' }
+    },
+    {
+      context: appearanceContext,
       description: appearance.toolViewDesc,
       icon: Palette,
       id: `setting:${APPEARANCE_SETTING_IDS.toolView}`,
