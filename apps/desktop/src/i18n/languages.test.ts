@@ -68,6 +68,8 @@ const INTENTIONALLY_IDENTICAL_PT_BR_PATHS = [
   'settings.plugins.agent.sources.git',
   'shell.approvalMode.manual',
   'shell.gatewayMenu.gateway',
+  'shell.modelOptions.modalityPdf',
+  'shell.modelOptions.pdf',
   'shell.modelOptions.ultra',
   'shell.statusbar.contextUsagePanel.categories.mcp',
   'shell.statusbar.cron',
