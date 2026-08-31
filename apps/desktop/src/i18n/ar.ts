@@ -446,6 +446,8 @@ export const ar = defineLocale({
       reasoningCollapsedDesc: 'أبقِ التفكير المتدفق متاحًا دون توسيعه حتى تفتحه.',
       dimUnfocusedChatsTitle: 'تعتيم المحادثات غير النشطة',
       dimUnfocusedChatsDesc: 'يخفّف ألوان المحادثات المفتوحة بجانب المحادثة التي تستخدمها.',
+      toolEditsCollapsedTitle: 'طي تعديلات الكود افتراضيًا',
+      toolEditsCollapsedDesc: 'تبقى فروق تعديلات الملفات مطوية في سطر واحد حتى تفتحها.',
       translucencyTitle: 'شفافية النافذة',
       translucencyDesc: 'إظهار سطح المكتب من خلال النافذة بالكامل، بما في ذلك النص.',
       translucencyGlassDesc: 'زجاج غير لامع: يظهر سطح المكتب كضبابية ناعمة بينما يبقى النص واضحًا.',

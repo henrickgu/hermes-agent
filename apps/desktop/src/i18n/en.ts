@@ -545,6 +545,8 @@ export const en: Translations = {
       reasoningCollapsedDesc: 'Keep streamed reasoning available without expanding it until you open it.',
       dimUnfocusedChatsTitle: 'Dim unfocused conversations',
       dimUnfocusedChatsDesc: 'Fade and desaturate conversations that are open beside the one you are using.',
+      toolEditsCollapsedTitle: 'Collapse code edits by default',
+      toolEditsCollapsedDesc: 'File-edit diffs stay collapsed to one line until you open them.',
       uiScaleTitle: 'UI Scale',
       uiScaleDesc: (percent: number) =>
         `Scales text and controls across the whole app. Cmd/Ctrl with +, - and 0 also works. Current: ${percent}%.`,

@@ -532,6 +532,8 @@ export const zh: Translations = {
       reasoningCollapsedDesc: '保留流式推理内容，但在您打开前保持折叠。',
       dimUnfocusedChatsTitle: '淡化未聚焦的对话',
       dimUnfocusedChatsDesc: '淡化并降低当前对话旁其他已打开对话的饱和度。',
+      toolEditsCollapsedTitle: '默认折叠代码编辑',
+      toolEditsCollapsedDesc: '文件编辑差异保持折叠为一行，直到您打开。',
       uiScaleTitle: '界面缩放',
       uiScaleDesc: (percent: number) =>
         `缩放整个应用的文字和界面。也可使用 Cmd/Ctrl 加 +、- 或 0 调整。当前：${percent}%`,

@@ -358,6 +358,8 @@ export const zhHant = defineLocale({
       reasoningCollapsedDesc: '保留串流推理內容，但在您開啟前維持摺疊。',
       dimUnfocusedChatsTitle: '淡化未聚焦的對話',
       dimUnfocusedChatsDesc: '淡化並降低目前對話旁其他已開啟對話的飽和度。',
+      toolEditsCollapsedTitle: '預設摺疊程式碼編輯',
+      toolEditsCollapsedDesc: '檔案編輯差異保持摺疊為一行，直到您開啟。',
       uiScaleTitle: '介面縮放',
       uiScaleDesc: (percent: number) =>
         `縮放整個應用程式的文字與介面。也可使用 Cmd/Ctrl 加 +、- 或 0 調整。目前：${percent}%`,

@@ -368,6 +368,8 @@ export const ja = defineLocale({
       reasoningCollapsedDesc: 'ストリーミング中の推論を、開くまで折りたたんだまま利用できるようにします。',
       dimUnfocusedChatsTitle: 'フォーカス外の会話を薄く表示',
       dimUnfocusedChatsDesc: '使用中の会話の横に開いている会話を薄くグレースケール表示します。',
+      toolEditsCollapsedTitle: 'コード編集をデフォルトで折りたたむ',
+      toolEditsCollapsedDesc: 'ファイル編集の差分は、開くまで 1 行に折りたたまれたまま表示されます。',
       uiScaleTitle: 'UI スケール',
       uiScaleDesc: (percent: number) =>
         `アプリ全体の文字と UI を拡大縮小します。Cmd/Ctrl と +、-、0 でも変更できます。現在: ${percent}%`,

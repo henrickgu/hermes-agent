@@ -440,6 +440,8 @@ export interface Translations {
       reasoningCollapsedDesc: string
       dimUnfocusedChatsTitle: string
       dimUnfocusedChatsDesc: string
+      toolEditsCollapsedTitle: string
+      toolEditsCollapsedDesc: string
       uiScaleTitle: string
       uiScaleDesc: (percent: number) => string
       sessionDensityTitle: string

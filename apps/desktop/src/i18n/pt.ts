@@ -543,6 +543,8 @@ export const pt = defineLocale({
       reasoningCollapsedDesc: 'Mantenha o raciocínio transmitido disponível, sem expandi-lo até que você o abra.',
       dimUnfocusedChatsTitle: 'Esmaecer conversas sem foco',
       dimUnfocusedChatsDesc: 'Deixa acinzentadas as conversas abertas ao lado daquela que você está usando.',
+      toolEditsCollapsedTitle: 'Recolher edições de código por padrão',
+      toolEditsCollapsedDesc: 'As diferenças de edição de arquivos ficam recolhidas em uma linha até você abri-las.',
       uiScaleTitle: 'Escala da interface',
       uiScaleDesc: (percent: number) =>
         `Ajusta o tamanho do texto e dos controles em todo o app. Cmd/Ctrl com +, - e 0 também funciona. Atual: ${percent}%.`,
