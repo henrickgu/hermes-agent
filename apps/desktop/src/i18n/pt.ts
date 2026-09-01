@@ -160,7 +160,8 @@ export const pt = defineLocale({
       microphonePermission: 'Permissão do microfone negada.',
       openaiRejectedApiKey: 'OpenAI rejeitou a API key.',
       openaiRejectedApiKeyWithStatus: status => `OpenAI rejeitou a API key (${status} invalid_api_key).`,
-      openaiTtsNeedsKey: 'TTS da OpenAI precisa de VOICE_TOOLS_OPENAI_KEY ou OPENAI_API_KEY.'
+      openaiTtsNeedsKey: 'TTS da OpenAI precisa de VOICE_TOOLS_OPENAI_KEY ou OPENAI_API_KEY.',
+      codeSkewRestartRequired: 'Este backend está rodando código antigo após uma atualização. Reinicie-o para carregar o código novo.'
     },
     voice: {
       configureSpeechToText: 'Configure o speech-to-text para usar o modo de voz.',
@@ -1265,6 +1266,11 @@ export const pt = defineLocale({
       reasoning: 'Raciocínio',
       reasoningOff: 'Desativado',
       defaultsFailed: 'Falha ao salvar os padrões do modelo',
+      loadFailed: 'Não foi possível carregar os modelos',
+      restartRequired: 'Este backend está rodando código antigo após uma atualização. Reinicie-o para carregar o código novo.',
+      restartBackend: 'Reiniciar backend',
+      restartingBackend: 'Reiniciando backend...',
+      restartFailed: 'Não foi possível reiniciar o backend',
       auxiliaryTitle: 'Modelos auxiliares',
       resetAllToMain: 'Redefinir todos para o principal',
       auxiliaryDesc:
@@ -1440,7 +1446,17 @@ export const pt = defineLocale({
         enabledMessage: 'Novas sessões navegarão com um snapshot do perfil do seu navegador padrão.',
         disabledTitle: 'Navegação com perfil real desativada',
         disabledMessage: 'O snapshot do perfil será excluído; novas sessões usam um navegador limpo.',
-        failedSave: 'Não foi possível salvar a configuração de perfil real'
+        failedSave: 'Não foi possível salvar a configuração de perfil real',
+        prompt: {
+          title: 'Continue conectado aos seus sites',
+          body: 'Deixe o Hermes navegar com um snapshot do seu perfil padrão do navegador, para os sites abrirem já conectados.',
+          bulletSnapshot: 'Cookies e logins são copiados para um snapshot gerenciado.',
+          bulletLiveProfile: 'Seu perfil real do navegador nunca é aberto diretamente.',
+          bulletLocal: 'Nada sai deste computador.',
+          dontShowAgain: 'Não mostrar novamente',
+          notNow: 'Agora não',
+          enable: 'Usar meu perfil'
+        }
       }
     }
   },
@@ -1502,6 +1518,8 @@ export const pt = defineLocale({
     archive: 'Arquivar',
     skillArchivedTitle: 'Skill arquivada',
     skillArchivedMessage: 'Restaurável via hermes curator restore.',
+    officialCatalog: 'Disponíveis para instalar',
+    officialPill: 'Oficial',
     hub: {
       searchPlaceholder: 'Buscar no hub de skills',
       search: 'Buscar',
@@ -3344,7 +3362,17 @@ export const pt = defineLocale({
         `Falha ao carregar${code ? ` (${code})` : ''}: ${message}`,
       unreachableDescription: 'A página de prévia não pôde ser alcançada.',
       openTarget: (url: string) => `Abrir ${url}`,
-      fallbackTitle: 'Prévia'
+      fallbackTitle: 'Prévia',
+      annotate: 'Anotar',
+      annotateOn: 'Parar de anotar',
+      annotateNeedPage: 'Abra uma página no navegador embutido primeiro.',
+      annotateFailed: 'Não foi possível iniciar o modo de anotação',
+      commenting: 'Comentando',
+      addComments: (count: number) => (count === 1 ? 'Adicionar 1 comentário' : `Adicionar ${count} comentários`),
+      commentPlaceholder: 'Adicionar um comentário...',
+      commentTitle: (n: number) => `Comentário ${n}`,
+      saveComment: 'Salvar',
+      cancelComment: 'Cancelar comentário'
     }
   },
 

@@ -112,7 +112,19 @@ function renderPanel(onSelectModel = vi.fn()) {
   return { onSelectModel, content }
 }
 
-function renderReasoningPanel(requestGateway = vi.fn().mockResolvedValue({})) {
+function renderReasoningPanel(
+  requestGateway = vi.fn(async (method: string) => {
+    // Method-aware: the catalog read must come from the REST mock directly —
+    // owner-routed gateways no longer recover through ambient REST (profiles
+    // are not unique across connections), so an empty gateway response would
+    // leave the reasoning submenu without capabilities.
+    if (method === 'model.options') {
+      return getGlobalModelOptions()
+    }
+
+    return {}
+  })
+) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
   const content = render(
