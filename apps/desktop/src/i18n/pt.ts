@@ -47,6 +47,7 @@ export const pt = defineLocale({
     revealFinder: 'Revelar no Finder',
     revealExplorer: 'Revelar no Explorador de Arquivos',
     revealFileManager: 'Abrir pasta de origem',
+    viewInFolder: 'Ver na pasta',
     revealInSidebar: 'Revelar na árvore de arquivos',
     copyPath: 'Copiar caminho',
     copyRelativePath: 'Copiar caminho relativo',

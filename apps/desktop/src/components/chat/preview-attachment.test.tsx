@@ -42,11 +42,13 @@ describe('PreviewAttachment open-in-file-manager button', () => {
   it('renders the reveal button on a local backend and opens a folder target with openDir', async () => {
     render(<PreviewAttachment source="explicit-link" target="file:///C:/Users/a/Relat%C3%B3rio%20Final" />)
 
-    // Three buttons: Download + Reveal/Open folder + Open preview.
+    // Directory-shaped card: ONLY the "View in folder" button — download and
+    // preview do not apply to a directory.
     const buttons = screen.getAllByRole('button')
-    expect(buttons.length).toBe(3)
+    expect(buttons.length).toBe(1)
+    expect(buttons[0].textContent).toContain('View in folder')
 
-    await fireEvent.click(buttons[1])
+    await fireEvent.click(buttons[0])
 
     // file:/// URL is decoded and a directory-looking target opens itself.
     expect(openDirMock).toHaveBeenCalledWith('C:/Users/a/Relatório Final')

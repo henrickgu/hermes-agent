@@ -49,6 +49,7 @@ export const en: Translations = {
     revealFinder: 'Reveal in Finder',
     revealExplorer: 'Reveal in File Explorer',
     revealFileManager: 'Open containing folder',
+    viewInFolder: 'View in folder',
     revealInSidebar: 'Reveal in filetree',
     copyPath: 'Copy path',
     copyRelativePath: 'Copy relative path',

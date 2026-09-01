@@ -97,6 +97,7 @@ export interface Translations {
     revealFinder: string
     revealExplorer: string
     revealFileManager: string
+    viewInFolder: string
     revealInSidebar: string
     copyPath: string
     copyRelativePath: string

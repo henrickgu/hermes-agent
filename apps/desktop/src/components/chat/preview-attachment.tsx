@@ -31,25 +31,33 @@ export function PreviewAttachment({ source = 'manual', target }: { source?: Prev
   const name = previewName(target)
   const isActive = openSources.includes(target)
 
-  // Same platform-appropriate reveal label the file-tree context menus use
-  // (pickRevealLabel); kept local to avoid pulling the sidebar module into a
-  // chat component.
-  const revealLabel = IS_MAC
-    ? t.fileMenu.revealFinder
-    : IS_WIN
-      ? t.fileMenu.revealExplorer
-      : t.fileMenu.revealFileManager
-
-  // Local filesystem only: the path this card points at lives on this machine,
-  // so the OS file manager can open it. Hidden on remote backends.
-  const canReveal = !isDesktopFsRemoteMode()
-
   // A folder link (no file extension in the last segment — a chat delivery
   // folder like "Hermes - Revisão de Skills") should open ITSELF, not its
   // parent: `reveal` would select it inside the parent, `openDir` opens it.
   const looksLikeDirectory =
     !/\.[a-z0-9]{1,8}$/i.test(target.replace(/[?#].*$/, '').split(/[\\/]/).pop() || '') &&
     !/^https?:\/\//i.test(target)
+
+  // Card label: folder-shaped targets get the friendly "View in folder"
+  // wording (and only this button — download/preview make no sense for a
+  // directory); file targets keep the platform reveal label alongside the
+  // other actions.
+  const revealLabel = looksLikeDirectory
+    ? t.fileMenu.viewInFolder
+    : IS_MAC
+      ? t.fileMenu.revealFinder
+      : IS_WIN
+        ? t.fileMenu.revealExplorer
+        : t.fileMenu.revealFileManager
+
+  // Local filesystem only: the path this card points at lives on this machine,
+  // so the OS file manager can open it. Hidden on remote backends.
+  const canReveal = !isDesktopFsRemoteMode()
+
+  // Directory-shaped card: a single "View in folder" action. Download and
+  // preview target file bytes/preview pipelines that do not apply to a
+  // directory (and the preview resolver requires an entry file anyway).
+  const isDirCard = canReveal && looksLikeDirectory
 
   cwdRef.current = cwd
   targetRef.current = target
@@ -198,17 +206,19 @@ export function PreviewAttachment({ source = 'manual', target }: { source?: Prev
       <span className="min-w-0 flex-1 truncate text-[0.78rem] font-medium text-foreground/90" title={target}>
         {name}
       </span>
-      <button
-        aria-label={t.fileMenu.download}
-        className="flex shrink-0 items-center gap-1 rounded-md border border-(--ui-stroke-tertiary) bg-background/40 px-2 py-1 text-[0.7rem] font-medium text-muted-foreground transition-colors hover:bg-accent/55 hover:text-foreground disabled:opacity-50"
-        disabled={downloading}
-        onClick={() => void downloadFile()}
-        title={t.fileMenu.download}
-        type="button"
-      >
-        <Download className="size-3" />
-        {downloaded ? t.fileMenu.downloadSaved : t.fileMenu.download}
-      </button>
+      {!isDirCard && (
+        <button
+          aria-label={t.fileMenu.download}
+          className="flex shrink-0 items-center gap-1 rounded-md border border-(--ui-stroke-tertiary) bg-background/40 px-2 py-1 text-[0.7rem] font-medium text-muted-foreground transition-colors hover:bg-accent/55 hover:text-foreground disabled:opacity-50"
+          disabled={downloading}
+          onClick={() => void downloadFile()}
+          title={t.fileMenu.download}
+          type="button"
+        >
+          <Download className="size-3" />
+          {downloaded ? t.fileMenu.downloadSaved : t.fileMenu.download}
+        </button>
+      )}
       {canReveal && (
         <button
           aria-label={revealLabel}
@@ -222,14 +232,16 @@ export function PreviewAttachment({ source = 'manual', target }: { source?: Prev
           {revealLabel}
         </button>
       )}
-      <button
-        className="shrink-0 rounded-md border border-(--ui-stroke-tertiary) bg-background/40 px-2 py-1 text-[0.7rem] font-medium text-muted-foreground transition-colors hover:bg-accent/55 hover:text-foreground disabled:opacity-50"
-        disabled={opening}
-        onClick={() => void togglePreview()}
-        type="button"
-      >
-        {opening ? t.preview.opening : isActive ? t.preview.hide : t.preview.openPreview}
-      </button>
+      {!isDirCard && (
+        <button
+          className="shrink-0 rounded-md border border-(--ui-stroke-tertiary) bg-background/40 px-2 py-1 text-[0.7rem] font-medium text-muted-foreground transition-colors hover:bg-accent/55 hover:text-foreground disabled:opacity-50"
+          disabled={opening}
+          onClick={() => void togglePreview()}
+          type="button"
+        >
+          {opening ? t.preview.opening : isActive ? t.preview.hide : t.preview.openPreview}
+        </button>
+      )}
     </div>
   )
 }
