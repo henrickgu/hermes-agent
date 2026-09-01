@@ -393,6 +393,7 @@ export const pt = defineLocale({
       providerAccounts: 'Contas',
       providerApiKeys: 'Chaves de API',
       providerCustomEndpoints: 'Endpoints personalizados',
+      providerLocalModels: 'Modelos locais',
       gateway: 'Gateways',
       apiKeys: 'Ferramentas e chaves',
       keybinds: 'Atalhos de teclado',
@@ -1293,6 +1294,118 @@ export const pt = defineLocale({
         review: { label: 'Revisão', hint: 'Subagente revisor do /review' },
         curator: { label: 'Curadoria', hint: 'Revisão do uso de skills' }
       }
+    },
+    localModels: {
+      title: 'Modelos locais',
+      runtimeTitle: 'Runtime local',
+      runtimeReady: backend => `Pronto · ${backend}`,
+      serverRunning: 'Em execução',
+      runtimeInstalled: 'Runtime llama.cpp instalado',
+      runtimeInstalledDetail: (tag, backend) =>
+        `Build ${tag}, backend ${backend}. O Hermes inicia e gerencia o servidor para você.`,
+      installTitle: 'Instalar o runtime local',
+      installDetail:
+        'Baixa o motor de inferência llama.cpp (algumas centenas de MB). Modelos baixados rodam inteiramente nesta máquina — sem conta, nada sai do seu computador.',
+      installAction: 'Instalar runtime',
+      installing: 'Instalando runtime…',
+      installFailed: 'Falha ao instalar o runtime',
+      hardwareTitle: 'Esta máquina',
+      hardwareLoading: 'Verificando seu hardware…',
+      vram: label => `${label} de memória de vídeo`,
+      ram: label => `${label} de RAM`,
+      unifiedMemory: 'Memória unificada',
+      modelsTitle: 'Modelos',
+      recommended: 'Recomendado',
+      recommendedReason: {
+        'best-quality-resident':
+          'O modelo de maior qualidade que roda inteiramente na sua GPU em velocidade máxima. As escolhas pesam qualidade contra a velocidade prevista neste hardware.',
+        'speed-gated-quality':
+          'Um modelo de maior qualidade caberia nesta máquina, mas responderia devagar demais na sua largura de banda de memória — este é o melhor modelo que continua rápido.',
+        'fastest-resident':
+          'Nenhum modelo atinge velocidade máxima neste hardware; este é o que chega mais perto rodando inteiramente na memória da GPU.',
+        'least-painful-spilled':
+          'Nenhum modelo cabe inteiro na memória da GPU aqui — este roda melhor a partir da RAM do sistema.'
+      } as Record<string, string>,
+      downloaded: 'Baixado',
+      downloadAction: size => `Baixar · ${size}`,
+      downloadProgress: (done, total) => `Baixando ${done} de ${total}`,
+      downloadDoneToast: model => `${model} está pronto.`,
+      installDoneToast: 'Runtime local instalado e pronto.',
+      quickstartTitle: 'Rode um modelo nesta máquina',
+      quickstartDetail: (model, size) =>
+        `Um clique configura tudo: o motor local, ${model} (download de ${size}) e seu padrão para novas conversas. Nada sai deste computador.`,
+      quickstartDetailReady: model => `Um clique torna ${model} o padrão para novas conversas. Tudo roda nesta máquina.`,
+      quickstartAction: 'Configurar para mim',
+      quickstartConfigure: 'Configurar…',
+      quickstartDoneToast: model => `${model} configurado — novas conversas rodam nesta máquina.`,
+      quickstartFailed: 'Falha ao configurar modelo local',
+      quickstartStageEngine: 'Motor',
+      quickstartStageModel: 'Modelo',
+      quickstartStageFinish: 'Concluir',
+      useAction: 'Usar',
+      activePill: 'Padrão',
+      updateTitle: 'Atualização do motor disponível',
+      updateDetail: (next, current) => `Uma build mais recente do llama.cpp (${next}) está pronta para instalar — você está na ${current}. Os modelos continuam funcionando durante o download.`,
+      updateAction: 'Atualizar motor',
+      updating: 'Atualizando motor…',
+      upToDateTitle: 'Motor atualizado',
+      upToDateDetail: (tag, backend) => `Rodando llama.cpp ${tag} (${backend}) — a build mais recente que o Hermes distribui.`,
+      updateToast: next => `Uma build mais recente do motor local (${next}) está disponível. Atualize em Configurações → Modelos locais.`,
+      activeDetail: 'Novas conversas usam este modelo — ele carrega quando você envia a primeira mensagem',
+      activeNotLoaded: 'Carrega na sua primeira mensagem',
+      loadedPill: 'Na memória',
+      placementResident: 'tudo na GPU',
+      placementSpilled: 'parte na RAM',
+      placementResidentTip: 'Rodando inteiramente na memória da GPU nesta janela de contexto — velocidade máxima.',
+      placementSpilledTip:
+        'Parte deste modelo roda da RAM do sistema — funciona, mas mais devagar. Uma build mais compacta ou um contexto menor caberia inteiro.',
+      loadingPill: 'Carregando…',
+      ejectTip: 'Liberar memória da GPU (carrega de novo na próxima mensagem)',
+      ejected: 'Modelo descarregado — memória da GPU liberada.',
+      ejectFailed: 'Não foi possível descarregar o modelo',
+      stopServer: 'Desligar',
+      startServer: 'Ligar',
+      runtimeRunningDetail: 'O servidor local está em execução. Desligá-lo libera toda a memória da GPU e impede novas conversas de usarem modelos locais até religar.',
+      serverStopped: 'Servidor local desligado — memória da GPU liberada.',
+      serverStarted: 'Servidor local em execução.',
+      serverStopFailed: 'Não foi possível desligar o servidor local',
+      serverStartFailed: 'Não foi possível iniciar o servidor local',
+      activating: 'Iniciando…',
+      activateFailed: model => `Não foi possível mudar para ${model}`,
+      activateDoneToast: model => `Novas conversas usam ${model}.`,
+      downloadFailed: model => `Download de ${model} falhou`,
+      pillFitsGpu: 'Cabe na sua GPU',
+      pillUsesRam: 'Usa RAM do sistema',
+      pillTooBig: 'Grande demais para esta máquina',
+      browseTitle: 'Encontrar mais modelos',
+      browseHint: 'Pesquisa toda a Hugging Face. Modelos baixados aqui são dimensionados para sua máquina automaticamente, mas não são testados por nós.',
+      browsePlaceholder: 'Pesquisar modelos por nome ou autor…',
+      browseSearching: 'Pesquisando na Hugging Face',
+      browseListing: 'Lendo arquivos do modelo',
+      browseShowFiles: 'Mostrar arquivos',
+      browseRefresh: 'Atualizar',
+      browseDownloads: 'downloads',
+      browseLikes: 'curtidas',
+      browseGated: 'exige login na Hugging Face',
+      browseNoGguf: 'Nenhum arquivo de modelo compatível encontrado.',
+      browseFitUnknown: 'Ajuste desconhecido',
+      browseAlreadyDownloaded: 'Já baixado.',
+      addedByYou: 'Adicionado por você',
+      browseDownloadStarted: 'Baixando {name}',
+      browseDownloadAria: 'Baixar {name}',
+      sideloadButton: 'Adicionar arquivo de modelo',
+      sideloadTitle: 'Escolher um arquivo de modelo GGUF',
+      sideloadDone: 'Adicionado {name}.',
+      sideloadAlreadyPresent: 'Já está na sua biblioteca.',
+      pillFullContext: max => `Contexto completo de ${max}`,
+      pillFullContextTip: "Roda na janela de contexto completa do modelo desde o início",
+      pillUpTo: max => `Até ${max} de contexto`,
+      pillGrowsTip: 'Cresce automaticamente conforme a conversa precisa de mais espaço',
+      pillVision: 'Enxerga imagens',
+      deleteAction: 'Excluir modelo',
+      deleteConfirm: model => `Excluir ${model} do disco?`,
+      deleted: model => `${model} excluído.`,
+      deleteFailed: 'Falha ao excluir'
     },
     providers: {
       connectAccount: 'Conectar uma conta',
@@ -2974,6 +3087,8 @@ export const pt = defineLocale({
     connected: 'Conectado',
     featuredPitch: 'Uma assinatura, 300+ modelos de ponta — a forma recomendada de rodar o Hermes',
     fireworksPitch: 'API direta de modelo — modelos de ponta hospedados pela Fireworks',
+    localModelsTitle: 'Rode modelos localmente',
+    localModelsPitch: 'Sem precisar de conta — baixe um modelo e rode nesta máquina',
     openRouterPitch: 'Uma chave, centenas de modelos — um bom padrão',
     apiKeyOptions: {
       fireworks: {
@@ -3048,6 +3163,9 @@ export const pt = defineLocale({
     noModels: 'Nenhum modelo encontrado.',
     addProvider: 'Adicionar provedor',
     loadFailed: 'Não foi possível carregar modelos',
+    loadingIntoMemory: 'Carregando na memória',
+    downloading: 'Baixando',
+    localDownloadsHeading: 'Local',
     noAuthenticatedProviders: 'Nenhum provedor autenticado.',
     pro: 'Pro',
     proNeedsSubscription: 'Modelos Pro precisam de assinatura paga da Nous.',
@@ -3198,6 +3316,15 @@ export const pt = defineLocale({
       openStarmap: 'Abrir grafo de memória',
       turnRunning: 'Em execução',
       contextUsage: 'Uso de contexto',
+      systemResources: {
+        title: 'Recursos do sistema',
+        loading: 'Recursos…',
+        gpuUtilization: 'Utilização da GPU',
+        gpuMemory: 'Memória da GPU',
+        ram: 'RAM',
+        unifiedNote: 'Memória unificada — a GPU e o sistema compartilham este conjunto.',
+        toggle: 'Recursos do sistema'
+      },
       contextUsagePanel: {
         categories: {
           conversation: 'Conversa',
@@ -3459,6 +3586,8 @@ export const pt = defineLocale({
       loadingSession: 'Carregando sessão',
       showEarlier: 'Mostrar mensagens anteriores',
       loadingResponse: 'Hermes está carregando uma resposta',
+      loadingLocalModel: model => `Carregando ${model} na memória`,
+      processingPrompt: 'Processando prompt',
       resumeWhenBackgroundDone: (count: number) =>
         count === 1
           ? 'Retomará quando a tarefa em segundo plano terminar'
@@ -3801,6 +3930,11 @@ export const pt = defineLocale({
       'model-switch': {
         title: 'Troque de modelo no meio do fio',
         text: 'O nome do modelo é um botão. Mude quando o trabalho mudar de forma.'
+      },
+      'local-setup': {
+        title: 'Esta máquina pode rodar modelos localmente',
+        text: 'Seu hardware pode servir um modelo local. Conversas ficam no seu computador e não custam nada.',
+        action: 'Configurar'
       },
       'right-pane': {
         title: 'O painel de trabalho',
