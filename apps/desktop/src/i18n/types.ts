@@ -7,7 +7,7 @@
 
 import type { TipId } from '@/lib/tips/catalog'
 
-export type Locale = 'en' | 'zh' | 'zh-hant' | 'ja' | 'ar' | 'pt-br'
+export type Locale = 'en' | 'zh' | 'zh-hant' | 'ja' | 'ar' | 'pt-br' | 'ru'
 
 export type ToolTitleKey =
   | 'browser_click'
@@ -2371,6 +2371,7 @@ export interface Translations {
     connectedProvider: (provider: string) => string
     connectedPicking: (provider: string) => string
     signInFailed: string
+    signInExpired: string
     pickDifferentProvider: string
     signInWith: (provider: string) => string
     openedBrowser: (provider: string) => string

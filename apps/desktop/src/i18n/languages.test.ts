@@ -106,6 +106,10 @@ describe('desktop i18n languages', () => {
     expect(normalizeLocale('pt')).toBe('pt-br')
     expect(normalizeLocale('PT-BR')).toBe('pt-br')
     expect(normalizeLocale(' português ')).toBe('pt-br')
+    expect(normalizeLocale('ru')).toBe('ru')
+    expect(normalizeLocale('RU-RU')).toBe('ru')
+    expect(normalizeLocale(' ru_ru ')).toBe('ru')
+    expect(normalizeLocale('Русский')).toBe('ru')
   })
 
   it('offers Brazilian Portuguese once under its canonical locale id', () => {
@@ -127,12 +131,14 @@ describe('desktop i18n languages', () => {
     expect(isSupportedLocaleValue('zh-CN')).toBe(true)
     expect(isSupportedLocaleValue('zh-TW')).toBe(true)
     expect(isSupportedLocaleValue('ja-JP')).toBe(true)
+    expect(isSupportedLocaleValue('ru-RU')).toBe(true)
     expect(isSupportedLocaleValue('de')).toBe(false)
     expect(isLocale('zh-CN')).toBe(false)
     expect(isLocale('zh')).toBe(true)
     expect(isLocale('zh-hant')).toBe(true)
     expect(isLocale('ja')).toBe(true)
     expect(isLocale('ar')).toBe(true)
+    expect(isLocale('ru')).toBe(true)
   })
 
   it('localizes the composer context action in Brazilian Portuguese', () => {
@@ -166,5 +172,6 @@ describe('desktop i18n languages', () => {
     expect(localeConfigValue('ja')).toBe('ja')
     expect(localeConfigValue('ar')).toBe('ar')
     expect(localeConfigValue('pt-br')).toBe('pt-br')
+    expect(localeConfigValue('ru')).toBe('ru')
   })
 })

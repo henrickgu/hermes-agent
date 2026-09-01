@@ -3010,6 +3010,8 @@ export const pt = defineLocale({
     connectedProvider: (provider: string) => `${provider} conectado`,
     connectedPicking: (provider: string) => `${provider} conectado. Escolhendo um modelo padrão...`,
     signInFailed: 'Falha no login. Tente novamente.',
+    signInExpired:
+      'O login expirou aguardando a autorização. Geralmente significa que a página de login travou na aba aberta (problema do servidor) — conclua o login lá e tente de novo. Se continuar falhando, use uma API key ou o fallback do CLI.',
     pickDifferentProvider: 'Escolher outro provedor',
     signInWith: (provider: string) => `Entrar com ${provider}`,
     openedBrowser: (provider: string) => `Abrimos ${provider} no seu navegador.`,
