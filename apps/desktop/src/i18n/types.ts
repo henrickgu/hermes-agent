@@ -202,6 +202,7 @@ export interface Translations {
       openaiRejectedApiKey: string
       openaiRejectedApiKeyWithStatus: (status: string) => string
       openaiTtsNeedsKey: string
+      codeSkewRestartRequired: string
     }
     voice: {
       configureSpeechToText: string
@@ -952,6 +953,11 @@ export interface Translations {
       reasoning: string
       reasoningOff: string
       defaultsFailed: string
+      loadFailed: string
+      restartRequired: string
+      restartBackend: string
+      restartingBackend: string
+      restartFailed: string
       auxiliaryTitle: string
       resetAllToMain: string
       auxiliaryDesc: string
@@ -1104,6 +1110,16 @@ export interface Translations {
         disabledTitle: string
         disabledMessage: string
         failedSave: string
+        prompt: {
+          title: string
+          body: string
+          bulletSnapshot: string
+          bulletLiveProfile: string
+          bulletLocal: string
+          dontShowAgain: string
+          notNow: string
+          enable: string
+        }
       }
     }
   }
@@ -1159,6 +1175,8 @@ export interface Translations {
     archive: string
     skillArchivedTitle: string
     skillArchivedMessage: string
+    officialCatalog: string
+    officialPill: string
     hub: {
       searchPlaceholder: string
       search: string
@@ -2697,6 +2715,16 @@ export interface Translations {
       unreachableDescription: string
       openTarget: (url: string) => string
       fallbackTitle: string
+      annotate: string
+      annotateOn: string
+      annotateNeedPage: string
+      annotateFailed: string
+      commenting: string
+      addComments: (count: number) => string
+      commentPlaceholder: string
+      commentTitle: (n: number) => string
+      saveComment: string
+      cancelComment: string
     }
   }
 

@@ -38,6 +38,7 @@ export interface ModelSelection {
 interface ModelMenuPanelProps {
   gateway?: HermesGateway
   mode?: 'catalog' | 'reasoning'
+  ownerConnectionId?: string
   onSelectModel: (selection: ModelSelection) => Promise<boolean> | void
   profile?: string
   requestGateway: <T>(method: string, params?: Record<string, unknown>) => Promise<T>
@@ -53,6 +54,7 @@ export function ModelMenuPanel({
   gateway,
   mode = 'catalog',
   onSelectModel,
+  ownerConnectionId,
   profile = 'default',
   requestGateway
 }: ModelMenuPanelProps) {
@@ -79,7 +81,7 @@ export function ModelMenuPanel({
   // back to the catalog's reported current, and a non-reactive read would
   // never repaint that fallback once the catalog resolved.
   const modelOptions = useQuery({
-    queryKey: modelOptionsQueryKey(profile, activeSessionId),
+    queryKey: modelOptionsQueryKey(profile, activeSessionId, ownerConnectionId),
     queryFn: (): Promise<ModelOptionsResponse> =>
       requestModelOptions({ gateway, profile, request: requestGateway, sessionId: activeSessionId })
   })
@@ -101,7 +103,7 @@ export function ModelMenuPanel({
     setRefreshing(true)
 
     try {
-      const queryKey = modelOptionsQueryKey(profile, activeSessionId)
+      const queryKey = modelOptionsQueryKey(profile, activeSessionId, ownerConnectionId)
 
       const next = await requestModelOptions({
         gateway,
@@ -258,7 +260,7 @@ export function ModelMenuPanel({
     // fallback would be stranded forever.
     const resolvePresetProvider = () => {
       const live =
-        queryClient.getQueryData<ModelOptionsResponse>(modelOptionsQueryKey(profile, activeSessionId)) ??
+        queryClient.getQueryData<ModelOptionsResponse>(modelOptionsQueryKey(profile, activeSessionId, ownerConnectionId)) ??
         modelOptions.data
 
       return (
@@ -321,6 +323,7 @@ export function ModelMenuPanel({
       }
       gateway={gateway}
       includeMoa
+      ownerConnectionId={ownerConnectionId}
       profile={profile}
       request={requestGateway}
       sessionId={activeSessionId}
