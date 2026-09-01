@@ -163,6 +163,17 @@ export async function revealDesktopPath(path: string): Promise<void> {
   await bridge().revealPath?.(path)
 }
 
+// Open a DIRECTORY itself in the OS file manager (created if missing). Local
+// only. Complements revealDesktopPath: `reveal` selects an item inside its
+// parent, `openDir` opens a folder as if double-clicked in the file manager.
+export async function openDesktopDir(path: string): Promise<void> {
+  const result = await bridge().openDir?.(path)
+
+  if (result && !result.ok) {
+    throw new Error(result.error || 'Could not open directory')
+  }
+}
+
 // Rename a file/folder in place; returns the new absolute path. Local only.
 export async function renameDesktopPath(path: string, newName: string): Promise<string> {
   const desktop = bridge()

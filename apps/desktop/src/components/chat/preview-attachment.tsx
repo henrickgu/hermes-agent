@@ -3,12 +3,16 @@ import { useEffect, useRef, useState } from 'react'
 
 import { useSessionView } from '@/app/chat/session-view'
 import { useI18n } from '@/i18n'
-import { Download, MonitorPlay } from '@/lib/icons'
-import { normalizeOrLocalPreviewTarget } from '@/lib/local-preview'
+import { isDesktopFsRemoteMode, openDesktopDir, revealDesktopPath } from '@/lib/desktop-fs'
+import { Download, FolderOpen, MonitorPlay } from '@/lib/icons'
+import { localPreviewTarget, normalizeOrLocalPreviewTarget } from '@/lib/local-preview'
 import { downloadGatewayMediaFile } from '@/lib/media'
 import { previewName } from '@/lib/preview-targets'
 import { notifyError } from '@/store/notifications'
 import { $previewTabSources, closePreviewForSource, openPreview, type PreviewRecordSource } from '@/store/preview'
+
+const IS_MAC = typeof navigator !== 'undefined' && /mac/i.test(navigator.platform || navigator.userAgent || '')
+const IS_WIN = typeof navigator !== 'undefined' && /win/i.test(navigator.platform || navigator.userAgent || '')
 
 export function PreviewAttachment({ source = 'manual', target }: { source?: PreviewRecordSource; target: string }) {
   const { t } = useI18n()
@@ -19,12 +23,33 @@ export function PreviewAttachment({ source = 'manual', target }: { source?: Prev
   const [opening, setOpening] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [downloaded, setDownloaded] = useState(false)
+  const [revealing, setRevealing] = useState(false)
   const cwdRef = useRef(cwd)
   const mountedRef = useRef(false)
   const requestTokenRef = useRef(0)
   const targetRef = useRef(target)
   const name = previewName(target)
   const isActive = openSources.includes(target)
+
+  // Same platform-appropriate reveal label the file-tree context menus use
+  // (pickRevealLabel); kept local to avoid pulling the sidebar module into a
+  // chat component.
+  const revealLabel = IS_MAC
+    ? t.fileMenu.revealFinder
+    : IS_WIN
+      ? t.fileMenu.revealExplorer
+      : t.fileMenu.revealFileManager
+
+  // Local filesystem only: the path this card points at lives on this machine,
+  // so the OS file manager can open it. Hidden on remote backends.
+  const canReveal = !isDesktopFsRemoteMode()
+
+  // A folder link (no file extension in the last segment — a chat delivery
+  // folder like "Hermes - Revisão de Skills") should open ITSELF, not its
+  // parent: `reveal` would select it inside the parent, `openDir` opens it.
+  const looksLikeDirectory =
+    !/\.[a-z0-9]{1,8}$/i.test(target.replace(/[?#].*$/, '').split(/[\\/]/).pop() || '') &&
+    !/^https?:\/\//i.test(target)
 
   cwdRef.current = cwd
   targetRef.current = target
@@ -125,6 +150,46 @@ export function PreviewAttachment({ source = 'manual', target }: { source?: Prev
     }
   }
 
+  // Open the card's target in the OS file manager. A folder-looking target
+  // opens itself (openDir); a file is selected inside its parent (reveal).
+  // The renderer-side resolver is enough here — no preview round-trip needed,
+  // which also keeps folders (no index.html) working.
+  async function openInFileManager() {
+    if (revealing) {
+      return
+    }
+
+    setRevealing(true)
+
+    try {
+      const resolved = localPreviewTarget(target, cwd || undefined)
+
+      // The renderer-side resolver keeps a leading slash on Windows drive
+      // paths (new URL('file:///C:/…').pathname === '/C:/…'); the file-manager
+      // bridges want the bare drive form. Trailing slashes confuse the
+      // directory-vs-file heuristic, so trim those too.
+      const path = (resolved?.path || target)
+        .replace(/^\/([a-z]:\/)/i, '$1')
+        .replace(/\/+$/, '')
+
+      const isDir = looksLikeDirectory || !path.includes('.')
+
+      if (isDir) {
+        await openDesktopDir(path)
+      } else {
+        await revealDesktopPath(path)
+      }
+    } catch (error) {
+      if (mountedRef.current) {
+        notifyError(error, t.errors.genericFailure)
+      }
+    } finally {
+      if (mountedRef.current) {
+        setRevealing(false)
+      }
+    }
+  }
+
   return (
     <div className="flex w-full max-w-160 items-center gap-2 rounded-lg border border-(--ui-stroke-tertiary) bg-card/55 px-2.5 py-1.5 text-sm">
       <span className="grid size-6 shrink-0 place-items-center rounded-md bg-muted/55 text-muted-foreground/85">
@@ -144,6 +209,19 @@ export function PreviewAttachment({ source = 'manual', target }: { source?: Prev
         <Download className="size-3" />
         {downloaded ? t.fileMenu.downloadSaved : t.fileMenu.download}
       </button>
+      {canReveal && (
+        <button
+          aria-label={revealLabel}
+          className="flex shrink-0 items-center gap-1 rounded-md border border-(--ui-stroke-tertiary) bg-background/40 px-2 py-1 text-[0.7rem] font-medium text-muted-foreground transition-colors hover:bg-accent/55 hover:text-foreground disabled:opacity-50"
+          disabled={revealing}
+          onClick={() => void openInFileManager()}
+          title={revealLabel}
+          type="button"
+        >
+          <FolderOpen className="size-3" />
+          {revealLabel}
+        </button>
+      )}
       <button
         className="shrink-0 rounded-md border border-(--ui-stroke-tertiary) bg-background/40 px-2 py-1 text-[0.7rem] font-medium text-muted-foreground transition-colors hover:bg-accent/55 hover:text-foreground disabled:opacity-50"
         disabled={opening}
