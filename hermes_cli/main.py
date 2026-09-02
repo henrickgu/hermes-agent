@@ -66,7 +66,7 @@ except ModuleNotFoundError:
 # any dependency touching ``platform.uname()`` at import time flashes a
 # visible console when this process is windowless (pythonw gateway + every
 # kanban worker).  No-op on POSIX; never raises.
-from hermes_cli._subprocess_compat import suppress_platform_ver_console
+from hermes_cli._subprocess_compat import suppress_platform_ver_console, windows_hide_flags
 from hermes_cli.cli_output import line_input
 
 suppress_platform_ver_console()
@@ -6535,6 +6535,10 @@ def _run_npm_watching_for_engine_failure(
     engine-failure recovery nothing to read. Tee stderr instead: each line is
     forwarded to this process's stderr as it arrives (so live output is
     unchanged) and accumulated for the caller.
+
+    On Windows the npm child's console window is hidden (``CREATE_NO_WINDOW``):
+    npm is a ``.cmd`` shim, so without the flag every install/build flashes a
+    console — including when driven by windowless parents (scheduled tasks).
     """
     if capture_output:
         return subprocess.run(
@@ -6546,6 +6550,7 @@ def _run_npm_watching_for_engine_failure(
             encoding="utf-8",
             errors="replace",
             check=False,
+            creationflags=windows_hide_flags(),
         )
 
     captured: list[str] = []
@@ -6557,6 +6562,7 @@ def _run_npm_watching_for_engine_failure(
         text=True,
         encoding="utf-8",
         errors="replace",
+        creationflags=windows_hide_flags(),
     ) as proc:
         if proc.stderr is not None:
             for line in proc.stderr:
@@ -8683,7 +8689,14 @@ def cmd_gui(args: argparse.Namespace):
                 return _desktop_packaged_executable_in(staging_dir) if staging_dir else None
 
             build_result = subprocess.run(
-                build_cmd, cwd=desktop_dir, env=npm_build_env, check=False
+                build_cmd,
+                cwd=desktop_dir,
+                env=npm_build_env,
+                check=False,
+                # electron-builder runs through npm's .cmd shim: without this
+                # the build opens a visible console window when driven by a
+                # windowless parent (scheduled task / tray updater).
+                creationflags=windows_hide_flags(),
             )
             if (
                 build_result.returncode != 0
