@@ -544,6 +544,9 @@ export const pt = defineLocale({
       toolViewDesc: 'Produto oculta os dados brutos das ferramentas; Técnico mostra entradas e saídas completas.',
       reasoningCollapsedTitle: 'Recolher o raciocínio por padrão',
       reasoningCollapsedDesc: 'Mantenha o raciocínio transmitido disponível, sem expandi-lo até que você o abra.',
+      resumeLastSessionTitle: 'Reabrir o último chat ao iniciar',
+      resumeLastSessionDesc:
+        'Quando ativado, o app reabre seu chat mais recente ao iniciar. Desative para começar sempre com um novo chat.',
       dimUnfocusedChatsTitle: 'Esmaecer conversas sem foco',
       dimUnfocusedChatsDesc: 'Deixa acinzentadas as conversas abertas ao lado daquela que você está usando.',
       toolEditsCollapsedTitle: 'Recolher edições de código por padrão',
@@ -833,6 +836,10 @@ export const pt = defineLocale({
       bundleOutOfSyncDesc:
         'O runtime do Hermes foi atualizado, mas o app para Desktop ainda é uma compilação mais antiga — novos recursos da interface (como o Modo Bot) não estarão disponíveis até que ele seja atualizado. Execute a atualização abaixo para recompilar o app. Se isso não eliminar este aviso, reinstale usando o instalador mais recente do Desktop.',
       bundleOutOfSyncAction: 'Baixar o instalador',
+      bundleSwapPending: 'Reinicie para concluir a atualização',
+      bundleSwapPendingDesc:
+        'O app atualizado já está instalado — o Hermes só precisa reiniciar para carregá-lo. Chats e configurações não são afetados.',
+      bundleSwapPendingAction: 'Reiniciar o Hermes',
       updates: 'Atualizações',
       checkNow: 'Verificar agora',
       checking: 'Verificando…',
@@ -3295,13 +3302,17 @@ export const pt = defineLocale({
       resetStatusbar: 'Restaurar padrões',
       toggleApprovalMode: 'Aprovações',
       toggleBackendVersion: 'Versão do backend',
+      toggleCacheHitRate: 'Taxa de acerto do cache',
       toggleCommandCenter: 'Central de Comandos',
       toggleContextUsage: 'Medidor de contexto',
       toggleRunningTimer: 'Timer do turno',
       toggleSessionTimer: 'Timer da sessão',
       toggleTerminal: 'Terminal',
+      toggleTokensPerSecond: 'Tokens por segundo',
       toggleVersion: 'Versão e atualizações',
       toggleWorkspace: 'Espaço de trabalho',
+      cacheHitRateTitle: 'Taxa de acerto do cache de prompt nesta sessão — tokens em cache custam menos, quanto maior, mais barato',
+      tokensPerSecondTitle: 'Tokens de saída por segundo, média das últimas 10 chamadas ao modelo',
       agents: 'Agentes',
       closeAgents: 'Fechar agentes',
       openAgents: 'Abrir agentes',
@@ -3926,10 +3937,6 @@ export const pt = defineLocale({
       'composer-mentions': {
         title: 'Anexe e comande',
         text: 'Digite @ para trazer um arquivo para a conversa, / para executar um comando.'
-      },
-      'model-switch': {
-        title: 'Troque de modelo no meio do fio',
-        text: 'O nome do modelo é um botão. Mude quando o trabalho mudar de forma.'
       },
       'local-setup': {
         title: 'Esta máquina pode rodar modelos localmente',
