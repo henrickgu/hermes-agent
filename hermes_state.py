@@ -2906,7 +2906,12 @@ def _persistent_repair_exhausted_error(db_path: Path) -> str:
         f"{_MAX_PERSISTENT_REPAIR_ATTEMPTS} times on this exact file — "
         "the corruption is beyond the schema/FTS repair strategies "
         "(likely b-tree page damage). Manual recovery required: restore "
-        f"a backup, or salvage with `sqlite3 {db_path} \".recover\"`. "
+        "a backup, or salvage with `hermes sessions recover --source "
+        f"{db_path} --inspect-only`, then (if it reports recoverable) "
+        f"`hermes sessions recover --source {db_path} --output "
+        "recovered-state.db` (recovery snapshots the damaged file first, "
+        "then runs the page-level `.recover` lane on the copy; do NOT "
+        "point a raw `sqlite3` shell at the live database). "
         f"Delete {_repair_ledger_path(db_path).name} to force another "
         "automatic attempt."
     )
@@ -3105,8 +3110,9 @@ def _backup_db_file(db_path: Path) -> "Tuple[Optional[Path], Optional[str]]":
                     f"only {usage.free / 1e9:.2f}GB free on {db_path.parent}; "
                     f"copying the damaged DB needs {need / 1e9:.2f}GB and must "
                     f"leave {headroom / 1e9:.2f}GB headroom. Free disk space, "
-                    f"then retry (or recover manually with `sqlite3 {db_path} "
-                    '".recover"`).'
+                    "then retry (or recover manually with "
+                    f"`hermes sessions recover --source {db_path} "
+                    "--inspect-only` first)."
                 )
                 logger.error("Refusing forensic backup of %s: %s", db_path, reason)
                 return None, reason
@@ -3120,7 +3126,8 @@ def _backup_db_file(db_path: Path) -> "Tuple[Optional[Path], Optional[str]]":
                 f"could not determine free space on {db_path.parent} ({exc}); "
                 "refusing the forensic copy rather than risk filling the "
                 f"volume. Free disk space, then retry (or recover manually "
-                f'with `sqlite3 {db_path} ".recover"`).'
+                f"with `hermes sessions recover --source {db_path} "
+                "--inspect-only` first)."
             )
             logger.error("Refusing forensic backup of %s: %s", db_path, reason)
             return None, reason
@@ -3726,11 +3733,13 @@ def repair_state_db_schema(db_path: Path, *, backup: bool = True) -> Dict[str, A
                 # database.journal_mode setting is the restore target.
                 before_mode = _probe_journal_mode_for_repair(db_path)
                 result = _repair_state_db_schema_locked(
-                    db_path, backup=backup, report=report
+                    db_path,
+                    backup=backup,
+                    report=report,
+                    journal_mode_before=before_mode,
                 )
                 if result.get("repaired"):
                     result["journal_mode_before"] = before_mode
-                    _restore_journal_mode_after_repair(db_path, before_mode)
             # Environmental aborts happen before a strategy gets to mutate the
             # isolated snapshot. They are retriable operating conditions, not
             # proof that the damaged database exhausted a repair strategy.
@@ -3766,7 +3775,9 @@ def _probe_journal_mode_for_repair(db_path: Path) -> Optional[str]:
         return None
 
 
-def _restore_journal_mode_after_repair(db_path: Path, before_mode: Optional[str]) -> None:
+def _restore_journal_mode_after_repair(
+    db_path: Path, before_mode: Optional[str], *, conn=None
+) -> None:
     """Re-apply the journal mode after schema surgery (#89674).
 
     A repaired/rebuilt SQLite file comes back in the default journal mode
@@ -3775,6 +3786,14 @@ def _restore_journal_mode_after_repair(db_path: Path, before_mode: Optional[str]
     WAL-reset gate at open time never sees the flip because it happened
     inside the repair path, not at open (the open-time flip #89393 warns
     about is a different door).
+
+    ``conn`` must be the exclusive repair guard connection when called from
+    the repair path (#101064): opening a fresh connection AFTER the guard
+    released let a writer still holding the unlinked old ``-wal`` inode
+    coexist with a brand-new ``state.db-wal`` this connection created — two
+    generations of one store. The transactional promotion already leaves the
+    destination in its pre-repair mode, so on that path this is mostly the
+    WAL-companion re-assertion; the reopen is the hazard, not the mode.
 
     The restore runs through :func:`apply_wal_with_fallback` — the canonical
     journal-mode path — rather than issuing a switch pragma directly, so it
@@ -3791,12 +3810,15 @@ def _restore_journal_mode_after_repair(db_path: Path, before_mode: Optional[str]
     Best-effort by design: the repair itself already succeeded, so failures
     to re-apply are logged at WARNING, never raised.
     """
+    owned_conn = conn is None
     try:
-        conn = _connect_repair_durable(db_path)
+        if owned_conn:
+            conn = _connect_repair_durable(db_path)
         try:
             after = apply_wal_with_fallback(conn, db_label=db_path.name)
         finally:
-            conn.close()
+            if owned_conn:
+                conn.close()
         if before_mode and after != before_mode:
             logger.warning(
                 "state.db repair changed journal_mode %r -> %r "
@@ -3814,7 +3836,11 @@ def _restore_journal_mode_after_repair(db_path: Path, before_mode: Optional[str]
 
 
 def _repair_state_db_schema_locked(
-    db_path: Path, *, backup: bool, report: Dict[str, Any]
+    db_path: Path,
+    *,
+    backup: bool,
+    report: Dict[str, Any],
+    journal_mode_before: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Repair strategies for :func:`repair_state_db_schema`.
 
@@ -3955,6 +3981,11 @@ def _repair_state_db_schema_locked(
                         "state.db repaired via '%s' and promoted transactionally: %s",
                         report.get("strategy"),
                         db_path,
+                    )
+                    _restore_journal_mode_after_repair(
+                        db_path,
+                        journal_mode_before,
+                        conn=live_guard,
                     )
             if not report.get("repaired"):
                 # Logged HERE, not inside the strategies: they run against the
@@ -6008,6 +6039,28 @@ class SessionDB(SessionSearchMixin, SessionSchemaMixin, SessionPortabilityMixin)
         # The v23 table declares tool_name/tool_calls columns. Their absence
         # means a legacy shape that doesn't index tool metadata → optimize.
         return "tool_name" not in sql
+
+    @staticmethod
+    def _db_has_trigram_tool_calls_projection(cursor: sqlite3.Cursor) -> bool:
+        """True when the trigram vtable still includes tool_calls payload."""
+        row = cursor.execute(
+            "SELECT sql FROM sqlite_master "
+            "WHERE type = 'table' AND name = 'messages_fts_trigram'"
+        ).fetchone()
+        if row is None:
+            return False
+        sql = (row[0] if not isinstance(row, sqlite3.Row) else row["sql"]) or ""
+        return "tool_calls" in sql.lower()
+
+    @classmethod
+    def _db_needs_fts_storage_upgrade(
+        cls, cursor: sqlite3.Cursor
+    ) -> bool:
+        """True when the current FTS storage layout should be treated as stale."""
+        return (
+            cls._db_has_legacy_inline_fts(cursor)
+            or cls._db_has_trigram_tool_calls_projection(cursor)
+        )
 
     def _warn_trigram_unavailable(self, exc: sqlite3.OperationalError) -> None:
         """Log once that the trigram tokenizer is missing; base FTS5 stays enabled."""
@@ -11745,6 +11798,213 @@ class SessionDB(SessionSearchMixin, SessionSchemaMixin, SessionPortabilityMixin)
             ).fetchone()
 
         return {"tokens": int(row[0] or 0), "cost_usd": float(row[1] or 0.0)}
+
+    def list_recent_sessions_bounded(
+        self,
+        *,
+        limit: int = 20,
+        exclude_sources: List[str] = None,
+        timeout_seconds: float = 3.0,
+        candidate_limit: int = None,
+        lineage_limit: int = None,
+    ) -> List[Dict[str, Any]]:
+        """List recent user conversations without an unbounded message scan.
+
+        This is the latency-bounded browse path used by ``session_search()``.
+        It deliberately separates cheap candidate selection from expensive
+        hydration:
+
+        1. preselect a small set of session ids from the indexed durable
+           activity timestamp (falling back to ``started_at``);
+        2. resolve only those candidates across compression ancestry/chains;
+        3. calculate message-derived activity and previews only for that
+           bounded set.
+
+        Compression ancestry and descendant traversal use ``UNION`` so a
+        corrupt cycle cannot revisit the same session for one logical root,
+        plus a total-row ceiling so a deep or highly branching lineage cannot
+        defeat the candidate bound.  If that ceiling is reached before a
+        candidate resolves to a terminal root/tip, that incomplete lineage is
+        omitted from the browse result rather than expanded without bound.
+
+        The query has a cooperative SQLite VM progress deadline.  Expensive
+        statements that remain active beyond ``timeout_seconds`` are
+        interrupted at the next progress callback and this method raises
+        ``TimeoutError`` instead of holding a gateway callback indefinitely.
+        Cheap statements may finish between callbacks; the deadline is a
+        fail-safe for sustained work, not a real-time scheduler guarantee.
+
+        This method intentionally supports only the filters needed by the
+        agent-tool browse shape.  Rich dashboard/search callers keep using
+        :meth:`list_sessions_rich`.
+        """
+        limit = max(1, int(limit))
+        timeout_seconds = max(0.0, float(timeout_seconds))
+        if candidate_limit is None:
+            candidate_limit = max(128, limit * 8)
+        candidate_limit = max(limit, min(int(candidate_limit), 2048))
+        if lineage_limit is None:
+            lineage_limit = min(8192, candidate_limit * 8)
+        lineage_limit = max(candidate_limit, min(int(lineage_limit), 8192))
+
+        candidate_clauses = [
+            "s.archived = 0",
+            "s.hidden = 0",
+            f"{_delegate_from_json('s.model_config')} IS NULL",
+        ]
+        candidate_params: List[Any] = []
+        if exclude_sources:
+            placeholders = ",".join("?" for _ in exclude_sources)
+            candidate_clauses.append(f"s.source NOT IN ({placeholders})")
+            candidate_params.extend(exclude_sources)
+        candidate_where = " AND ".join(candidate_clauses)
+
+        # A compression continuation is an implementation edge, unlike /new
+        # reset and /branch children which are independent user-visible
+        # conversations.  The same predicate is used in both directions so a
+        # candidate tip maps to its logical root and the root maps back to the
+        # freshest live tip.
+        compression_parent_edge = f"""
+            parent.end_reason = 'compression'
+            AND child.parent_session_id = parent.id
+            AND json_extract(
+                COALESCE(child.model_config, '{{}}'), '$._branched_from'
+            ) IS NULL
+            AND {_delegate_from_json('child.model_config')} IS NULL
+            AND COALESCE(child.source, '') != 'tool'
+        """
+
+        query = f"""
+            WITH RECURSIVE
+            recent_candidates(id) AS (
+                SELECT s.id
+                FROM sessions s
+                WHERE {candidate_where}
+                ORDER BY COALESCE(s.last_activity_at, s.started_at) DESC,
+                         s.started_at DESC, s.id DESC
+                LIMIT ?
+            ),
+            ancestors(candidate_id, cur_id) AS (
+                SELECT id, id FROM recent_candidates
+                UNION
+                SELECT a.candidate_id, parent.id
+                FROM ancestors a
+                JOIN sessions child ON child.id = a.cur_id
+                JOIN sessions parent ON {compression_parent_edge}
+                LIMIT ?
+            ),
+            candidate_roots(root_id) AS (
+                SELECT DISTINCT a.cur_id
+                FROM ancestors a
+                JOIN sessions child ON child.id = a.cur_id
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM sessions parent
+                    WHERE {compression_parent_edge}
+                )
+            ),
+            chain(root_id, cur_id) AS (
+                SELECT root_id, root_id FROM candidate_roots
+                UNION
+                SELECT c.root_id, child.id
+                FROM chain c
+                JOIN sessions parent ON parent.id = c.cur_id
+                JOIN sessions child ON {compression_parent_edge}
+                LIMIT ?
+            ),
+            chain_rows AS (
+                SELECT
+                    c.root_id,
+                    c.cur_id,
+                    {_sql_session_last_active_by_id('c.cur_id')} AS activity,
+                    CASE WHEN EXISTS (
+                        SELECT 1
+                        FROM sessions parent
+                        JOIN sessions child ON {compression_parent_edge}
+                        WHERE parent.id = c.cur_id
+                    ) THEN 0 ELSE 1 END AS is_tip
+                FROM chain c
+            ),
+            ranked_tips AS (
+                SELECT root_id, cur_id, activity,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY root_id
+                           ORDER BY activity DESC, cur_id DESC
+                       ) AS rank_in_root
+                FROM chain_rows
+                WHERE is_tip = 1
+            )
+            SELECT
+                tip.id,
+                tip.source,
+                tip.model,
+                tip.title,
+                s.started_at AS started_at,
+                tip.ended_at,
+                tip.end_reason,
+                tip.message_count,
+                tip.tool_call_count,
+                rt.activity AS last_active,
+                COALESCE(
+                    (SELECT {_PREVIEW_RAW_SELECT}
+                     FROM messages m
+                     WHERE m.session_id = tip.id
+                       AND m.role = 'user'
+                       AND m.content IS NOT NULL
+                       AND {_PREVIEW_ELIGIBLE_SQL}
+                     ORDER BY m.timestamp, m.id LIMIT 1),
+                    ''
+                ) AS _preview_raw,
+                CASE WHEN s.id != tip.id THEN s.id ELSE NULL END
+                    AS _lineage_root_id
+            FROM ranked_tips rt
+            JOIN sessions s ON s.id = rt.root_id
+            JOIN sessions tip ON tip.id = rt.cur_id
+            WHERE rt.rank_in_root = 1
+              AND s.archived = 0
+              AND s.hidden = 0
+              AND {_LISTABLE_CHILD_SQL}
+              AND {_delegate_from_json('s.model_config')} IS NULL
+            ORDER BY rt.activity DESC, s.started_at DESC, tip.id DESC
+            LIMIT ?
+        """
+        params = candidate_params + [
+            candidate_limit,
+            lineage_limit,
+            lineage_limit,
+            limit,
+        ]
+        deadline = time.monotonic() + timeout_seconds
+        interrupted_by_deadline = False
+
+        def _deadline_progress_handler() -> int:
+            nonlocal interrupted_by_deadline
+            if time.monotonic() >= deadline:
+                interrupted_by_deadline = True
+                return 1
+            return 0
+
+        try:
+            with self._read_ctx() as conn:
+                conn.set_progress_handler(_deadline_progress_handler, 1000)
+                try:
+                    rows = conn.execute(query, params).fetchall()
+                finally:
+                    conn.set_progress_handler(None, 0)
+        except sqlite3.OperationalError as exc:
+            if interrupted_by_deadline and "interrupt" in str(exc).lower():
+                raise TimeoutError(
+                    f"recent-session browse exceeded {timeout_seconds:g}s deadline"
+                ) from exc
+            raise
+
+        sessions = []
+        for row in rows:
+            session = self._session_row_dict(row)
+            session["preview"] = _shape_preview(session.pop("_preview_raw", ""))
+            session["unread"] = self.session_unread(session)
+            sessions.append(session)
+        return sessions
 
     def list_sessions_rich(
         self,
