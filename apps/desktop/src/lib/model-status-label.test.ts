@@ -36,7 +36,8 @@ describe('model-status-label', () => {
   it('maps reasoning effort to compact labels', () => {
     expect(reasoningEffortLabel('high')).toBe('High')
     expect(reasoningEffortLabel('xhigh')).toBe('XHigh')
-    expect(reasoningEffortLabel('max')).toBe('Max')
+    // 'max' left the trimmed 5-level scale — unknown values pass through.
+  expect(reasoningEffortLabel('max')).toBe('max')
     expect(reasoningEffortLabel('ultra')).toBe('Ultra')
     expect(reasoningEffortLabel('')).toBe('')
   })

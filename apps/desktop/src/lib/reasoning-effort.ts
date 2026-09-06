@@ -3,7 +3,7 @@ import { normalize } from '@/lib/text'
 /** Hermes' reasoning levels, in ascending order — mirrors the backend's
  *  VALID_REASONING_EFFORTS (hermes_constants.py). `none` is not a level: it's
  *  thinking disabled, owned by the Thinking toggle rather than the scale. */
-export const REASONING_EFFORTS = ['minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'] as const
+export const REASONING_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'ultra'] as const
 
 export type ReasoningEffort = (typeof REASONING_EFFORTS)[number]
 
@@ -18,12 +18,10 @@ export const DEFAULT_REASONING_EFFORT: ReasoningEffort = 'medium'
  *  and settings use the translated `shell.modelOptions` strings instead. */
 const SHORT_LABELS: Record<string, string> = {
   none: 'Off',
-  minimal: 'Min',
   low: 'Low',
   medium: 'Med',
   high: 'High',
   xhigh: 'XHigh',
-  max: 'Max',
   ultra: 'Ultra'
 }
 
