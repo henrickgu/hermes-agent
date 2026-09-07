@@ -108,6 +108,12 @@ class ModelInfo:
     status: str = ""          # "alpha", "beta", "deprecated", or ""
     interleaved: Any = False  # True or {"field": "reasoning_content"}
 
+    # The catalog's own per-model reasoning-control spec, e.g.
+    # [{"type": "toggle"}, {"type": "effort", "values": [...]}].
+    # None when the catalog doesn't publish one for this model — callers must
+    # distinguish "unknown" from the empty list ("published: no controls").
+    reasoning_options: Optional[list] = None
+
     def has_cost_data(self) -> bool:
         return self.cost_input > 0 or self.cost_output > 0
 
@@ -1424,6 +1430,7 @@ def _parse_model_info(model_id: str, raw: Dict[str, Any], provider_id: str) -> M
         release_date=raw.get("release_date", "") or "",
         status=raw.get("status", "") or "",
         interleaved=raw.get("interleaved", False),
+        reasoning_options=raw.get("reasoning_options"),
     )
 
 

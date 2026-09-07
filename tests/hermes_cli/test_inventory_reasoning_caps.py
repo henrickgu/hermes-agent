@@ -199,3 +199,53 @@ def test_catalog_failure_never_breaks_the_picker(monkeypatch):
     caps = rows[0]["capabilities"]["deepseek/deepseek-v4-pro"]
     assert "supported_efforts" not in caps
     assert caps["reasoning"] is True
+
+
+def test_native_efforts_from_transport_tables(monkeypatch):
+    """`native_efforts` vem das tabelas do transporte (verificadas ao vivo)."""
+    import types as types_mod
+
+    monkeypatch.setattr(models_mod, "model_supports_fast_mode", lambda model: False)
+    fake = types_mod.ModuleType("fake_reasoning")
+    fake.supported_efforts_for = lambda provider, model: (
+        ("low", "medium", "high", "max") if model == "glm-5.3" else None
+    )
+    monkeypatch.setitem(__import__("sys").modules, "agent.reasoning_effort", fake)
+    monkeypatch.setattr("agent.models_dev.get_model_capabilities", lambda provider, model: None)
+    monkeypatch.setattr("agent.models_dev.get_model_info", lambda provider, model: None)
+
+    rows = [{"slug": "zai", "models": ["glm-5.3", "glm-5.1"]}]
+    inv._apply_capabilities(rows)
+    caps = rows[0]["capabilities"]
+    assert caps["glm-5.3"]["native_efforts"] == ["low", "medium", "high", "max"]
+    assert "native_efforts" not in caps["glm-5.1"]
+
+
+def test_native_efforts_falls_back_to_catalog_reasoning_options(monkeypatch):
+    """Sem tabela interna, o `reasoning_options` do models.dev alimenta o menu."""
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(models_mod, "model_supports_fast_mode", lambda model: False)
+    monkeypatch.setattr("agent.models_dev.get_model_capabilities", lambda provider, model: None)
+    monkeypatch.setattr(
+        "agent.models_dev.get_model_info",
+        lambda provider, model: SimpleNamespace(reasoning_options=[{"type": "toggle"}, {"type": "effort", "values": ["low", "medium", "xhigh"]}]),
+    )
+
+    rows = [{"slug": "alibaba-token-plan", "models": ["qwen3.8-flash"]}]
+    inv._apply_capabilities(rows)
+    assert rows[0]["capabilities"]["qwen3.8-flash"]["native_efforts"] == ["low", "medium", "xhigh"]
+
+
+def test_native_efforts_absent_when_no_source(monkeypatch):
+    """Sem tabela e sem spec publicada: campo omitido (UI mantém escala cheia)."""
+    monkeypatch.setattr(models_mod, "model_supports_fast_mode", lambda model: False)
+    monkeypatch.setattr("agent.models_dev.get_model_capabilities", lambda provider, model: None)
+    monkeypatch.setattr(
+        "agent.models_dev.get_model_info",
+        lambda provider, model: SimpleNamespace(reasoning_options=[{"type": "toggle"}]),
+    )
+
+    rows = [{"slug": "alibaba-coding-plan", "models": ["qwen3.7-plus"]}]
+    inv._apply_capabilities(rows)
+    assert "native_efforts" not in rows[0]["capabilities"]["qwen3.7-plus"]

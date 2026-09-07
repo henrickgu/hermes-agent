@@ -532,6 +532,7 @@ def _apply_capabilities(rows: list[dict]) -> None:
     that clamp a live request. Absent when the route's vocabulary is unknown;
     the UI then offers the full scale (same semantics as today).
     """
+    from agent.reasoning_effort import supported_efforts_for
     from hermes_cli.models import model_supports_fast_mode
 
     try:
@@ -596,6 +597,42 @@ def _apply_capabilities(rows: list[dict]) -> None:
                     entry["reasoning"] = False
                 elif detail:
                     entry["can_disable_reasoning"] = not detail.get("mandatory")
+
+            # Official effort scale for the picker's faithful mode, best source
+            # first: (1) the provider tables the runtime actually enforces
+            # (live-verified per model — these outrank anything published),
+            # then (2) the models.dev `reasoning_options` effort spec when it
+            # names levels. Both translate into the picker's vocabulary via
+            # the same ladder the transport uses, so the menu can never offer
+            # a level the wire would silently rewrite. Models with no known
+            # scale stay on the full dial (today's behaviour).
+            native = supported_efforts_for(slug, model)
+            if native is not None:
+                entry["native_efforts"] = list(native)
+            else:
+                info = None
+                if get_model_info is not None:
+                    try:
+                        info = get_model_info(slug, model)
+                    except Exception:
+                        info = None
+                    if info is None and "/" in model:
+                        # Aggregator ids are namespaced (vendor/model) — the
+                        # same fallback the metadata projection uses.
+                        try:
+                            info = get_model_info("openrouter", model)
+                        except Exception:
+                            info = None
+                ro = getattr(info, "reasoning_options", None) if info else None
+                if isinstance(ro, list):
+                    for spec in ro:
+                        if isinstance(spec, dict) and spec.get("type") == "effort":
+                            values = spec.get("values")
+                            if isinstance(values, list) and values:
+                                entry["native_efforts"] = [
+                                    v for v in values if isinstance(v, str)
+                                ]
+                            break
 
             caps[model] = entry
 
