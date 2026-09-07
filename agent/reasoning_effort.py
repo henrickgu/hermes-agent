@@ -228,3 +228,40 @@ def requested_effort(reasoning_config: Optional[dict]) -> Optional[str]:
         return None
     effort = str(reasoning_config.get("effort") or "").strip().lower()
     return effort or None
+
+
+def supported_efforts_for(provider: Optional[str], model: Optional[str]) -> tuple[str, ...] | None:
+    """Official effort scale for a provider/model slug, or None when unknown.
+
+    Single read-only view over the same per-route tables the transport layer
+    uses when CLAMPING a request — the picker exposes them so the UI can offer
+    exactly the levels the route officially accepts instead of the full scale.
+    Matches are conservative: only tables with verified, model-specific
+    vocabulary are exposed; generic routes (and unknown models) return None and
+    the caller falls back to the unrestricted scale. ``none`` is never included
+    (the Thinking toggle owns it, same contract as REASONING_EFFORTS in the UI).
+    """
+    prov = (provider or "").strip().lower()
+    model_id = (model or "").strip().lower().split("/")[-1]
+
+    if prov in ("openai-codex",):
+        efforts = codex_supported_efforts(model_id)
+        # codex_supported_efforts includes `none`; the picker scale does not.
+        return tuple(e for e in efforts if e != "none")
+    if prov in ("kimi-coding", "kimi-coding-cn", "kimi"):
+        return kimi_supported_efforts(model_id)
+
+    # GLM family: native reasoning_effort knob on the zai coding endpoint.
+    if prov in ("zai", "zhipu"):
+        if re.search(r"glm-?5\.?3", model_id):
+            return GLM53_EFFORTS
+        if re.search(r"glm-?5\.?2", model_id):
+            return GLM52_EFFORTS
+        return None
+
+    if prov in ("deepseek",):
+        if re.search(r"(deepseek-)?v4", model_id):
+            return DEEPSEEK_V4_EFFORTS
+        return None
+
+    return None

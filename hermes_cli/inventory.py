@@ -524,11 +524,13 @@ def _apply_capabilities(rows: list[dict]) -> None:
     parameter — a definitive negative from the provider actually serving the
     model outranks the models.dev inference.
 
-    The catalog's `supported_efforts` list is deliberately NOT forwarded: it
-    under-reports. The Portal accepts and honors levels a route doesn't
-    advertise (``z-ai/glm-5.3`` publishes ``max, high, low`` yet serves
-    ``minimal`` at its lowest thinking), so filtering the picker by that list
-    would hide levels that demonstrably work.
+    The aggregators' `supported_efforts` list is deliberately NOT forwarded
+    (it under-reports: the Portal accepts and honors levels a route doesn't
+    advertise, so filtering by that list would hide levels that demonstrably
+    work). Instead the picker forwards `native_efforts`: the transport layer's
+    OWN verified per-route tables (agent.reasoning_effort) — the exact sets
+    that clamp a live request. Absent when the route's vocabulary is unknown;
+    the UI then offers the full scale (same semantics as today).
     """
     from hermes_cli.models import model_supports_fast_mode
 
@@ -568,6 +570,19 @@ def _apply_capabilities(rows: list[dict]) -> None:
                 "fast": bool(model_supports_fast_mode(model)),
                 "reasoning": reasoning,
             }
+
+            if reasoning:
+                try:
+                    from agent.reasoning_effort import supported_efforts_for
+
+                    native = supported_efforts_for(slug, model)
+                    # Only model-specific, verified vocabularies: a generic or
+                    # unknown route stays native_efforts-less and the picker
+                    # falls back to the full scale.
+                    if native:
+                        entry["native_efforts"] = list(native)
+                except Exception:
+                    pass
 
             if reasoning and read_reasoning_catalog is not None:
                 try:

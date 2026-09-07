@@ -463,6 +463,10 @@ export interface ModelCapabilities {
    *  when the catalog doesn't say. */
   can_disable_reasoning?: boolean
   fast: boolean
+  /** The route's own verified effort vocabulary (agent.reasoning_effort's
+   *  clamping tables). Absent when unknown — the UI then offers the full
+   *  scale. Levels are wire names (`max`), not UI labels. */
+  native_efforts?: string[]
   reasoning: boolean
 }
 

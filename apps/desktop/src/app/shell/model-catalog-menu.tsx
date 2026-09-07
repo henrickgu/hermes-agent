@@ -605,6 +605,7 @@ export function ModelCatalogMenu({
                             fastControl={fastControl}
                             isActive={isCurrent}
                             model={family.id}
+                            nativeEfforts={caps?.native_efforts}
                             onSelectModel={nextModel => controller.select(nextModel, group.provider.slug)}
                             onSetOptions={patch =>
                               controller.setOptions(patch, {

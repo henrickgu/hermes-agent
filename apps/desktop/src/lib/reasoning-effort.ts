@@ -50,3 +50,46 @@ export function resolveReasoningEffort(effort: string, fallback: string = DEFAUL
 
   return isReasoningEffort(value) ? value : DEFAULT_REASONING_EFFORT
 }
+
+/** Efforts the route officially accepts, mapped onto the UI scale — or the
+ *  full UI scale when unknown. The backend sends `native_efforts` from its
+ *  transport clamping tables (verified, per-route vocabulary; wire names like
+ *  `max` that the UI scale may not carry). Levels the scale doesn't render
+ *  collapse to the nearest weaker rendered level, so a route whose top tier is
+ *  `max` still gets a visible, honest "Ultra"-style entry instead of a value
+ *  with no row. Pure function, shared by every effort menu. */
+export function effortsForModel(nativeEfforts?: string[]): ReasoningEffort[] {
+  if (!nativeEfforts || nativeEfforts.length === 0) {
+    return [...REASONING_EFFORTS]
+  }
+
+  const out: ReasoningEffort[] = []
+
+  for (const raw of nativeEfforts) {
+    const key = normalize(raw)
+
+    if (isReasoningEffort(key)) {
+      if (!out.includes(key)) {
+        out.push(key)
+      }
+
+      continue
+    }
+
+    // Wire level outside the UI scale (`max`): collapse to the top of the
+    // rendered scale so the route's top tier stays reachable and labeled.
+    if (key === 'max') {
+      const top = REASONING_EFFORTS[REASONING_EFFORTS.length - 1]!
+
+      if (!out.includes(top)) {
+        out.push(top)
+      }
+    }
+    // Unknown wire names (and `none`, owned by the Thinking toggle) are
+    // skipped rather than guessed.
+  }
+
+  // Never empty: a route that exposes nothing renderable falls back to the
+  // full scale rather than a menu with no rows.
+  return out.length > 0 ? out : [...REASONING_EFFORTS]
+}

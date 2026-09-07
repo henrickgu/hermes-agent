@@ -28,6 +28,7 @@ function renderSubmenu(opts: {
   effort?: string
   fastControl: FastControl
   isActive?: boolean
+  nativeEfforts?: string[]
   onSelectModel?: (model: string) => void
   onSetOptions: (patch: { effort?: string; fast?: boolean }) => void
   reasoning: boolean
@@ -43,6 +44,7 @@ function renderSubmenu(opts: {
             fastControl={opts.fastControl}
             isActive={opts.isActive ?? true}
             model="m1"
+            nativeEfforts={opts.nativeEfforts}
             onSelectModel={opts.onSelectModel ?? vi.fn()}
             onSetOptions={opts.onSetOptions}
             provider="p1"
@@ -128,4 +130,34 @@ describe('ModelEditSubmenu reports edits without performing them', () => {
 
     expect(onSelectModel).toHaveBeenCalledWith('m1-fast')
   })
+  it('nativeEfforts: renders only the route\'s official levels', () => {
+    const onSetOptions = vi.fn()
+    renderSubmenu({
+      fastControl: { kind: 'none' },
+      nativeEfforts: ['low', 'medium', 'high', 'max'],
+      onSetOptions,
+      reasoning: true
+    })
+
+    // Rendered levels (max collapses onto the scale top); labels are the
+    // modelOptions translations, not the SHORT_LABELS chrome.
+    expect(screen.getByText('Low')).toBeTruthy()
+    expect(screen.getByText('Medium')).toBeTruthy()
+    expect(screen.getByText('High')).toBeTruthy()
+    expect(screen.getByText('Ultra')).toBeTruthy()
+    // Full-scale-only levels stay out of a native list that excludes them.
+    // (xhigh is on the rendered scale but not in the GLM vocabulary; minimal
+    // left the scale entirely in the 5-level trim.)
+    expect(screen.queryByText('Extra High')).toBeNull()
+  })
+
+  it('nativeEfforts: absent falls back to the full scale', () => {
+    const onSetOptions = vi.fn()
+    renderSubmenu({ fastControl: { kind: 'none' }, onSetOptions, reasoning: true })
+
+    expect(screen.getByText('Extra High')).toBeTruthy()
+    expect(screen.getByText('Low')).toBeTruthy()
+    expect(screen.getByText('Ultra')).toBeTruthy()
+  })
+
 })

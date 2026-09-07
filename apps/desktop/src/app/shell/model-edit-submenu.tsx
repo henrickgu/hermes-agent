@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Switch } from '@/components/ui/switch'
 import { useI18n } from '@/i18n'
-import { isThinkingEnabled, REASONING_EFFORTS, resolveReasoningEffort } from '@/lib/reasoning-effort'
+import { effortsForModel, isThinkingEnabled, resolveReasoningEffort } from '@/lib/reasoning-effort'
 
 // Hermes' real reasoning levels live in lib/reasoning-effort; `none` is owned
 // by the Thinking toggle, not the radio.
@@ -75,6 +75,9 @@ interface ModelEditSubmenuProps {
   isActive: boolean
   /** This row's model id. */
   model: string
+  /** The route's verified effort vocabulary (backend capabilities map).
+   *  Undefined/empty = full scale. */
+  nativeEfforts?: string[]
   /** Switch to a specific model id (used to swap base ⇄ -fast variant). */
   onSelectModel: (model: string) => Promise<boolean | void> | void
   /** Report an option change. This submenu is PURE: it never writes to a
@@ -107,6 +110,8 @@ export function ModelOptionsContent({
   effort,
   fastControl,
   isActive,
+  model,
+  nativeEfforts,
   onSelectModel,
   onSetOptions,
   reasoning
@@ -167,7 +172,7 @@ export function ModelOptionsContent({
           <DropdownMenuSeparator className="mx-0" />
           <DropdownMenuLabel className={dropdownMenuSectionLabel}>{copy.effort}</DropdownMenuLabel>
           <DropdownMenuRadioGroup onValueChange={value => onSetOptions({ effort: value })} value={effortValue}>
-            {REASONING_EFFORTS.map(value => (
+            {effortsForModel(nativeEfforts).map(value => (
               <DropdownMenuRadioItem
                 className={dropdownMenuRow}
                 key={value}

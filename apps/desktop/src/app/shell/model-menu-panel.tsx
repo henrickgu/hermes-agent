@@ -288,6 +288,7 @@ export function ModelMenuPanel({
         fastControl={{ kind: 'none' }}
         isActive
         model={optionsModel}
+        nativeEfforts={capabilities?.native_efforts}
         onSelectModel={nextModel =>
           onSelectModel({ model: nextModel, provider: optionsProvider, sessionId: activeSessionId || null })
         }
