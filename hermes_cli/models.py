@@ -7659,9 +7659,21 @@ def validate_requested_model(
                 from hermes_cli.providers import is_official_openai_host
 
                 _openai_listing_is_authoritative = is_official_openai_host(base_url)
-            if not _openai_listing_is_authoritative and _model_in_provider_catalog(
-                (_variant_base or requested_for_lookup).lower(),
-                _provider_keys(normalized),
+            _provider_catalog_match = False
+            if not _openai_listing_is_authoritative:
+                try:
+                    _provider_catalog_match = requested_for_lookup.lower() in {
+                        item.lower() for item in provider_model_ids(normalized)
+                    }
+                except Exception:
+                    _provider_catalog_match = False
+
+            if not _openai_listing_is_authoritative and (
+                _provider_catalog_match
+                or _model_in_provider_catalog(
+                    (_variant_base or requested_for_lookup).lower(),
+                    _provider_keys(normalized),
+                )
             ):
                 return {
                     "accepted": True,
@@ -7669,7 +7681,7 @@ def validate_requested_model(
                     "recognized": True,
                     "message": (
                         f"Note: `{requested}` was not found in the live /v1/models listing "
-                        f"but exists in the curated catalog — accepted."
+                        f"but exists in the provider catalog — accepted."
                     ),
                 }
 
