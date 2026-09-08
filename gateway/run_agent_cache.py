@@ -159,7 +159,7 @@ class GatewayAgentCacheMixin:
         from gateway.run import _resolve_runtime_agent_kwargs_for_provider
 
         try:
-            from hermes_state import get_shared_session_db
+            from hermes_state_registry import get_shared_session_db
 
             raw = get_shared_session_db().get_meta(
                 f"gateway_model_intent:{session_key}"
@@ -458,7 +458,7 @@ class GatewayAgentCacheMixin:
                 store.pop(session_key, None)
         self._clear_session_boundary_security_state(session_key)
         try:
-            from hermes_state import get_shared_session_db
+            from hermes_state_registry import get_shared_session_db
 
             get_shared_session_db().delete_meta(
                 f"gateway_model_intent:{session_key}"

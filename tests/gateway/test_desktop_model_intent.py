@@ -64,9 +64,9 @@ def _install(monkeypatch, db, *, base_url="https://api.openai.com/v1"):
             "capabilities": {},
         },
     )
-    import hermes_state
+    import hermes_state_registry
 
-    monkeypatch.setattr(hermes_state, "get_shared_session_db", lambda: db)
+    monkeypatch.setattr(hermes_state_registry, "get_shared_session_db", lambda: db)
 
 
 def test_applies_latest_intent_and_is_idempotent(monkeypatch):

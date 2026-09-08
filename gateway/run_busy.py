@@ -575,7 +575,7 @@ class GatewayBusySessionMixin:
         return steer_ack_enabled
 
     _BUSY_DEMOTED_TAIL = (
-        " — your message is queued for when it finishes (use /stop to cancel everything)."
+        " — sua mensagem entra na fila para quando isso terminar (use /stop para cancelar tudo)."
     )
 
     def _compose_busy_ack_message(
