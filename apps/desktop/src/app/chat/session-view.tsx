@@ -1,4 +1,4 @@
-import { computed, type ReadableAtom } from 'nanostores'
+import { atom, computed, type ReadableAtom } from 'nanostores'
 import { createContext, useContext } from 'react'
 
 import type { ClientSessionState } from '@/app/types'
@@ -55,6 +55,7 @@ export interface SessionView {
   $turnStartedAt: ReadableAtom<number | null>
   $cwd: ReadableAtom<string>
   $model: ReadableAtom<string>
+  $modelSwitchPending: ReadableAtom<boolean>
   $provider: ReadableAtom<string>
   $fast: ReadableAtom<boolean>
   $reasoningEffort: ReadableAtom<string>
@@ -102,6 +103,7 @@ export const PRIMARY_SESSION_VIEW: SessionView = {
   $messages: $primaryMessages,
   $messagesEmpty: computed($primaryMessages, messages => messages.length === 0),
   $model: primaryField<string>(state => state.model, $currentModel),
+  $modelSwitchPending: primaryField<boolean>(state => state.modelSwitchPending ?? false, atom(false)),
   $provider: primaryField<string>(state => state.provider, $currentProvider),
   $reasoningEffort: primaryField<string>(state => state.reasoningEffort, $currentReasoningEffort),
   $runtimeId: $activeSessionId,

@@ -8895,6 +8895,7 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
 
         model = _resolve_gateway_model(user_config)
         if resolved_session_key:
+            self._apply_desktop_model_intent(resolved_session_key)
             self._rehydrate_session_model_override(resolved_session_key)
         _override_state = (
             self._peek_session_state(resolved_session_key)
@@ -29476,6 +29477,140 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
         )
         return hashlib.sha256(blob.encode()).hexdigest()[:16]
 
+    def _apply_desktop_model_intent(self, session_key: str) -> None:
+        """Apply the newest Desktop-published route before a gateway turn.
+
+        The intent lives in SessionDB.state_meta, separate from SessionStore's
+        cached routing rows, so a live gateway cannot overwrite it with stale
+        data. It contains no credentials. Credentials are resolved here, under
+        the same profile runtime scope as the normal gateway turn.
+        """
+        import json as _json
+        from urllib.parse import urlsplit
+
+        try:
+            from hermes_state import get_shared_session_db
+
+            raw = get_shared_session_db().get_meta(
+                f"gateway_model_intent:{session_key}"
+            )
+            intent = _json.loads(raw) if raw else None
+        except Exception:
+            logger.debug("Failed to read desktop model intent", exc_info=True)
+            return
+        if not isinstance(intent, dict):
+            return
+        revision = str(intent.get("revision") or "").strip()
+        try:
+            from uuid import UUID
+
+            UUID(hex=revision)
+        except (ValueError, AttributeError):
+            return
+        revisions = getattr(self, "_desktop_model_intent_revisions", None)
+        if not isinstance(revisions, dict):
+            revisions = {}
+            self._desktop_model_intent_revisions = revisions
+        if revision == str(revisions.get(session_key) or ""):
+            return
+        model = str(intent.get("model") or "").strip()
+        provider = str(intent.get("provider") or "").strip()
+        requested_base_url = str(intent.get("base_url") or "").strip()
+        if not model or not provider:
+            return
+
+        try:
+            runtime = _resolve_runtime_agent_kwargs_for_provider(provider)
+        except Exception:
+            logger.warning(
+                "Desktop model intent could not resolve provider=%s for session=%s",
+                provider,
+                session_key,
+                exc_info=True,
+            )
+            return
+        runtime_base_url = str(runtime.get("base_url") or "").strip()
+
+        def _origin(value: str) -> tuple[str, str]:
+            parsed = urlsplit(value)
+            return parsed.scheme.lower(), parsed.netloc.lower()
+
+        # Never pair a provider credential with a caller-selected foreign host.
+        # Canonical aliases whose endpoint belongs to the provider have the same
+        # origin and pass; mismatches stay on the old working model.
+        if (
+            requested_base_url
+            and runtime_base_url
+            and _origin(requested_base_url) != _origin(runtime_base_url)
+        ):
+            logger.warning(
+                "Rejected desktop model intent with mismatched endpoint for "
+                "session=%s provider=%s requested=%s resolved=%s",
+                session_key,
+                provider,
+                requested_base_url,
+                runtime_base_url,
+            )
+            return
+
+        override: Dict[str, Any] = {
+            "model": model,
+            "provider": provider,
+            "base_url": requested_base_url or runtime_base_url,
+            "api_key": runtime.get("api_key"),
+            "api_mode": runtime.get("api_mode"),
+            "credential_pool": runtime.get("credential_pool"),
+            "request_overrides": dict(runtime.get("request_overrides") or {}),
+            "requested_provider": runtime.get("requested_provider"),
+            "capabilities": dict(runtime.get("capabilities") or {}),
+            "max_tokens": runtime.get("max_tokens"),
+        }
+        store = getattr(self, "session_store", None)
+        if store is not None:
+            try:
+                store.set_model_override(session_key, override)
+            except Exception:
+                logger.warning(
+                    "Failed to persist desktop model intent for session=%s",
+                    session_key,
+                    exc_info=True,
+                )
+                return
+        self._session_state(session_key).conversation.model_override = override
+        self._evict_cached_agent(session_key)
+        if store is not None:
+            try:
+                db = get_shared_session_db()
+                db.delete_meta_if_value(
+                    f"gateway_model_intent:{session_key}", raw
+                )
+                pending_key = f"pending_model_switch:{session_key}"
+                pending_raw = db.get_meta(pending_key)
+                if pending_raw:
+                    try:
+                        pending_data = _json.loads(pending_raw)
+                    except Exception:
+                        pending_data = None
+                    if (
+                        isinstance(pending_data, dict)
+                        and str(pending_data.get("revision") or "") == revision
+                    ):
+                        db.delete_meta_if_value(pending_key, pending_raw)
+            except Exception:
+                logger.debug(
+                    "Applied desktop model intent but could not consume metadata",
+                    exc_info=True,
+                )
+                return
+        revisions[session_key] = revision
+        logger.info(
+            "Applied desktop model intent for session=%s: model=%s provider=%s revision=%s",
+            session_key,
+            model,
+            provider,
+            revision,
+        )
+
     def _rehydrate_session_model_override(self, session_key: str) -> None:
         """Lazily restore a persisted /model override after a gateway restart.
 
@@ -29786,6 +29921,20 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
             if isinstance(store, dict):
                 store.pop(session_key, None)
         self._clear_session_boundary_security_state(session_key)
+        try:
+            from hermes_state import get_shared_session_db
+
+            get_shared_session_db().delete_meta(
+                f"gateway_model_intent:{session_key}"
+            )
+            revisions = getattr(self, "_desktop_model_intent_revisions", None)
+            if isinstance(revisions, dict):
+                revisions.pop(session_key, None)
+        except Exception:
+            logger.debug(
+                "Failed to clear desktop model intent at session boundary",
+                exc_info=True,
+            )
         logger.debug(
             "Cleared conversation scope for %s (%s)", session_key, reason
         )

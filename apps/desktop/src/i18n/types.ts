@@ -2706,6 +2706,7 @@ export interface Translations {
       switchModel: string
       openModelPicker: string
       modelPinned: string
+      modelSwitchPending: string
       modelTitle: (provider: string, model: string) => string
       providerModelTitle: (provider: string, model: string) => string
     }

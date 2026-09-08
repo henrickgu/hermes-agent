@@ -51,6 +51,7 @@ export function ModelPill({
   // Prefer the chat-bar snapshot (already view-scoped by ChatView); fall back
   // to the live SessionView atoms so a mid-flight session.info still paints.
   const viewModel = useStore(view.$model)
+  const modelSwitchPending = useStore(view.$modelSwitchPending)
   const viewProvider = useStore(view.$provider)
   const currentModel = model.model || viewModel
   const currentProvider = model.provider || viewProvider
@@ -108,6 +109,15 @@ export function ModelPill({
       ) : (
         <GlyphSpinner className="opacity-50" spinner="braille" />
       )}
+      {modelSwitchPending && (
+        <span
+          aria-label={copy.modelSwitchPending}
+          className="size-1.5 shrink-0 rounded-full bg-amber-500"
+          data-testid="model-switch-pending-dot"
+          role="img"
+          title={copy.modelSwitchPending}
+        />
+      )}
       {pinnedOverride && (
         <span
           aria-label={copy.modelPinned}
@@ -133,11 +143,17 @@ export function ModelPill({
     ? copy.modelTitle(currentProvider, currentModel || copy.modelNone)
     : copy.switchModel
 
-  const title = pinnedOverride ? `${baseTitle} — ${copy.modelPinned}` : baseTitle
+  const statusSuffix = modelSwitchPending
+    ? copy.modelSwitchPending
+    : pinnedOverride
+      ? copy.modelPinned
+      : ''
+
+  const title = statusSuffix ? `${baseTitle} — ${statusSuffix}` : baseTitle
 
   if (!model.modelMenuContent) {
     return (
-      <Tip label={pinnedOverride ? `${copy.openModelPicker} — ${copy.modelPinned}` : copy.openModelPicker} side="top">
+      <Tip label={statusSuffix ? `${copy.openModelPicker} — ${statusSuffix}` : copy.openModelPicker} side="top">
         <Button
           aria-label={copy.openModelPicker}
           className={pillClass}

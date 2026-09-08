@@ -109,7 +109,12 @@ def test_apply_model_switch_does_not_leak_process_env():
         "HERMES_INFERENCE_PROVIDER",
     )
 
-    sess_b = {"agent": _FakeAgent(), "session_key": "k-B", "model_override": None}
+    sess_b = {
+        "agent": _FakeAgent(),
+        "session_key": "k-B",
+        "model_override": None,
+        "pending_model_switch": {"raw": "old-model"},
+    }
     sess_a = {"agent": _FakeAgent(), "session_key": "k-A", "model_override": None}
 
     with (
@@ -122,6 +127,10 @@ def test_apply_model_switch_does_not_leak_process_env():
         patch("tui_gateway.server._restart_slash_worker"),
         patch("tui_gateway.server._session_info", return_value={}),
         patch("tui_gateway.server._persist_model_switch") as mock_persist,
+        patch("tui_gateway.server._persist_gateway_model_intent"),
+        patch(
+            "tui_gateway.server._clear_persisted_pending_model_switch"
+        ) as mock_clear_pending,
     ):
         before = {k: os.environ.get(k) for k in env_keys}
         result = server._apply_model_switch("sidB", sess_b, "glm-5.1")
@@ -137,6 +146,8 @@ def test_apply_model_switch_does_not_leak_process_env():
     assert sess_b["model_override"]["provider"] == "zai"
     # The switched agent mutated in place.
     assert sess_b["agent"].model == "zai/glm-5.1"
+    assert "pending_model_switch" not in sess_b
+    mock_clear_pending.assert_called_once_with(sess_b)
     # Sibling session is completely untouched.
     assert sess_a["model_override"] is None
     assert sess_a["agent"].model == "minimax/m3"

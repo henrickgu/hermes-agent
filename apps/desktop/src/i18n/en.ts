@@ -3160,6 +3160,7 @@ export const en: Translations = {
       switchModel: 'Switch model',
       openModelPicker: 'Open model picker',
       modelPinned: 'pinned by you; new chats use this instead of the Settings default',
+      modelSwitchPending: 'queued — applies on the next turn',
       modelTitle: (provider, model) => `Model · ${provider}: ${model}`,
       providerModelTitle: (provider, model) => `${provider} · ${model}`
     }

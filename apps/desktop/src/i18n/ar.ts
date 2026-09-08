@@ -2312,6 +2312,7 @@ export const ar = defineLocale({
       switchModel: 'تبديل النموذج',
       openModelPicker: 'فتح اختيار النموذج',
       modelPinned: 'النموذج مثبت',
+      modelSwitchPending: 'في قائمة الانتظار — يُطبَّق في الدور التالي',
       modelTitle: (provider, model) => `${provider}: ${model}`,
       providerModelTitle: (provider, model) => `${provider}: ${model}`
     }

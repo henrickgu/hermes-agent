@@ -2038,6 +2038,24 @@ class GatewaySlashCommandsMixin:
                                 "Failed to persist session model override",
                                 exc_info=True,
                             )
+                        else:
+                            # A channel-side /model is newer than any queued
+                            # Desktop pick for this same route.
+                            try:
+                                from hermes_state import get_shared_session_db
+
+                                _intent_db = get_shared_session_db()
+                                _intent_db.delete_meta(
+                                    f"gateway_model_intent:{_session_key}"
+                                )
+                                _intent_db.delete_meta(
+                                    f"pending_model_switch:{_session_key}"
+                                )
+                            except Exception:
+                                logger.debug(
+                                    "Failed to clear superseded Desktop model intent",
+                                    exc_info=True,
+                                )
 
                         # Evict cached agent so the next turn creates a fresh
                         # agent from the override rather than relying on the

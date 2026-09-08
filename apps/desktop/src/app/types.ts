@@ -193,6 +193,8 @@ export interface ClientSessionState {
   cwd: string
   model: string
   provider: string
+  /** The displayed model is queued and becomes active on the next turn. */
+  modelSwitchPending?: boolean
   reasoningEffort: string
   serviceTier: string
   fast: boolean

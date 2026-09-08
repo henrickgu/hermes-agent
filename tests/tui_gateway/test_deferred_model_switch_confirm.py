@@ -15,6 +15,7 @@ possible. The user's pick silently reverted and the confirm was never offered
 on this path at all.
 """
 
+from contextlib import contextmanager
 import threading
 import types
 
@@ -59,13 +60,24 @@ def _config_set_model(value, **extra_params):
 def running_session(monkeypatch):
     """A busy session whose live swap path is fatal if it is ever reached."""
 
-    def _must_not_run(*_args, **_kwargs):
-        raise AssertionError(
-            "_apply_model_switch ran on the busy path -- it would race the "
-            "worker thread reading agent.model / agent.client"
+    def _resolve_only(*_args, **kwargs):
+        assert kwargs.get("resolve_only") is True, (
+            "busy path may resolve/validate, but must never mutate the live agent"
         )
+        parsed = kwargs.get("parsed_flags")
+        model = parsed.model_input
+        provider = parsed.explicit_provider or (
+            "anthropic" if str(model).startswith("anthropic/") else "openrouter"
+        )
+        return {
+            "value": model,
+            "model": model,
+            "provider": provider,
+            "base_url": "",
+            "confirm_required": False,
+        }
 
-    monkeypatch.setattr(server, "_apply_model_switch", _must_not_run)
+    monkeypatch.setattr(server, "_apply_model_switch", _resolve_only)
     server._sessions["sid"] = _session(running=True)
     try:
         yield server._sessions["sid"]
@@ -126,6 +138,21 @@ class TestUnguardedPickStillDefers:
         assert result["confirm_required"] is False
         assert result["confirm_message"] == ""
         assert result["value"] == UNGUARDED_MODEL
+
+    def test_resolves_inside_session_profile_scope(
+        self, running_session, monkeypatch
+    ):
+        entered = []
+
+        @contextmanager
+        def _scope(session):
+            entered.append(session)
+            yield
+
+        monkeypatch.setattr(server, "_session_profile_runtime_scope", _scope)
+        _config_set_model(UNGUARDED_MODEL)
+
+        assert entered == [running_session]
 
     def test_stashes_the_pick_for_the_next_turn(self, running_session):
         _config_set_model(UNGUARDED_MODEL)

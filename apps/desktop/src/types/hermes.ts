@@ -742,6 +742,11 @@ export interface SessionRuntimeInfo {
   fast?: boolean
   install_warning?: string
   model?: string
+  /** True while a queued model switch awaits the next turn: {@link model} is
+   *  then the PENDING pick, not the model serving the current turn. Lets the
+   *  selector badge the swap honestly ("applies next turn") instead of
+   *  implying it already happened. Undefined on older backends. */
+  model_switch_pending?: boolean
   personality?: string
   provider?: string
   reasoning_effort?: string

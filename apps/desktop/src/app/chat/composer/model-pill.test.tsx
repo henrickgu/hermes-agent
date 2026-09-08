@@ -80,6 +80,38 @@ describe('ModelPill pinned-override badge', () => {
   })
 })
 
+describe('ModelPill pending-switch badge', () => {
+  it('shows an amber pending dot when the selected model starts next turn', () => {
+    const view: SessionView = {
+      kind: 'tile',
+      $awaitingResponse: atom(true),
+      $busy: atom(true),
+      $cwd: atom(''),
+      $fast: atom(false),
+      $lastVisibleIsUser: atom(false),
+      $messages: atom([]),
+      $messagesEmpty: atom(true),
+      $model: atom('gpt-5.6-sol'),
+      $modelSwitchPending: atom(true),
+      $provider: atom('openai-codex'),
+      $reasoningEffort: atom('high'),
+      $runtimeId: atom('discord-runtime'),
+      $storedId: atom('discord-stored'),
+      $turnStartedAt: atom<number | null>(Date.now())
+    }
+
+    render(
+      <SessionViewProvider value={view}>
+        <ModelPill disabled={false} model={modelState({ model: 'gpt-5.6-sol', provider: 'openai-codex' })} />
+      </SessionViewProvider>
+    )
+
+    expect(screen.getByTestId('model-switch-pending-dot').getAttribute('aria-label')).toBe(
+      'queued — applies on the next turn'
+    )
+  })
+})
+
 describe('ModelPill per-surface model label', () => {
   it('shows the chat-bar model even when the primary global differs', () => {
     setCurrentModel('primary/model')
@@ -95,6 +127,7 @@ describe('ModelPill per-surface model label', () => {
       $messages: atom([]),
       $messagesEmpty: atom(true),
       $model: atom('tile/claude-sonnet'),
+      $modelSwitchPending: atom(false),
       $provider: atom('anthropic'),
       $reasoningEffort: atom('high'),
       $runtimeId: atom('tile-runtime'),

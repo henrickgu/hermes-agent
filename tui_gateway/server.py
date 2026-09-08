@@ -6566,6 +6566,8 @@ def _apply_model_switch(
     pin_session_override: bool = True,
     parsed_flags: Any | None = None,
     persist_override: bool | None = None,
+    resolve_only: bool = False,
+    pending_revision_to_consume: str | None = None,
 ) -> dict:
     from hermes_cli.model_switch import (
         parse_model_switch_args,
@@ -6709,6 +6711,19 @@ def _apply_model_switch(
                 "confirm_message": confirm_msg,
             }
 
+    if resolve_only:
+        # Resolve/validate through the canonical pipeline without touching the
+        # live agent. Used when a busy turn queues a switch for later and when
+        # publishing a non-secret route intent to the messaging gateway.
+        return {
+            "value": result.new_model,
+            "model": result.new_model,
+            "provider": result.target_provider,
+            "base_url": result.base_url or current_base_url,
+            "api_mode": result.api_mode,
+            "confirm_required": False,
+        }
+
     if agent:
         try:
             agent.switch_model(
@@ -6765,6 +6780,34 @@ def _apply_model_switch(
             "api_key": result.api_key,
             "api_mode": result.api_mode,
         }
+        # Publish only the resolved non-secret route. The messaging gateway
+        # consumes this durable intent before each turn and resolves credentials
+        # inside the owning profile scope.
+        _persist_gateway_model_intent(
+            session,
+            {
+                "model": result.new_model,
+                "provider": result.target_provider or "",
+                "base_url": result.base_url or "",
+            },
+        )
+        # A successful immediate pick supersedes an older queue. During queued
+        # application, consume only the revision actually being applied so a
+        # concurrently selected newer model survives.
+        live_pending = session.get("pending_model_switch")
+        if pending_revision_to_consume:
+            if (
+                isinstance(live_pending, dict)
+                and str(live_pending.get("revision") or "")
+                == pending_revision_to_consume
+            ):
+                session.pop("pending_model_switch", None)
+            _clear_persisted_pending_model_switch(
+                session, expected_revision=pending_revision_to_consume
+            )
+        else:
+            session.pop("pending_model_switch", None)
+            _clear_persisted_pending_model_switch(session)
     if persist_global:
         _persist_model_switch(result)
     return {
@@ -7236,6 +7279,170 @@ def _sync_agent_compression_with_config(sid: str, session: dict) -> None:
         )
 
 
+def _pending_switch_meta_key(session_key: str) -> str:
+    return f"pending_model_switch:{session_key}"
+
+
+def _gateway_model_intent_meta_key(session_key: str) -> str:
+    return f"gateway_model_intent:{session_key}"
+
+
+def _gateway_route_session_key(session: dict, db) -> str | None:
+    """Resolve a mirrored Desktop row to its canonical ``agent:...`` key."""
+    candidate = str(session.get("session_key") or "").strip()
+    if candidate.startswith("agent:"):
+        return candidate
+    if not candidate or db is None or not hasattr(db, "get_session"):
+        return None
+    try:
+        record = db.get_session(candidate) or {}
+    except Exception:
+        logger.debug("failed to resolve gateway routing key", exc_info=True)
+        return None
+    route_key = str(record.get("session_key") or "").strip()
+    return route_key if route_key.startswith("agent:") else None
+
+
+def _persist_gateway_model_intent(session: dict, route: dict) -> None:
+    """Publish the newest non-secret route in the owning profile database."""
+    model = str(route.get("model") or route.get("value") or "").strip()
+    if not model:
+        return
+    payload = {
+        "revision": str(route.get("revision") or uuid.uuid4().hex),
+        "model": model,
+        "provider": str(route.get("provider") or "").strip(),
+        "base_url": str(route.get("base_url") or "").strip(),
+    }
+    with _session_db(session) as db:
+        route_key = _gateway_route_session_key(session, db)
+        if db is not None and route_key:
+            db.set_meta(
+                _gateway_model_intent_meta_key(route_key),
+                json.dumps(payload, separators=(",", ":")),
+            )
+
+
+def _clear_gateway_model_intent(session: dict) -> None:
+    with _session_db(session) as db:
+        route_key = _gateway_route_session_key(session, db)
+        if db is not None and route_key and hasattr(db, "delete_meta"):
+            db.delete_meta(_gateway_model_intent_meta_key(route_key))
+
+
+def _pending_switch_storage_key(session: dict, db) -> str | None:
+    return _gateway_route_session_key(session, db) or str(
+        session.get("session_key") or ""
+    ).strip() or None
+
+
+def _persist_pending_model_switch(session: dict, pending: dict) -> None:
+    # Persist a busy-session switch in the owning profile database.
+    with _session_db(session) as db:
+        storage_key = _pending_switch_storage_key(session, db)
+        if db is None or not storage_key or not hasattr(db, "set_meta"):
+            return
+        try:
+            db.set_meta(
+                _pending_switch_meta_key(storage_key),
+                json.dumps(
+                    {
+                        "revision": str(pending.get("revision") or ""),
+                        "raw": str(pending.get("raw") or ""),
+                        "confirm_expensive_model": bool(
+                            pending.get("confirm_expensive_model")
+                        ),
+                        "display_model": str(pending.get("display_model") or ""),
+                        "display_provider": str(pending.get("display_provider") or ""),
+                    }
+                ),
+            )
+        except Exception:
+            logger.debug("failed to persist pending model switch", exc_info=True)
+
+
+def _clear_persisted_pending_model_switch(
+    session: dict, *, expected_revision: str | None = None
+) -> None:
+    with _session_db(session) as db:
+        storage_key = _pending_switch_storage_key(session, db)
+        if db is None or not storage_key or not hasattr(db, "delete_meta"):
+            return
+        key = _pending_switch_meta_key(storage_key)
+        try:
+            if not expected_revision:
+                db.delete_meta(key)
+                return
+            raw = db.get_meta(key)
+            if not raw:
+                return
+            data = json.loads(raw)
+            if str(data.get("revision") or "") != expected_revision:
+                return
+            db.delete_meta_if_value(key, raw)
+        except Exception:
+            logger.debug("failed to clear persisted pending model switch", exc_info=True)
+
+
+def _migrate_persisted_pending_model_switch(
+    old_key: str, new_key: str, session: dict
+) -> None:
+    # Gateway sessions use a stable agent:... key; local sessions rotate ids.
+    old_key = str(old_key or "").strip()
+    new_key = str(new_key or "").strip()
+    if not old_key or not new_key or old_key == new_key:
+        return
+    with _session_db(session) as db:
+        if _gateway_route_session_key(session, db):
+            return
+        if db is None or not hasattr(db, "get_meta") or not hasattr(db, "set_meta"):
+            return
+        old_meta = _pending_switch_meta_key(old_key)
+        try:
+            value = db.get_meta(old_meta)
+            if not value:
+                return
+            db.set_meta(_pending_switch_meta_key(new_key), value)
+            if hasattr(db, "delete_meta"):
+                db.delete_meta(old_meta)
+        except Exception:
+            logger.debug("failed to migrate persisted pending model switch", exc_info=True)
+
+
+def _rehydrate_pending_model_switch(session: dict) -> None:
+    # Restore a queued switch from the owning profile database.
+    if (
+        session.get("pending_model_switch")
+        or session.get("_pending_model_switch_consuming")
+    ):
+        return
+    with _session_db(session) as db:
+        storage_key = _pending_switch_storage_key(session, db)
+        if db is None or not storage_key or not hasattr(db, "get_meta"):
+            return
+        try:
+            raw_value = db.get_meta(_pending_switch_meta_key(storage_key))
+            if not raw_value:
+                return
+            data = json.loads(raw_value)
+            if not isinstance(data, dict) or not str(data.get("raw") or "").strip():
+                return
+            session["pending_model_switch"] = {
+                "revision": str(data.get("revision") or ""),
+                "raw": str(data.get("raw") or ""),
+                "confirm_expensive_model": bool(data.get("confirm_expensive_model")),
+                "display_model": str(data.get("display_model") or ""),
+                "display_provider": str(data.get("display_provider") or ""),
+            }
+            logger.info(
+                "Rehydrated persisted pending model switch for %s: %s",
+                storage_key,
+                data.get("raw"),
+            )
+        except Exception:
+            logger.debug("failed to rehydrate pending model switch", exc_info=True)
+
+
 def _apply_pending_model_switch(sid: str, session: dict) -> None:
     """Apply a model switch queued while a turn was running.
 
@@ -7250,12 +7457,14 @@ def _apply_pending_model_switch(sid: str, session: dict) -> None:
     pending = session.pop("pending_model_switch", None)
     if not pending or session.get("agent") is None:
         return
+    session["_pending_model_switch_consuming"] = True
     try:
         result = _apply_model_switch(
             sid,
             session,
             pending["raw"],
             confirm_expensive_model=bool(pending.get("confirm_expensive_model")),
+            pending_revision_to_consume=str(pending.get("revision") or "") or None,
         )
         # A queued pick is a deliberate user action; honour the expensive-model
         # confirm by NOT applying it silently — surface the warning and drop the
@@ -7266,12 +7475,21 @@ def _apply_pending_model_switch(sid: str, session: dict) -> None:
                 sid,
                 {"message": result.get("confirm_message") or result.get("warning") or ""},
             )
+        # Only consume the durable intent after the switch path completed.
+        # An exception keeps it on disk so the next turn can retry. The revision
+        # guard preserves a newer pick that arrived while this one was applied.
+        _clear_persisted_pending_model_switch(
+            session,
+            expected_revision=str(pending.get("revision") or "") or None,
+        )
     except Exception as e:
         _emit(
             "error",
             sid,
             {"message": f"Could not switch model: {e}"},
         )
+    finally:
+        session.pop("_pending_model_switch_consuming", None)
 
 
 class CompressionLockHeld(Exception):
@@ -7502,6 +7720,14 @@ def _sync_session_key_after_compress(
 
     if clear_pending_title:
         session["pending_title"] = None
+    # A queued model switch is persisted under the OLD session id; migrate
+    # the durable copy so the next turn's rehydrate (keyed on the rotated
+    # session_key) still finds it. In-memory copy rides the session dict
+    # unchanged.
+    try:
+        _migrate_persisted_pending_model_switch(old_key, new_session_id, session)
+    except Exception:
+        logger.debug("pending model switch migration failed", exc_info=True)
     if restart_slash_worker:
         try:
             _restart_slash_worker(sid, session)
@@ -7721,6 +7947,11 @@ def _session_info(agent, session: dict | None = None) -> dict:
             if candidate.get("agent") is agent:
                 session = candidate
                 break
+    # Restore the durable queued intent before reporting runtime metadata so a
+    # freshly resumed session immediately shows "applies next turn" — not only
+    # after the next prompt starts.
+    if session is not None:
+        _rehydrate_pending_model_switch(session)
     mirror = _metadata_mirror(session)
     cwd = _display_session_cwd(session)
     session_key = str(
@@ -7780,6 +8011,11 @@ def _session_info(agent, session: dict | None = None) -> dict:
         "model": pending_model or mirror.get("model", getattr(agent, "model", "")),
         "provider": pending_provider
         or mirror.get("provider", getattr(agent, "provider", "")),
+        # True while a queued switch awaits the next turn: `model` above is
+        # the PENDING pick, not the model serving the current turn. Lets the
+        # UI badge the selector honestly ("applies next turn") instead of
+        # implying the swap already happened (GLM→SOL incident).
+        "model_switch_pending": bool(pending_model),
         "reasoning_effort": reasoning_effort,
         "service_tier": service_tier,
         "fast": service_tier == "priority",
@@ -9010,6 +9246,12 @@ def _reset_session_agent(sid: str, session: dict) -> dict:
         session.pop("create_reasoning_override", None)
         session.pop("create_service_tier_override", None)
         session.pop("one_turn_model_restore", None)
+        # A queued pick belongs to the OLD conversation too — without this
+        # the durable copy would resurrect it on the fresh session's first
+        # turn.
+        session.pop("pending_model_switch", None)
+        _clear_persisted_pending_model_switch(session)
+        _clear_gateway_model_intent(session)
         new_agent = _make_agent(
             sid,
             session["session_key"],
@@ -13356,6 +13598,11 @@ def _run_prompt_submit(
                 # apply it now, on the turn thread before the first model call,
                 # so this turn runs on the model the user chose. Runs before the
                 # config sync so an explicit pick wins over a config.yaml change.
+                # Rehydrate a durably-persisted pick first: a serve restart
+                # between the queue and this turn cleared the in-memory copy
+                # (GLM→SOL incident), so restore it here and let apply consume
+                # + delete it exactly once.
+                _rehydrate_pending_model_switch(session)
                 _apply_pending_model_switch(sid, session)
                 _sync_agent_model_with_config(sid, session)
                 _sync_agent_compression_with_config(sid, session)
@@ -14655,7 +14902,38 @@ def _(rid, params: dict) -> dict:
                                     "deferred": False,
                                 },
                             )
+                    # Canonical dry-run resolution: aliases, provider inference,
+                    # endpoint and expensive-model confirmation all match the
+                    # real switch path, without touching the in-flight agent.
+                    with _session_profile_runtime_scope(session):
+                        resolved_route = _apply_model_switch(
+                            params.get("session_id", ""),
+                            session,
+                            value,
+                            confirm_expensive_model=confirmed,
+                            pin_session_override=False,
+                            parsed_flags=parsed,
+                            resolve_only=True,
+                        )
+                    if resolved_route.get("confirm_required"):
+                        return _ok(
+                            rid,
+                            {
+                                "key": key,
+                                "value": resolved_route.get("value") or pending_model,
+                                "warning": resolved_route.get("warning") or "",
+                                "confirm_required": True,
+                                "confirm_message": resolved_route.get("confirm_message") or "",
+                                "scope": "session",
+                                "deferred": False,
+                            },
+                        )
+                    pending_model = str(resolved_route.get("model") or pending_model)
+                    pending_provider = str(resolved_route.get("provider") or pending_provider)
+                    intent_revision = uuid.uuid4().hex
+                    resolved_route["revision"] = intent_revision
                     session["pending_model_switch"] = {
+                        "revision": intent_revision,
                         "raw": value,
                         "confirm_expensive_model": confirmed,
                         # The resolved model/provider the next turn will run on.
@@ -14665,6 +14943,22 @@ def _(rid, params: dict) -> dict:
                         "display_model": pending_model,
                         "display_provider": pending_provider,
                     }
+                    # Durable copy: a serve restart between the pick and the
+                    # next turn used to silently drop it (GLM→SOL incident) —
+                    # rehydrated at turn start, deleted once applied.
+                    _persist_pending_model_switch(
+                        session, session["pending_model_switch"]
+                    )
+                    # Durable last-write-wins intent for the separate messaging
+                    # gateway. It contains no credentials; the gateway resolves
+                    # them inside the owning profile before the next turn.
+                    _persist_gateway_model_intent(session, resolved_route)
+                    if session.get("agent") is not None:
+                        _emit(
+                            "session.info",
+                            params.get("session_id", ""),
+                            _session_info(session["agent"], session),
+                        )
                     return _ok(
                         rid,
                         {

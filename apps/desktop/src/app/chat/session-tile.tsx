@@ -146,6 +146,7 @@ function buildTileView(storedSessionId: string): SessionView {
     $messages,
     $messagesEmpty: computed($messages, messages => messages.length === 0),
     $model: computed($state, state => state?.model ?? ''),
+    $modelSwitchPending: computed($state, state => state?.modelSwitchPending ?? false),
     $provider: computed($state, state => state?.provider ?? ''),
     $reasoningEffort: computed($state, state => state?.reasoningEffort ?? ''),
     $runtimeId,

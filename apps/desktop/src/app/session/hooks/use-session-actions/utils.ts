@@ -1577,7 +1577,16 @@ export async function resolveSessionOwner(storedSessionId: null | string): Promi
 type SessionRuntimeStatePatch = Partial<
   Pick<
     ClientSessionState,
-    'branch' | 'cwd' | 'fast' | 'model' | 'personality' | 'provider' | 'reasoningEffort' | 'serviceTier' | 'yolo'
+    'branch' |
+      'cwd' |
+      'fast' |
+      'model' |
+      'modelSwitchPending' |
+      'personality' |
+      'provider' |
+      'reasoningEffort' |
+      'serviceTier' |
+      'yolo'
   >
 >
 
@@ -1674,6 +1683,10 @@ export function applyRuntimeInfo(
 
   if (typeof info.provider === 'string') {
     sessionState.provider = info.provider
+  }
+
+  if (typeof info.model_switch_pending === 'boolean') {
+    sessionState.modelSwitchPending = info.model_switch_pending
   }
 
   // Empty string is authoritative, not "no opinion": a detached/bare session

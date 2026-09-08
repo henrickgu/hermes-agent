@@ -6,7 +6,16 @@ import type { ClientSessionState } from '../../../types'
 type SessionRuntimeStatePatch = Partial<
   Pick<
     ClientSessionState,
-    'branch' | 'cwd' | 'fast' | 'model' | 'personality' | 'provider' | 'reasoningEffort' | 'serviceTier' | 'yolo'
+    'branch' |
+      'cwd' |
+      'fast' |
+      'model' |
+      'modelSwitchPending' |
+      'personality' |
+      'provider' |
+      'reasoningEffort' |
+      'serviceTier' |
+      'yolo'
   >
 >
 
@@ -19,6 +28,10 @@ export function sessionInfoStatePatch(payload: GatewayEventPayload | undefined):
 
   if (typeof payload?.provider === 'string') {
     patch.provider = payload.provider || ''
+  }
+
+  if (typeof payload?.model_switch_pending === 'boolean') {
+    patch.modelSwitchPending = payload.model_switch_pending
   }
 
   if (typeof payload?.cwd === 'string') {
@@ -68,6 +81,7 @@ export function applySessionInfoStatePatch(
     (patch.cwd === undefined || patch.cwd === state.cwd) &&
     (patch.fast === undefined || patch.fast === state.fast) &&
     (patch.model === undefined || patch.model === state.model) &&
+    (patch.modelSwitchPending === undefined || patch.modelSwitchPending === state.modelSwitchPending) &&
     (patch.personality === undefined || patch.personality === state.personality) &&
     (patch.provider === undefined || patch.provider === state.provider) &&
     (patch.reasoningEffort === undefined || patch.reasoningEffort === state.reasoningEffort) &&

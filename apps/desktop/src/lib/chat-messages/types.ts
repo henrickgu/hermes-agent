@@ -73,6 +73,7 @@ export type GatewayEventPayload = {
   todos?: unknown
   revision?: number
   model?: string
+  model_switch_pending?: boolean
   provider?: string
   reasoning_effort?: string
   service_tier?: string

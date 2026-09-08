@@ -3309,6 +3309,7 @@ export const zh: Translations = {
       switchModel: '切换模型',
       openModelPicker: '打开模型选择器',
       modelPinned: '已由你固定；新对话将使用此模型而非“设置”中的默认模型',
+      modelSwitchPending: '已排队 — 下轮生效',
       modelTitle: (provider, model) => `模型 · ${provider}: ${model}`,
       providerModelTitle: (provider, model) => `${provider} · ${model}`
     }

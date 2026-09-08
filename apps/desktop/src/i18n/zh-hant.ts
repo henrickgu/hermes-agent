@@ -2646,6 +2646,7 @@ export const zhHant = defineLocale({
       switchModel: '切換模型',
       openModelPicker: '開啟模型選擇器',
       modelPinned: '已由你固定；新對話將使用此模型而非「設定」中的預設模型',
+      modelSwitchPending: '已排隊 — 下輪生效',
       modelTitle: (provider, model) => `模型 · ${provider}：${model}`,
       providerModelTitle: (provider, model) => `${provider} · ${model}`
     }

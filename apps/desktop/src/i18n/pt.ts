@@ -3361,6 +3361,7 @@ export const pt = defineLocale({
       switchModel: 'Trocar modelo',
       openModelPicker: 'Abrir seletor de modelo',
       modelPinned: 'fixado por você; novos chats usam este em vez do padrão das Configurações',
+      modelSwitchPending: 'troca agendada — entra no próximo turno',
       modelTitle: (provider: string, model: string) => `Modelo · ${provider}: ${model}`,
       providerModelTitle: (provider: string, model: string) => `${provider} · ${model}`
     }

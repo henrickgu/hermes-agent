@@ -3148,6 +3148,7 @@ export const ru = defineLocale({
       switchModel: 'Сменить модель',
       openModelPicker: 'Открыть выбор модели',
       modelPinned: 'закреплено вами; новые чаты используют её вместо модели по умолчанию из настроек',
+      modelSwitchPending: 'в очереди — применится со следующего хода',
       modelTitle: (provider, model) => `Модель · ${provider}: ${model}`,
       providerModelTitle: (provider, model) => `${provider} · ${model}`
     }

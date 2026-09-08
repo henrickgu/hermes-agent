@@ -16276,6 +16276,26 @@ class SessionDB(SessionSearchMixin, SessionSchemaMixin, SessionPortabilityMixin)
 
         return self._execute_write(_do)
 
+    def delete_meta(self, key: str) -> None:
+        """Remove a key from the state_meta store (no-op when absent)."""
+
+        def _do(conn):
+            conn.execute("DELETE FROM state_meta WHERE key = ?", (key,))
+
+        self._execute_write(_do)
+
+    def delete_meta_if_value(self, key: str, expected_value: str) -> bool:
+        """Atomically remove *key* only when its value is still expected."""
+
+        def _do(conn):
+            cursor = conn.execute(
+                "DELETE FROM state_meta WHERE key = ? AND value = ?",
+                (key, expected_value),
+            )
+            return bool(cursor.rowcount)
+
+        return bool(self._execute_write(_do))
+
     def list_meta_prefix(self, prefix: str) -> List[Tuple[str, str]]:
         """Return ``[(key, value), ...]`` for state_meta keys with ``prefix``.
 
