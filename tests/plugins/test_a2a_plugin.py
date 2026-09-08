@@ -614,7 +614,7 @@ class TestReplyCapture:
         async def run():
             interim = await adapter.send(
                 "ctx-final",
-                "⏩ Steered into current run (iteration 1/200).",
+                "⏩ Mensagem incorporada à execução atual (iteração 1/200).",
                 metadata={"expect_edits": True},
             )
             assert interim.success is True

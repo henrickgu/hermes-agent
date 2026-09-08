@@ -875,8 +875,8 @@ async def test_restart_notifies_home_channel_even_without_active_sessions():
     await runner._notify_active_sessions_of_shutdown()
 
     assert adapter.sent == [
-        "⚠️ Gateway restarting — Your current task will be interrupted. "
-        "Send any message after restart and I'll try to resume where you left off."
+        "⚠️ Gateway reiniciando — Sua tarefa atual será interrompida. "
+        "Envie qualquer mensagem depois da reinicialização e eu tento retomar de onde parei."
     ]
 
 

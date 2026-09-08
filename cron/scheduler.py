@@ -3271,11 +3271,11 @@ def _deliver_result(
         task_name = job.get("name", job["id"])
         job_id = job.get("id", "")
         delivery_content = (
-            f"Cronjob Response: {task_name}\n"
+            f"Resposta do agendamento: {task_name}\n"
             f"(job_id: {job_id})\n"
             f"-------------\n\n"
             f"{content}\n\n"
-            f"To stop or manage this job, send me a new message (e.g. \"stop reminder {task_name}\")."
+            f"Para parar ou gerenciar este job, me mande uma mensagem (ex.: \"parar lembrete {task_name}\")."
         )
     else:
         delivery_content = content
@@ -5921,7 +5921,7 @@ def run_job(
             # error so the user knows the watchdog itself broke — silent
             # failure for an alerting job is the worst-case outcome.
             alert = (
-                f"⚠ Cron watchdog '{job_name}' script failed\n\n"
+                f"⚠ O script do job '{job_name}' falhou\n\n"
                 f"{output}\n\n"
                 f"Time: {now_iso}"
             )

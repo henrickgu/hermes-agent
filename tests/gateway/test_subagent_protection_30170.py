@@ -192,7 +192,7 @@ class TestBusyHandlerDemotesInterruptForSubagents:
 
         parent.interrupt.assert_called_once_with("please stop")
         content = adapter._send_with_retry.call_args.kwargs.get("content", "")
-        assert "Interrupting" in content
+        assert "Interrompendo" in content
         assert "Subagent" not in content
 
     @pytest.mark.asyncio
@@ -215,9 +215,9 @@ class TestBusyHandlerDemotesInterruptForSubagents:
         content = adapter._send_with_retry.call_args.kwargs.get("content", "")
         # The vanilla queue copy — NOT the #30170 "Subagent working" copy,
         # because the user explicitly asked for queue mode.
-        assert "Queued for the next turn" in content
-        assert "respond once the current task finishes" in content
-        assert "Subagent working" not in content
+        assert "Na fila para a próxima resposta" in content
+        assert "Respondo quando a tarefa atual terminar" in content
+        assert "Subagente trabalhando" not in content
 
     @pytest.mark.asyncio
     async def test_steer_mode_still_routes_through_running_agent_steer(

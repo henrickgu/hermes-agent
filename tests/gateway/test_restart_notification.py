@@ -198,7 +198,7 @@ async def test_send_home_channel_startup_notification_preserves_thread_metadata(
     assert delivered == {("telegram", "parent-42", "777")}
     adapter.send.assert_called_once_with(
         "parent-42",
-        "♻️ Gateway online — Hermes is back and ready.",
+        "♻️ Gateway online — o Hermes voltou e está pronto.",
         metadata={
             "thread_id": "777",
             "telegram_dm_topic_reply_fallback": True,
@@ -237,7 +237,7 @@ async def test_relay_fronted_logical_home_gets_startup_notification(tmp_path, mo
     assert relay.send_for_platform.await_args.args[:3] == (
         Platform.SLACK,
         "D123",
-        "♻️ Gateway online — Hermes is back and ready.",
+        "♻️ Gateway online — o Hermes voltou e está pronto.",
     )
     assert relay.send_for_platform.await_args.kwargs["metadata"]["user_id"] == "U123"
     assert relay.send_for_platform.await_args.kwargs["metadata"]["scope_id"] == "T123"
@@ -387,7 +387,7 @@ async def test_shutdown_notifications_use_cached_live_thread_source_when_origin_
 
     adapter.send.assert_awaited_once_with(
         "parent-42",
-        "⚠️ Gateway shutting down — Your current task will be interrupted.",
+        "⚠️ Gateway desligando — Sua tarefa atual será interrompida.",
         metadata={"thread_id": "topic-7"},
     )
 

@@ -1104,7 +1104,7 @@ def _synthetic_user_row(content: str) -> bool:
         "[System:", "[CONTEXT", "[PRIOR CONTEXT", "[IMPORTANT: Background",
         "[Your active task list", "[Planning state preserved",
         "[ASYNC DELEGATION", "[OUT-OF-BAND",
-        "Cronjob Response:",
+        "Cronjob Response:", "Resposta do agendamento:",
     )
     return stripped.startswith(_synthetic_prefixes)
 

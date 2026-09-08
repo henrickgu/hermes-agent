@@ -11625,47 +11625,47 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
                 if start_ts:
                     elapsed_min = int((now - start_ts) / 60)
                     if elapsed_min > 0:
-                        status_parts.append(f"{elapsed_min} min elapsed")
+                        status_parts.append(f"{elapsed_min} min decorridos")
                 if max_iter:
-                    status_parts.append(f"iteration {iteration}/{max_iter}")
+                    status_parts.append(f"iteração {iteration}/{max_iter}")
                 if current_tool:
-                    status_parts.append(f"running: {current_tool}")
+                    status_parts.append(f"rodando: {current_tool}")
             except Exception:
                 pass
 
         status_detail = f" ({', '.join(status_parts)})" if status_parts else ""
         if is_steer_mode:
             message = (
-                f"⏩ Steered into current run{status_detail}. "
-                f"Your message arrives after the next tool call."
+                f"⏩ Mensagem incorporada à execução atual{status_detail}. "
+                f"Chega após a próxima ferramenta."
             )
         elif is_redirect_mode:
             message = (
-                f"↪ Redirected current run{status_detail}. "
-                f"I'll adjust using your correction."
+                f"↪ Execução atual redirecionada{status_detail}. "
+                f"Vou ajustar com a sua correção."
             )
         elif is_queue_mode and demoted_for_subagents:
             # #30170 — explain the demotion so the user knows their
             # follow-up didn't accidentally kill the subagent and
             # discovers `/stop` as the explicit escape hatch.
             message = (
-                f"⏳ Subagent working{status_detail} — your message is queued for "
-                f"when it finishes (use /stop to cancel everything)."
+                f"⏳ Subagente trabalhando{status_detail} — sua mensagem entra na fila "
+                f"para quando ele terminar (use /stop para cancelar tudo)."
             )
         elif is_queue_mode and demoted_for_compression:
             message = (
-                f"⏳ Compressing context{status_detail} — your message is queued for "
-                f"when it finishes (use /stop to cancel everything)."
+                f"⏳ Compactando o contexto{status_detail} — sua mensagem entra na fila "
+                f"para quando isso terminar (use /stop para cancelar tudo)."
             )
         elif is_queue_mode:
             message = (
-                f"⏳ Queued for the next turn{status_detail}. "
-                f"I'll respond once the current task finishes."
+                f"⏳ Na fila para a próxima resposta{status_detail}. "
+                f"Respondo quando a tarefa atual terminar."
             )
         else:
             message = (
-                f"⚡ Interrupting current task{status_detail}. "
-                f"I'll respond to your message shortly."
+                f"⚡ Interrompendo a tarefa atual{status_detail}. "
+                f"Já respondo à sua mensagem."
             )
 
         # First-touch onboarding: the very first time a user sends a message
@@ -11936,12 +11936,12 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
         active = self._snapshot_running_agents()
         restart_source = self._restart_command_source if self._restart_requested else None
 
-        action = "restarting" if self._restart_requested else "shutting down"
+        action = "reiniciando" if self._restart_requested else "desligando"
         hint = (
-            "Your current task will be interrupted. "
-            "Send any message after restart and I'll try to resume where you left off."
+            "Sua tarefa atual será interrompida. "
+            "Envie qualquer mensagem depois da reinicialização e eu tento retomar de onde parei."
             if self._restart_requested
-            else "Your current task will be interrupted."
+            else "Sua tarefa atual será interrompida."
         )
         msg = f"⚠️ Gateway {action} — {hint}"
 
@@ -27353,7 +27353,7 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
             result = await transport.send(
                 platform,
                 str(chat_id),
-                "♻ Gateway restarted successfully. Your session continues.",
+                "♻ Gateway reiniciado. Sua sessão continua.",
                 metadata=_non_conversational_metadata(metadata, platform=platform),
             )
             # adapter.send() catches provider errors (e.g. "Chat not found")
@@ -27394,7 +27394,7 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
         """
         delivered: set[tuple[str, str, Optional[str]]] = set()
         skipped = skip_targets or set()
-        message = "♻️ Gateway online — Hermes is back and ready."
+        message = "♻️ Gateway online — o Hermes voltou e está pronto."
 
         for platform, platform_cfg in self.config.platforms.items():
             home = platform_cfg.home_channel

@@ -4789,13 +4789,16 @@ class MessageSender:
     @staticmethod
     def strip_cron_wrapper(content: str) -> str:
         """Strip scheduler cron header/footer wrapper for cleaner Yuanbao output."""
-        if not content.startswith("Cronjob Response: "):
+        if not any(content.startswith(p) for p in ("Cronjob Response: ", "Resposta do agendamento: ")):
             return content
 
         divider = "\n-------------\n\n"
-        footer_prefix = '\n\nTo stop or manage this job, send me a new message (e.g. "stop reminder '
+        footer_prefixes = (
+            '\n\nTo stop or manage this job, send me a new message (e.g. "stop reminder ',
+            '\n\nPara parar ou gerenciar este job, me mande uma mensagem (ex.: "parar lembrete ',
+        )
+        footer_pos = max(content.rfind(p) for p in footer_prefixes)
         divider_pos = content.find(divider)
-        footer_pos = content.rfind(footer_prefix)
         if divider_pos < 0 or footer_pos < 0 or footer_pos <= divider_pos:
             return content
 
