@@ -1070,12 +1070,14 @@ def _apply_pricing(
     renders strings — identical formatting to the CLI picker. All failures
     are swallowed (best-effort): a row simply gets no ``pricing`` key.
     """
-    from hermes_cli.models import (
+    from hermes_cli.models_pricing import (
         _format_price_per_mtok,
-        check_nous_free_tier,
         compute_sale_discount,
-        get_cached_nous_free_tier,
         get_pricing_for_provider,
+    )
+    from hermes_cli.models import (
+        check_nous_free_tier,
+        get_cached_nous_free_tier,
         partition_nous_models_by_tier,
     )
 
@@ -1246,7 +1248,7 @@ def _prewarm_pricing_async(
 ) -> Optional[Thread]:
     """Warm picker pricing caches without delaying the current payload."""
     from hermes_constants import hermes_home_key
-    from hermes_cli.models import pricing_cache_scope
+    from hermes_cli.models_pricing import pricing_cache_scope
 
     profile_key = hermes_home_key()
     endpoint_scope = tuple(
