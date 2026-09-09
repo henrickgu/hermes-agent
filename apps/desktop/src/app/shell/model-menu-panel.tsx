@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { useSessionView } from '@/app/chat/session-view'
 import { Codicon } from '@/components/ui/codicon'
 import { DropdownMenuItem, dropdownMenuRow } from '@/components/ui/dropdown-menu'
+import { Skeleton } from '@/components/ui/skeleton'
 import type { HermesGateway } from '@/hermes'
 import { useI18n } from '@/i18n'
 import { modelOptionsQueryKey, reconcileSelectionAfterCatalogRefresh, requestModelOptions } from '@/lib/model-options'
@@ -271,6 +272,26 @@ export function ModelMenuPanel({
     }
 
     const capabilities = providerRow?.capabilities?.[optionsModel]
+
+    // First catalog load with nothing cached yet: placeholder rows instead of
+    // the submenu. Painting the full generic scale here would flash wrong
+    // levels and repaint the moment the route's real effort vocabulary lands.
+    if (modelOptions.isPending && !modelOptions.data) {
+      return (
+        <>
+          {Array.from({ length: 3 }, (_, index) => (
+            <DropdownMenuItem
+              className={dropdownMenuRow}
+              disabled
+              key={index}
+              onSelect={event => event.preventDefault()}
+            >
+              <Skeleton className="h-4 w-full" />
+            </DropdownMenuItem>
+          ))}
+        </>
+      )
+    }
 
     if (!optionsModel || capabilities?.reasoning === false) {
       return (

@@ -302,11 +302,12 @@ function TileChat({
         <ModelMenuPanel
           mode="reasoning"
           onSelectModel={selectModel}
+          ownerConnectionId={ownerRoute?.connectionId || undefined}
           profile={ownerRoute?.targetProfile || ownerRoute?.profile || activeGatewayProfile}
           requestGateway={requestTileGateway}
         />
       ) : null,
-    [activeGatewayProfile, gatewayOpen, ownerRoute?.profile, ownerRoute?.targetProfile, requestTileGateway, selectModel]
+    [activeGatewayProfile, gatewayOpen, ownerRoute?.connectionId, ownerRoute?.profile, ownerRoute?.targetProfile, requestTileGateway, selectModel]
   )
 
   return (

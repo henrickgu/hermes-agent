@@ -2968,7 +2968,6 @@ export const pt = defineLocale({
       criterionLabel: 'Critério',
       dismissError: 'Descartar erro',
       dismissLoop: 'Descartar loop',
-      gateCommand: 'Comando',
       goalActions: 'Ações do objetivo',
       goalDetailsTitle: 'Detalhes do objetivo',
       heartbeatActive: 'Batimento ativo',
