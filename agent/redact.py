@@ -639,7 +639,32 @@ def redact_sensitive_text(text: str, *, force: bool = False, code_file: bool = F
     if "+" in text:
         text = _SIGNAL_PHONE_RE.sub(_redact_phone, text)
 
+    # [custom/henri-desktop] Brazilian PII: formatted CPF/CNPJ must never reach the
+    # model context. Only the *formatted* forms (ddd.ddd.ddd-dd / dd.ddd.ddd/dddd-dd)
+    # are masked — raw digit runs are left alone because WhatsApp JIDs and phone
+    # numbers are 10-13 digit runs and masking those breaks the XP batch flow. The
+    # sentinel keeps the final 2 check digits so "nome + final do CPF" lookups on
+    # local files still work while the identifying digits never leave the machine.
+    if _BR_CPF_RE.search(text) or _BR_CNPJ_RE.search(text):
+        text = _BR_CPF_RE.sub(_mask_br_document, text)
+        text = _BR_CNPJ_RE.sub(_mask_br_document, text)
+
     return text
+
+
+# [custom/henri-desktop] BR PII patterns. Lookaround guards ignore digit runs that
+# are part of something longer (timestamps, refs, file names) — only standalone
+# formatted documents match. Registered separately from _PREFIX_PATTERNS because
+# they have no vendor literal prefix (the registry's pre-screen gate requires one).
+_BR_CPF_RE = re.compile(r"(?<!\d)(\d{3})\.(\d{3})\.(\d{3})-(\d{2})(?!\d)")
+_BR_CNPJ_RE = re.compile(r"(?<!\d)(\d{2})\.(\d{3})\.(\d{3})/(\d{4})-(\d{2})(?!\d)")
+
+
+def _mask_br_document(m: re.Match) -> str:
+    """CPF/CNPJ → keeps separators + last 2 check digits, masks the rest."""
+    if len(m.groups()) == 4:  # CPF ddd.ddd.ddd-dd
+        return "***.***.***-" + m.group(4)
+    return "**.***.***/****-" + m.group(5)  # CNPJ dd.ddd.ddd/dddd-dd
 
 
 # Commands whose stdout is an env-var dump: terminal redaction runs the
