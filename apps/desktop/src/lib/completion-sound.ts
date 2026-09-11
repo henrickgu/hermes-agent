@@ -5,6 +5,8 @@ import { getAudioContext } from '@/lib/audio-context'
 import { ownsAmbientCue } from '@/store/ambient'
 import { $completionSoundVariantId, resolveCompletionSoundVariantId } from '@/store/completion-sound'
 import { $hapticsMuted } from '@/store/haptics'
+import { $activeSessionId } from '@/store/session'
+import { $sessionTiles } from '@/store/session-states'
 
 type OscType = OscillatorType
 
@@ -423,12 +425,38 @@ export function previewCompletionSound(variantId?: number) {
   playVariant(resolveCompletionSoundVariantId(variantId ?? $completionSoundVariantId.get()))
 }
 
+// The completion cue is an "answer arrived" signal: it must only fire for
+// sessions the user can actually see. The gateway stamps every message.complete
+// with its own session id — including hidden subagent/worker turns (spawned via
+// delegate tasks, cron, etc.) that never appear in the Sessions list — and
+// beeping for those played a "session finished" chime with nothing visibly
+// concluded. Visible = the focused chat, or the runtime bound to an open tile.
+// Off the visibility gate, the runtime-id keying and the mute check stay as-is.
+export function sessionIsVisible(sessionId: string): boolean {
+  if (!sessionId) {
+    return false
+  }
+
+  if ($activeSessionId.get() === sessionId) {
+    return true
+  }
+
+  return $sessionTiles.get().some(tile => tile.runtimeId === sessionId)
+}
+
 // Plays the selected completion cue on any `message.complete`. Pass a dedupeKey
 // (the session id) so only one window beeps when several are open — the mute
 // check runs first, so a muted window never claims the cue out from under an
 // audible peer.
 export function playCompletionSound(dedupeKey?: string) {
   if ($hapticsMuted.get()) {
+    return
+  }
+
+  // Hidden-session gate: background workers end turns too — stay silent for
+  // anything not in the focused chat or an open tile. Sessions without an id
+  // keep the legacy always-play behavior.
+  if (dedupeKey && !sessionIsVisible(dedupeKey)) {
     return
   }
 
