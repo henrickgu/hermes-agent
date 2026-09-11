@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  carryReasoningEffort,
   DEFAULT_REASONING_EFFORT,
   effortsForModel,
   isReasoningEffort,
   isThinkingEnabled,
+  nearestReasoningEffort,
   REASONING_EFFORT_VALUES,
   REASONING_EFFORTS,
   reasoningEffortLabel,
@@ -60,25 +62,54 @@ describe('effortsForModel', () => {
   })
 
   it('maps the GLM-5.3 native vocabulary, collapsing max onto the top', () => {
-    expect(effortsForModel(['low', 'medium', 'high', 'max'])).toEqual([
-      'low',
-      'medium',
-      'high',
-      'ultra'
-    ])
+    expect(effortsForModel(['low', 'medium', 'high', 'max'])).toEqual(['low', 'medium', 'high', 'ultra'])
   })
 
   it('keeps native xhigh rows and drops unknown wire names', () => {
-    expect(effortsForModel(['none', 'low', 'medium', 'high', 'xhigh'])).toEqual([
-      'low',
-      'medium',
-      'high',
-      'xhigh'
-    ])
+    expect(effortsForModel(['none', 'low', 'medium', 'high', 'xhigh'])).toEqual(['low', 'medium', 'high', 'xhigh'])
   })
 
   it('never returns an empty menu', () => {
     expect(effortsForModel(['none'])).toEqual([...REASONING_EFFORTS])
     expect(effortsForModel(['bogus'])).toEqual([...REASONING_EFFORTS])
+  })
+})
+
+describe('nearestReasoningEffort', () => {
+  it('keeps a level the list already supports', () => {
+    expect(nearestReasoningEffort(['low', 'medium', 'high', 'ultra'], 'high')).toBe('high')
+  })
+
+  it('walks DOWN first when the exact level is missing', () => {
+    // GLM-5.2 (high/max only) receiving Extra Alto (xhigh): errs weaker.
+    expect(nearestReasoningEffort(['high', 'ultra'], 'xhigh')).toBe('high')
+    expect(nearestReasoningEffort(['low', 'high'], 'medium')).toBe('low')
+  })
+
+  it('walks UP when there is nothing weaker', () => {
+    expect(nearestReasoningEffort(['high', 'ultra'], 'low')).toBe('high')
+  })
+
+  it('never fails on a single-entry list', () => {
+    expect(nearestReasoningEffort(['ultra'], 'low')).toBe('ultra')
+  })
+})
+
+describe('carryReasoningEffort', () => {
+  it('carries the clamped level when the new route lacks the exact one', () => {
+    // GLM-5.3 (low/medium/high/max→Ultra) receiving Extra Alto (xhigh)
+    // clamps to high — the closest supported level below it.
+    expect(carryReasoningEffort('xhigh', ['low', 'medium', 'high', 'max'])).toBe('high')
+  })
+
+  it('carries nothing when the level is not a real level (none/empty/garbage)', () => {
+    expect(carryReasoningEffort('none', ['low', 'high'])).toBeUndefined()
+    expect(carryReasoningEffort('', ['low', 'high'])).toBeUndefined()
+    expect(carryReasoningEffort('minimal', ['low', 'high'])).toBeUndefined()
+  })
+
+  it('carries nothing when the new route has no known vocabulary', () => {
+    expect(carryReasoningEffort('high', undefined)).toBeUndefined()
+    expect(carryReasoningEffort('high', [])).toBeUndefined()
   })
 })

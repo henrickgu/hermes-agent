@@ -7,18 +7,22 @@ import { useI18n } from '@/i18n'
 import { isBusySessionModelSwitch } from '@/lib/gateway-rpc'
 import { surfaceModelSwitchConfirm } from '@/lib/guarded-model-switch'
 import { manualPickRemoved, modelOptionsQueryKey } from '@/lib/model-options'
+import { carryReasoningEffort } from '@/lib/reasoning-effort'
 import { notifyError } from '@/store/notifications'
+import { getModelPreset, setModelPreset } from '@/store/model-presets'
 import { $activeGatewayProfile } from '@/store/profile'
 import {
   $activeSessionId,
   $currentModel,
   $currentProvider,
+  $currentReasoningEffort,
   getComposerSelectionGeneration,
   getCurrentModelSource,
   markComposerSelectionManual,
   setCurrentModel,
   setCurrentModelSource,
-  setCurrentProvider
+  setCurrentProvider,
+  setCurrentReasoningEffort
 } from '@/store/session'
 import { $sessionStates, sessionTileDelegate } from '@/store/session-states'
 import type { ModelOptionsResponse } from '@/types/hermes'
@@ -180,6 +184,74 @@ export function useModelControls({
     [cacheOwnerConnectionId, cacheProfile, queryClient]
   )
 
+  // Carry the outgoing model's effort level onto the newly selected model:
+  // switching models must move the effort pill along instead of leaving it
+  // stale until the next manual effort click. `previous` must be snapshotted
+  // by the caller BEFORE the optimistic selection paint clobbers the stores.
+  // The source level is the surface's live level (the pill the user was
+  // looking at), else the old model's remembered preset, clamped into the
+  // NEW route's official vocabulary. A route with no known vocabulary carries
+  // nothing — same honest fallback the effort menu itself uses (never guess
+  // levels the transport may reject). Reads capabilities from the
+  // model-options cache the switch just repainted; a cold cache (no
+  // capabilities yet) therefore carries nothing.
+  const carryEffortOver = useCallback(
+    (
+      liveSessionId: null | string,
+      previous: { effort: string; model: string; provider: string },
+      target: { model: string; provider: string }
+    ) => {
+      const catalogProviders = (
+        queryClient.getQueryData<ModelOptionsResponse>(
+          modelOptionsQueryKey(cacheProfile || $activeGatewayProfile.get(), liveSessionId, cacheOwnerConnectionId)
+        )?.providers ?? []
+      ).concat(
+        queryClient.getQueryData<ModelOptionsResponse>(
+          modelOptionsQueryKey(cacheProfile || $activeGatewayProfile.get(), null, cacheOwnerConnectionId)
+        )?.providers ?? []
+      )
+
+      const findRow = (provider: string) =>
+        catalogProviders.find(row => row.slug === provider || (row.aliases?.includes(provider) ?? false))
+
+      // Preset rows are keyed on the CANONICAL provider slug — a session can
+      // report an alias (`custom:<key>`), so resolve before keying (same rule
+      // as the effort menu's resolvePresetProvider).
+      const sourceEffort =
+        previous.effort ||
+        getModelPreset(findRow(previous.provider)?.slug || previous.provider, previous.model).effort ||
+        ''
+
+      const carried = carryReasoningEffort(
+        sourceEffort,
+        findRow(target.provider)?.capabilities?.[target.model]?.native_efforts
+      )
+
+      if (!carried) {
+        return
+      }
+
+      if (!liveSessionId || liveSessionId === $activeSessionId.get()) {
+        setCurrentReasoningEffort(carried)
+      } else {
+        sessionTileDelegate()?.updateSession(liveSessionId, state => ({ ...state, reasoningEffort: carried }))
+      }
+
+      // Remember the level as the new model's preset so reopening this model
+      // (here or on any surface) restores the carried level.
+      setModelPreset(target.provider, target.model, { effort: carried })
+
+      if (liveSessionId) {
+        void requestGateway('config.set', { key: 'reasoning', session_id: liveSessionId, value: carried }).catch(
+          err => {
+            notifyError(err, t.shell.modelOptions.updateFailed)
+          }
+        )
+      }
+    },
+    [cacheOwnerConnectionId, cacheProfile, queryClient, requestGateway, t.shell.modelOptions.updateFailed]
+  )
+
   // Returns whether the switch was applied so callers can await it before
   // applying follow-up changes. `true` means applied (or deferred/busy-queued
   // for the next turn). `false` means NOT applied — either pending
@@ -211,6 +283,13 @@ export function useModelControls({
 
       const prevSource = getCurrentModelSource()
       const liveGatewayProfile = cacheProfile || $activeGatewayProfile.get()
+
+      // Snapshot the outgoing effort level BEFORE the optimistic paint —
+      // paintSelection overwrites the same atoms this reads. carryEffortOver
+      // moves this level onto the new model once the switch lands.
+      const prevEffort = touchesPrimary
+        ? $currentReasoningEffort.get()
+        : ($sessionStates.get()[liveSessionId!]?.reasoningEffort ?? '')
 
       const paintSelection = () => {
         if (touchesPrimary) {
@@ -300,6 +379,15 @@ export function useModelControls({
         }
       }
 
+      // The switch is going through: move the outgoing effort level onto the
+      // new model (carry-over). No live session → composer state only.
+      const carryEffort = () =>
+        carryEffortOver(
+          liveSessionId,
+          { effort: prevEffort, model: prevModel, provider: prevProvider },
+          { model: selection.model, provider: selection.provider }
+        )
+
       try {
         const result = await requestSwitch()
 
@@ -312,7 +400,10 @@ export function useModelControls({
             confirmLabel: t.common.confirm,
             confirmMessage: result.confirm_message,
             failureMessage: copy.modelSwitchFailed,
-            finish: finishSwitch,
+            finish: result => {
+              finishSwitch(result)
+              carryEffort()
+            },
             // Staleness guard — the warning can linger while the user picks
             // a different model or switches sessions. Clicking Confirm must
             // not clobber the newer choice: bail if the live state no longer
@@ -337,6 +428,7 @@ export function useModelControls({
         }
 
         finishSwitch(result)
+        carryEffort()
 
         return true
       } catch (err) {
@@ -346,6 +438,11 @@ export function useModelControls({
         // what the NEXT turn runs anyway. Current gateways never take this
         // path — they answer `deferred`.
         if (isBusySessionModelSwitch(err)) {
+          // The pick stays painted and runs at the next turn — the effort
+          // pill must follow it now, or it would show the outgoing model's
+          // level against a model that no longer uses it.
+          carryEffort()
+
           return true
         }
 

@@ -93,3 +93,43 @@ export function effortsForModel(nativeEfforts?: string[]): ReasoningEffort[] {
   // full scale rather than a menu with no rows.
   return out.length > 0 ? out : [...REASONING_EFFORTS]
 }
+
+/** The supported level closest to `from`: an exact hit stays; otherwise walk
+ *  DOWN first (a route without the level errs weaker, never stronger), then
+ *  up. `list` is a rendered-vocabulary output of `effortsForModel`. */
+export function nearestReasoningEffort(list: ReasoningEffort[], from: ReasoningEffort): ReasoningEffort {
+  if (list.includes(from)) {
+    return from
+  }
+
+  const order = (value: ReasoningEffort): number => REASONING_EFFORTS.indexOf(value)
+  const fromOrder = order(from)
+  const weaker = list.filter(value => order(value) < fromOrder)
+
+  if (weaker.length > 0) {
+    return weaker[weaker.length - 1]!
+  }
+
+  const stronger = list.filter(value => order(value) > fromOrder)
+
+  return stronger[0] ?? from
+}
+
+/** The level a NEW model should start at when a switch carries the old
+ *  level over: `effort` kept within the new route's official vocabulary, or
+ *  undefined when there is nothing safe to carry (empty/unknown level, or a
+ *  route whose vocabulary is unknown — never guess, leave the level alone).
+ *  `none` is not a level and never carries: the Thinking toggle owns it. */
+export function carryReasoningEffort(effort: string, nativeEfforts?: string[]): ReasoningEffort | undefined {
+  if (!isReasoningEffort(effort)) {
+    return undefined
+  }
+
+  // Unknown vocabulary — nothing safe to carry onto (full-scale fallback is a
+  // RENDERING fallback, not a guarantee the route accepts every level).
+  if (!nativeEfforts || nativeEfforts.length === 0) {
+    return undefined
+  }
+
+  return nearestReasoningEffort(effortsForModel(nativeEfforts), effort)
+}

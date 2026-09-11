@@ -10,11 +10,14 @@ import {
   $activeSessionId,
   $currentModel,
   $currentProvider,
+  $currentReasoningEffort,
   getCurrentModelSource,
   setCurrentModel,
   setCurrentModelSource,
-  setCurrentProvider
+  setCurrentProvider,
+  setCurrentReasoningEffort
 } from '@/store/session'
+import { $modelPresets, getModelPreset, setModelPreset } from '@/store/model-presets'
 import * as SessionStates from '@/store/session-states'
 
 import { deferred } from '../../../test/deferred'
@@ -50,6 +53,11 @@ vi.mock('@/i18n', () => ({
       },
       desktop: {
         modelSwitchFailed: 'Model switch failed'
+      },
+      shell: {
+        modelOptions: {
+          updateFailed: 'Update failed'
+        }
       }
     }
   })
@@ -87,6 +95,8 @@ describe('useModelControls', () => {
     setCurrentModel('')
     setCurrentModelSource('')
     setCurrentProvider('')
+    setCurrentReasoningEffort('')
+    $modelPresets.set({})
     sessionUpdate.mockReset()
     SessionStates.$sessionStates.set({})
   })
@@ -99,6 +109,8 @@ describe('useModelControls', () => {
     setCurrentModel('')
     setCurrentModelSource('')
     setCurrentProvider('')
+    setCurrentReasoningEffort('')
+    $modelPresets.set({})
     sessionUpdate.mockReset()
     SessionStates.$sessionStates.set({})
   })
@@ -760,5 +772,173 @@ describe('useModelControls', () => {
     expect(queryClient.getQueryData(ownerBKey)).toMatchObject({ model: 'old-b', provider: 'provider-b' })
     expect(queryClient.getQueryData(ambientAKey)).toMatchObject({ model: 'model-a', provider: 'provider-a' })
     expect(notifyError).toHaveBeenCalled()
+  })
+
+  it('carries the effort level onto the new model when switching (composer)', async () => {
+    const queryClient = new QueryClient()
+    $activeSessionId.set('session-1')
+    // Sol (openai-codex): low→xhigh→max. Native for the TARGET model below.
+    setCurrentModel('gpt-5.6-sol')
+    setCurrentProvider('openai-codex')
+    setCurrentModelSource('manual')
+    setCurrentReasoningEffort('xhigh')
+    // The model-options cache the switch repaints: the NEW model's route
+    // exposes low/medium/high/max (GLM-5.3 vocabulary → UI low..ultra).
+    queryClient.setQueryData(modelOptionsQueryKey('default', 'session-1'), {
+      providers: [
+        {
+          capabilities: {
+            'glm-5.3': { fast: false, native_efforts: ['low', 'medium', 'high', 'max'], reasoning: true }
+          },
+          models: ['glm-5.3'],
+          name: 'Z.ai',
+          slug: 'zai'
+        }
+      ]
+    })
+
+    const requestGateway = vi.fn(async () => ({}) as never)
+    const { result } = renderHook(() => useModelControls({ queryClient, requestGateway }))
+
+    await expect(
+      result.current.selectModel({ model: 'glm-5.3', provider: 'zai', sessionId: 'session-1' })
+    ).resolves.toBe(true)
+
+    // model switch went scoped to the session…
+    expect(requestGateway).toHaveBeenCalledWith('config.set', {
+      key: 'model',
+      session_id: 'session-1',
+      value: 'glm-5.3 --provider zai'
+    })
+    // …and the effort carry-over followed: xhigh clamps to high (closest
+    // supported below), pushed to the session AND remembered as the preset.
+    expect(requestGateway).toHaveBeenCalledWith('config.set', {
+      key: 'reasoning',
+      session_id: 'session-1',
+      value: 'high'
+    })
+    expect(getModelPreset('zai', 'glm-5.3').effort).toBe('high')
+  })
+
+  it('carries the remembered preset level when the composer level is empty', async () => {
+    const queryClient = new QueryClient()
+    $activeSessionId.set('session-1')
+    setCurrentModel('gpt-5.6-sol')
+    setCurrentProvider('openai-codex')
+    setCurrentModelSource('manual')
+    setCurrentReasoningEffort('')
+    setModelPreset('openai-codex', 'gpt-5.6-sol', { effort: 'high' })
+    queryClient.setQueryData(modelOptionsQueryKey('default', 'session-1'), {
+      providers: [
+        {
+          capabilities: {
+            'glm-5.3': { fast: false, native_efforts: ['low', 'medium', 'high', 'max'], reasoning: true }
+          },
+          models: ['glm-5.3'],
+          name: 'Z.ai',
+          slug: 'zai'
+        }
+      ]
+    })
+
+    const requestGateway = vi.fn(async () => ({}) as never)
+    const { result } = renderHook(() => useModelControls({ queryClient, requestGateway }))
+
+    await result.current.selectModel({ model: 'glm-5.3', provider: 'zai', sessionId: 'session-1' })
+
+    expect(requestGateway).toHaveBeenCalledWith('config.set', {
+      key: 'reasoning',
+      session_id: 'session-1',
+      value: 'high'
+    })
+  })
+
+  it('carries nothing when the new route has no known effort vocabulary', async () => {
+    const queryClient = new QueryClient()
+    setCurrentModel('gpt-5.6-sol')
+    setCurrentProvider('openai-codex')
+    setCurrentModelSource('manual')
+    setCurrentReasoningEffort('xhigh')
+    queryClient.setQueryData(modelOptionsQueryKey('default', 'session-1'), {
+      providers: [
+        { capabilities: { mystery: { fast: false, reasoning: true } }, models: ['mystery'], name: 'X', slug: 'x' }
+      ]
+    })
+
+    const requestGateway = vi.fn(async () => ({}) as never)
+    const { result } = renderHook(() => useModelControls({ queryClient, requestGateway }))
+
+    await result.current.selectModel({ model: 'mystery', provider: 'x', sessionId: 'session-1' })
+
+    // Exactly ONE config.set (the model switch) — no effort write followed.
+    expect(requestGateway).toHaveBeenCalledTimes(1)
+    expect(requestGateway).toHaveBeenCalledWith('config.set', {
+      key: 'model',
+      session_id: 'session-1',
+      value: 'mystery --provider x --session'
+    })
+  })
+
+  it('carries the effort onto a tile session without touching the primary composer', async () => {
+    const queryClient = new QueryClient()
+    $activeSessionId.set('runtime-a')
+    SessionStates.$sessionStates.set({
+      'runtime-b': { model: 'gpt-5.6-sol', provider: 'openai-codex', reasoningEffort: 'xhigh' }
+    } as never)
+    queryClient.setQueryData(modelOptionsQueryKey('profile-b', 'runtime-b', 'connection-b'), {
+      providers: [
+        {
+          capabilities: {
+            'glm-5.3': { fast: false, native_efforts: ['low', 'medium', 'high', 'max'], reasoning: true }
+          },
+          models: ['glm-5.3'],
+          name: 'Z.ai',
+          slug: 'zai'
+        }
+      ]
+    })
+
+    const requestGateway = vi.fn(async () => ({}) as never)
+    const { result } = renderHook(() =>
+      useModelControls({
+        cacheOwnerConnectionId: 'connection-b',
+        cacheProfile: 'profile-b',
+        queryClient,
+        requestGateway
+      })
+    )
+
+    await result.current.selectModel({ model: 'glm-5.3', provider: 'zai', sessionId: 'runtime-b' })
+
+    expect(requestGateway).toHaveBeenCalledWith('config.set', {
+      key: 'reasoning',
+      session_id: 'runtime-b',
+      value: 'high'
+    })
+    // The tile's own slice got the carried level, not the primary composer.
+    expect(sessionUpdate).toHaveBeenCalledWith('runtime-b', expect.any(Function))
+
+    const updater = sessionUpdate.mock.calls.filter(call => call[0] === 'runtime-b').at(-1)?.[1] as (
+      state: ClientSessionState
+    ) => ClientSessionState
+
+    expect(
+      updater({
+        branch: '',
+        busy: false,
+        cwd: '',
+        messages: [],
+        model: 'gpt-5.6-sol',
+        personality: '',
+        provider: 'openai-codex',
+        reasoningEffort: 'xhigh',
+        serviceTier: '',
+        awaitingResponse: false,
+        fast: false,
+        yolo: false
+      } as never).reasoningEffort
+    ).toBe('high')
+    // Primary composer never moved.
+    expect($currentModel.get()).toBe('')
   })
 })

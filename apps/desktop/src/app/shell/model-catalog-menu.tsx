@@ -303,13 +303,17 @@ export function ModelCatalogMenu({
     const variantFast = !(caps?.fast ?? false) && !!family.fastId
     const targetId = variantFast && preset.fast === true ? family.fastId! : family.id
 
+    // Effort on a switch is owned by useModelControls' carry-over (the old
+    // model's level follows onto the new one, clamped to its vocabulary) —
+    // passing a remembered/default effort here would land AFTER the carry
+    // and overwrite it. Fast is not carried across models, so the preset
+    // keeps owning it.
     if ((await controller.select(targetId, provider.slug)) === false) {
       return
     }
 
     controller.applyPreset(
       {
-        effort: (caps?.reasoning ?? true) ? (preset.effort ?? defaultEffort) : undefined,
         fast: (caps?.fast ?? false) ? (preset.fast ?? false) : undefined
       },
       { model: family.id, provider: provider.slug }
