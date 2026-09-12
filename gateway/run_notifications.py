@@ -794,7 +794,7 @@ class GatewayNotificationsMixin:
         message = "♻️ Gateway online — o Hermes voltou e está pronto."
         free_tier_line = self._free_tier_startup_line()
         if free_tier_line:
-            message = f"{message}\n{free_tier_line}
+            message = f"{message}\n{free_tier_line}"
         for platform, platform_cfg, home, transport in self._home_channel_transports():
             if not platform_cfg.gateway_restart_notification:
                 logger.info(
