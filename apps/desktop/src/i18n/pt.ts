@@ -1,6 +1,84 @@
 import { defineLocale } from './define-locale'
 
 export const pt = defineLocale({
+  connectors: {
+    title: 'Conecte seus apps',
+    connect: 'Conectar',
+    connectError: 'Não foi possível iniciar a autorização. Tente novamente.',
+    connected: 'Conectado',
+    needsAuth: 'Acesso expirado',
+    grant: 'Reconectar',
+    refresh: 'Atualizar status',
+    statusError: 'Não foi possível verificar as conexões. Tente atualizar.',
+    opening: 'Abrindo login…',
+    waiting: 'Termine de conectar no seu navegador…',
+    timeout: 'Ainda esperando a autorização.',
+    cancel: 'Parar de esperar',
+    keepWaiting: 'Continuar esperando',
+    continue: 'Continuar no chat',
+    continueBusy: 'Esperando este turno terminar',
+    continueFailed: 'Não foi possível continuar. Tente novamente.',
+    skip: 'Agora não',
+    skipped: 'Ignorado',
+    retry: 'Tentar novamente',
+    execution: 'Ferramentas de conectores',
+    failed: 'Não foi possível conectar',
+    disabled: 'Indisponível',
+    unavailable: 'Conectores estão indisponíveis para esta sessão.',
+    search: 'Buscar um app',
+    empty: 'Nenhum app corresponde',
+    ownerMissing: 'Reabra esta conversa para gerenciar as conexões dela.',
+    disclaimer: 'Conectar é opcional. Autorize apenas os apps que você quer que o Hermes use.'
+  },
+
+  freeTier: {
+    providerName: 'Nous',
+    providerRowTitle: 'Nous · free tier',
+    providerRowPitch: 'Entre com uma conta Nous para desbloquear mais modelos e ferramentas.',
+    readyTitle: 'O Hermes está pronto.',
+    readyCaption: 'Grátis · conectores inclusos',
+    settingUp: 'Configurando inferência grátis…',
+    signIn: 'Entrar',
+    signInHeading: 'Entre com uma conta Nous para desbloquear mais modelos e ferramentas.',
+    signInInstead: 'Entrar com uma conta Nous',
+    alreadySignedInHeading: 'Já está conectado.',
+    alreadySignedInBody: 'Este Hermes já está conectado a uma conta Nous.',
+    signedIn: 'Conectado.',
+    signedInAs: (email: string) => `Conectado como ${email}`,
+    statusLabel: (model: string) => `Nous · ${model}`,
+    defaultModel: 'Modelo padrão',
+    openModelPicker: 'Abrir seletor de modelo',
+    otherProviders: 'Outros provedores',
+    begin: 'Começar',
+    change: 'Alterar',
+    codeBody: 'Digite este código no seu navegador para terminar o login.',
+    doNotShare: 'Não compartilhe este código.',
+    copyLink: 'Copiar link',
+    dismiss: 'Dispensar',
+    notNow: 'Agora não',
+    done: 'Pronto',
+    didNotComplete: 'Login não terminou',
+    errorBody: 'O login não terminou; execute-o de novo.',
+    finishingHeading: 'Terminando o login…',
+    finishingBody: 'Aprovado no navegador. Coletando os tokens da sua conta.',
+    rejectedBody: 'O login foi rejeitado no navegador. Você continua no free tier.',
+    retiredBody: 'Esta identidade de free tier já foi usada ou expirou; uma nova é configurada na próxima inicialização.',
+    startAgain: 'Começar de novo',
+    tryAgain: 'Tentar novamente',
+    timedOutHeading: 'Login expirou',
+    timedOutBody: 'O código não foi usado a tempo. Você continua no free tier.',
+    supersededBody: 'Um código de login mais novo substituiu este.',
+    stripTitle: 'Inferência grátis Nous e conectores agora estão disponíveis.',
+    stripBody: 'Abra o seletor de modelo para experimentá-los, ou entre com uma conta Nous.',
+    waiting: 'Esperando o login…',
+    completedBody: 'Sua conta agora carrega inferência e ferramentas.'
+  },
+
+  guidedGreeting: {
+    line: "Oi, entre. Eu sou o Hermes. Me dá dois minutos para arrumar o lugar em volta de você, depois me ponho para trabalhar no que você realmente quiser feito.\n\nAntes de tudo: como devo te chamar?",
+    nameSuggestion: (name: string) => `(Também posso só te chamar de ${name}, se preferir.)`
+  },
+
   common: {
     apply: 'Aplicar',
     back: 'Voltar',
@@ -182,7 +260,11 @@ export const pt = defineLocale({
       transcriptionFailed: 'Falha na transcrição de voz',
       transcriptionUnavailable: 'Transcrição de voz ainda não está disponível.',
       tryRecordingAgain: 'Tente gravar novamente.',
-      unavailable: 'Voz indisponível'
+      unavailable: 'Voz indisponível',
+      liveEnded: 'Sessão de voz ao vivo encerrada',
+      liveError: 'Voz ao vivo',
+      liveDelegationFailed: 'Não foi possível entregar a requisição ao Hermes',
+      liveUnavailable: reason => `O chat de voz GPT-Live não está disponível: ${reason}. Usando conversão de fala em texto.`
     },
     native: {
       approvalTitle: 'Aprovação necessária',
@@ -404,7 +486,92 @@ export const pt = defineLocale({
       about: 'Sobre',
       billing: 'Cobrança',
       notifications: 'Notificações',
-      plugins: 'Extensões'
+      vault: 'Senhas e logins'
+    },
+    vault: {
+      title: 'Senhas e logins',
+      blurb:
+        'Logins salvos neste computador. O agente os usa para entrar em sites — sem nunca mostrar a senha ao modelo.',
+      count: (n: number) => `${n} salvo${n === 1 ? '' : 's'}`,
+      add: 'Adicionar',
+      addTitle: 'Adicionar item ao cofre',
+      addDescription: 'Guarde um login, cartão ou endereço para o agente usar quando precisar.',
+      addConfirm: 'Salvar',
+      added: 'Item adicionado ao cofre.',
+      adding: 'Adicionando…',
+      loadFailed: 'Não foi possível carregar os itens do cofre',
+      empty: 'Nada salvo ainda',
+      emptyDesc:
+        'Você não precisa adicionar nada aqui. Peça ao agente para entrar num site e ele pedirá o login na hora, uma vez só. Use Adicionar se preferir cadastrar um antes.',
+      createdOn: date => `Adicionado ${date}`,
+      deleteAction: 'Remover item salvo',
+      deleteConfirm: 'Excluir',
+      deleteTitle: 'Excluir este item?',
+      deleteDescription: label => `"${label}" será removido. Isso não pode ser desfeito.`,
+      identifierField: 'Identificador',
+      identifierShown: identifier => identifier,
+      identifierTypeField: 'Tipo de identificador',
+      identifierTypes: {
+        email: 'E-mail',
+        phone: 'Telefone',
+        username: 'Nome de usuário'
+      },
+      passwordField: 'Senha',
+      otpField: 'Chave do autenticador',
+      otpPlaceholder: 'Segredo Base32 ou link otpauth://',
+      otpHint:
+        'A "chave de configuração" que o site mostra ao ativar o 2FA. Com ela salva, o Hermes gera os códigos por conta própria.',
+      labelField: 'Rótulo',
+      labelPlaceholder: 'ex.: conta do trabalho no GitHub',
+      labelRequired: 'Um rótulo é obrigatório.',
+      loginFieldsRequired: 'Identificador e senha são obrigatórios.',
+      optional: '(opcional)',
+      originField: 'Origem do site',
+      originPlaceholder: 'https://github.com',
+      originPlaceholderCheckout: 'https://loja.exemplo.com',
+      originInvalid: 'Informe uma URL válida como https://exemplo.com.',
+      kindField: 'Tipo',
+      kinds: {
+        login: 'Login',
+        payment: 'Cartão de pagamento',
+        address: 'Endereço'
+      },
+      cardNameField: 'Nome no cartão',
+      cardNumberField: 'Número do cartão',
+      cvcField: 'CVC',
+      expMonthField: 'Mês de expiração',
+      expYearField: 'Ano de expiração',
+      addressLine1Field: 'Endereço (linha 1)',
+      addressLine2Field: 'Endereço (linha 2)',
+      cityField: 'Cidade',
+      stateField: 'Estado',
+      postalField: 'CEP',
+      countryField: 'País',
+      twoFactorBadge: '2FA automático',
+      sources: {
+        title: 'Gerenciadores de senhas',
+        blurb:
+          'Gerenciadores de senhas instalados são detectados automaticamente. O agente pede para você desbloquear um na primeira vez que precisar de um login dele (uma vez por sessão); só um token de sessão fica na memória, e o agente nunca vê sua senha mestra nem nenhum login.',
+        toggleFailed: 'Não foi possível atualizar o gerenciador de senhas',
+        notInstalled: name =>
+          `Não detectado. Instale a ferramenta de linha de comando ${name} e entre nela; o Hermes detecta automaticamente.`,
+        disabledDesc: 'Detectado, mas desativado para o Hermes.',
+        lockedDesc: 'Detectado. O agente pedirá para desbloquear quando precisar de um login, ou desbloqueie agora.',
+        unlockedDesc:
+          'Desbloqueado nesta sessão. Bloqueia automaticamente após 30 minutos ocioso ou quando o Hermes fechar.',
+        statusLocked: 'Bloqueado',
+        statusNotDetected: 'Não detectado',
+        statusOff: 'Desligado',
+        statusUnlocked: 'Desbloqueado',
+        unlock: 'Desbloquear',
+        unlocking: 'Desbloqueando…',
+        lock: 'Bloquear',
+        unlocked: name => `${name} desbloqueado nesta sessão.`,
+        unlockTitle: name => `Desbloquear ${name}`,
+        unlockDescription:
+          'Digite sua senha mestra. Ela é entregue ao gerenciador de senhas nesta máquina e descartada — nunca é armazenada, registrada em log ou mostrada ao agente.',
+        masterPasswordPlaceholder: 'Senha mestra'
+      }
     },
     plugins: {
       title: 'Plugins do desktop',
@@ -417,21 +584,10 @@ export const pt = defineLocale({
       disable: 'Desativar',
       failed: 'falhou',
       empty: 'Nenhum plugin de desktop instalado ainda.',
+      agentHalfMissing: 'metade do agente ausente aqui',
+      agentHalfMissingTip:
+        'Esta é a metade de desktop de um plugin combinado, mas a metade de agente não está instalada no backend/perfil conectado no momento. Instale-a em Capacidades → Plugins.',
       kinds: { bundled: 'incluso', disk: 'em disco', runtime: 'em execução' },
-      agent: {
-        title: 'Plugins do agente',
-        blurb:
-          'Plugins instalados no backend do Hermes — ferramentas, skills, servidores MCP, hooks e comandos com barra. Os portáveis são pacotes Agent Plugins (skills + bundles MCP que funcionam em outros agentes também). Alterações valem para novas sessões.',
-        appliesTo: 'Aplica-se a:',
-        empty: 'Nenhum plugin de agente instalado ainda.',
-        loadFailed: 'Não foi possível carregar os plugins do agente',
-        portable: 'portável',
-        search: 'Buscar plugins…',
-        noMatches: 'Nenhum plugin corresponde à busca.',
-        toggleFailed: (name: string) => `Não foi possível alternar ${name}`,
-        updateBackendToManage: 'Atualize o backend do Hermes para gerenciar este plugin pelo Desktop.',
-        sources: { bundled: 'incluso', user: 'usuário', git: 'git', project: 'projeto', entrypoint: 'pip' }
-      },
       installModal: {
         installFromGit: 'Instalar do Git',
         reviewRepository: 'Revisar repositório',
@@ -466,7 +622,22 @@ export const pt = defineLocale({
         desktopSuccess: (name: string) => `Plugin de desktop ${name} instalado`,
         agentFailed: 'Falha ao instalar plugin de agente',
         desktopFailed: 'Falha ao instalar plugin de desktop',
-        missingEnv: (vars: string) => `Variáveis faltando: ${vars}. Adicione em Configurações → Chaves.`
+        missingEnv: (vars: string) => `Variáveis faltando: ${vars}. Adicione em Configurações → Chaves.`,
+        missingEnvAction: 'Configurar',
+        alreadyInstalled: (name: string) => `${name} já está instalado.`,
+        desktopTargetFromPackage: 'Carregado neste app a partir do pacote acima — igual para todo perfil',
+        catalogPinned: (name: string, sha: string) =>
+          `Entrada do catálogo Hermes "${name}" — o componente de agente instala no pin revisado${sha ? ` ${sha}` : ''}, não na ponta da branch.`,
+        reviewedHeading: 'Entrada revisada do catálogo',
+        reviewedIntro:
+          'Esta entrada foi revisada por humanos no commit fixado. Você ainda pode inspecionar o código exato abaixo.',
+        restartToApply: 'Reinicie o gateway para o plugin valer.',
+        restartNow: 'Reiniciar gateway',
+        pinToCommit: 'Fixar em commit (opcional)',
+        pinToCommitPlaceholder: 'SHA de commit completo de 40 caracteres',
+        pinToCommitHint:
+          'Quem instalar este SHA recebe o mesmo código; o plugin passa a recusar atualizações até ser re-fixado. Deixe vazio para o último commit.',
+        pinToCommitInvalid: 'Deve ser um SHA de commit completo de 40 caracteres (branches e tags não são aceitos).'
       }
     },
     notifications: {
@@ -576,6 +747,10 @@ export const pt = defineLocale({
       terminalFontPlaceholder: 'MesloLGS NF ou uma lista de fontes CSS',
       terminalFontPreview: 'Prévia dos glifos',
       terminalFontReset: 'Usar padrão',
+      appActionsTitle: 'Ações do app',
+      appActionsDesc: 'Onde ficam Configurações, Layout e HUD na barra de título. À direita, deixa espaço para abas à esquerda.',
+      appActionsLeft: 'Esquerda',
+      appActionsRight: 'Direita',
       translucencyTitle: 'Translucidez da janela',
       translucencyDesc:
         'Veja sua área de trabalho através de toda a janela, inclusive do texto. O ajuste é separado para os modos claro e escuro.',
@@ -726,6 +901,9 @@ export const pt = defineLocale({
       'voice.recordKey': 'Atalho de voz',
       'voice.maxRecordingSeconds': 'Duração máxima da gravação',
       'voice.autoTts': 'Ler respostas em voz alta',
+      'voice.voiceChatMode': 'Modo de chat de voz',
+      'voice.gptLive.voice': 'Voz do GPT-Live',
+      'voice.gptLive.instructions': 'Persona do GPT-Live',
       'stt.enabled': 'Conversão de fala em texto',
       'stt.echoTranscripts': 'Repetir transcrições',
       'stt.provider': 'Provedor de conversão de fala em texto',
@@ -815,6 +993,11 @@ export const pt = defineLocale({
       'context.engine': 'Estratégia para gerenciar conversas longas próximas ao limite de contexto.',
       'compression.enabled': 'Resume o contexto mais antigo quando as conversas ficam grandes.',
       'voice.autoTts': 'Reproduz automaticamente as respostas do assistente em voz alta.',
+      'voice.voiceChatMode':
+        'chained: conversão de fala em texto → Hermes → conversão de texto em fala, com os provedores abaixo. gpt-live: um modelo de voz OpenAI full-duplex (gpt-live-1) ouve e fala, e entrega cada requisição real ao Hermes — qualquer modelo selecionado responde com o conjunto completo de ferramentas. Precisa de uma API key da OpenAI; a camada de voz cobra US$0,05 por minuto.',
+      'voice.gptLive.voice': 'Voz para o modo GPT-Live. IDs de voz personalizados são aceitos.',
+      'voice.gptLive.instructions':
+        'Frases extras para a persona de voz ao vivo (tom, ritmo, idioma). O Hermes mantém o próprio system prompt.',
       'tts.xai.voiceId': 'ID de voz da xAI (por exemplo, eve) ou um ID de voz personalizado.',
       'tts.xai.language': 'Código do idioma falado (por exemplo, en, pt-BR) ou "auto" para detecção automática.',
       'tts.xai.speed': 'Velocidade de reprodução. 0.7 = mais lenta, 1.0 = normal, 1.5 = mais rápida.',
@@ -1342,6 +1525,10 @@ export const pt = defineLocale({
         'least-painful-spilled':
           'Nenhum modelo cabe inteiro na memória da GPU aqui — este roda melhor a partir da RAM do sistema.'
       } as Record<string, string>,
+      noRecommendationTitle: 'Sem recomendação automática para esta máquina',
+      noRecommendationDetail:
+        'A configuração automática precisa de um modelo selecionado que caiba inteiramente na memória de GPU ou unificada. Você ainda pode escolher um modelo abaixo ou explorar mais modelos.',
+      noRecommendationAction: 'Explorar modelos',
       downloaded: 'Baixado',
       downloadAction: size => `Baixar · ${size}`,
       downloadProgress: (done, total) => `Baixando ${done} de ${total}`,
@@ -1683,6 +1870,50 @@ export const pt = defineLocale({
     archive: 'Arquivar',
     skillArchivedTitle: 'Skill arquivada',
     skillArchivedMessage: 'Restaurável via hermes curator restore.',
+    tabPlugins: 'Extensões',
+    plugins: {
+      agentTitle: 'Plugins do agente',
+      agentBlurb: 'Estendem o agente do perfil selecionado — ferramentas, hooks, providers. Vale após reiniciar o gateway.',
+      pageBlurb: 'Uma linha por plugin. Um plugin pode estender este app, o agente, ou ambos — cada metade tem seu próprio interruptor.',
+      halfDesktop: 'Desktop',
+      halfDesktopHint: 'este app, igual para todo perfil',
+      halfAgent: 'Agente',
+      halfAgentIn: (profile: string) => `Agente em ${profile}`,
+      defaultProfile: 'Hermes (padrão)',
+      kindAgent: 'Agente',
+      kindDesktop: 'Desktop',
+      kindBoth: 'Agente + Desktop',
+      installAgentHere: 'Instalar aqui',
+      installAgentHereTip: (profile: string) =>
+        `A metade desktop está carregada neste app, mas a metade agente não está instalada em ${profile}. Instale lá.`,
+      installAgentHereNoOrigin:
+        'A metade agente não está instalada neste perfil, e o pacote foi copiado à mão (sem entrada de catálogo nem remote git), então não dá para instalar daqui. Copie a pasta para o perfil ou reinstale via Git.',
+      desktopHalfPending: 'copiando…',
+      desktopHalfPendingTip:
+        'Este pacote tem uma metade desktop que ainda não foi copiada para o app. Use Verificar novamente, ou reinicie o app.',
+      emptyAll: 'Nenhum plugin ainda.',
+      empty: 'Nenhum plugin de agente instalado para este perfil.',
+      emptyHint: 'Veja o catálogo abaixo e instale um plugin revisado com um clique.',
+      loadFailed: 'Não foi possível carregar os plugins do agente',
+      toggleFailed: (name: string) => `Não foi possível alternar ${name}`,
+      legacyBackend: 'Este backend é anterior às alternâncias de plugin por chave — atualize o Hermes para gerenciar aqui.',
+      portableBadge: 'portável',
+      catalogTitle: 'Catálogo de plugins',
+      catalogBrowse: 'Ver',
+      catalogHide: 'Ocultar o navegador de catálogo',
+      catalogHint:
+        'Clique em \"+ Adicionar a este Agente\" em qualquer plugin — entradas revisadas instalam no commit fixado no perfil selecionado. Plugins agente+desktop inclusos oferecem as duas metades.',
+      alreadyInstalled: (name: string) => `${name} já está instalado neste perfil.`,
+      catalogProvenance: (sha: string) => `Instalado do catálogo do Hermes${sha ? ` no pin ${sha}` : ''}.`,
+      pinnedProvenance: (sha: string) =>
+        `Fixado no commit ${sha}. Atualizações são recusadas até reinstalar com um pin novo.`,
+      pinnedBadge: (sha: string) => `fixado @ ${sha}`,
+      tierOfficial: 'oficial',
+      tierCommunity: 'comunidade',
+      updateToPin: (sha: string) => `Atualizar para ${sha}`,
+      updateFailed: (name: string) => `Não foi possível atualizar ${name}`,
+      updated: (name: string) => `${name} atualizado para o pin atual do catálogo. Reinicie o gateway para aplicar.`
+    },
     officialCatalog: 'Disponíveis para instalar',
     officialPill: 'Oficial',
     hub: {
@@ -2008,6 +2239,38 @@ export const pt = defineLocale({
   // ── messaging (linhas 1615-1763) ──
   messaging: {
     search: 'Buscar mensagens...',
+    restartFailedManual: 'Falha ao reiniciar o gateway de mensagens — reinicie-o manualmente e confira os logs do gateway.',
+    restartNeeded: 'Salvo. Reinicie o gateway de mensagens para que as novas configurações valham.',
+    restartNow: 'Reiniciar agora',
+    restarting: 'Reiniciando…',
+    telegramQr: {
+      title: 'Escolha como conectar seu bot do Telegram',
+      subtitle: 'Ambas as opções conectam um bot que você controla e salvam as credenciais dele apenas nesta instalação do Hermes.',
+      quickSetup: 'Configuração rápida',
+      quickHelp: 'Leia um código QR e confirme no Telegram. O Hermes cria o bot e detecta seu ID de usuário do Telegram automaticamente.',
+      scanHint: 'Leia com o app do Telegram no celular, ou abra o link neste computador.',
+      openTelegram: 'Abrir o Telegram',
+      userIdPlaceholder: 'ID de usuário do Telegram',
+      add: 'Adicionar',
+      addAtLeastOne: 'Adicione ao menos um ID de usuário do Telegram.',
+      allowedUsers: 'Usuários permitidos',
+      numericOnly: 'Os IDs de usuário do Telegram permitidos devem ser numéricos.',
+      ownerDetected: 'Responsável detectado',
+      createWithQr: 'Criar com QR',
+      recommended: 'Recomendado',
+      expiresIn: (remaining: string) => `Expira em ${remaining}`,
+      expired: 'Expirado',
+      pairingExpired: 'O pareamento do Telegram expirou. Inicie uma nova configuração com QR para tentar de novo.',
+      replaceWarning: 'As credenciais do Telegram já estão configuradas. Uma nova configuração com QR ou um token de bot substituirá o bot atual quando você salvar.',
+      saveAndRestart: 'Salvar e reiniciar',
+      savedRestarting: 'Telegram salvo; gateway reiniciando…',
+      savedRestartFailed: (detail: string) => `Telegram salvo; falha ao reiniciar o gateway${detail}`,
+      applying: 'Salvando…',
+      starting: 'Iniciando…',
+      waiting: 'Esperando o Telegram…',
+      stillWaiting: (detail: string) => `Ainda esperando o Telegram. Nova tentativa depois de: ${detail}`,
+      ready: 'Bot criado'
+    },
     loading: 'Carregando plataformas de mensagens...',
     loadFailed: 'Falha ao carregar plataformas de mensagens',
     states: {
@@ -2609,6 +2872,8 @@ export const pt = defineLocale({
     noSessions: 'Nenhuma sessão ainda',
     noFilterMatches: 'Nenhuma sessão corresponde a esses filtros',
     projects: {
+      showAllSessions: 'Mostrar todas as sessões',
+      autoDiscovered: 'Descobertas automaticamente',
       sectionLabel: 'Projetos',
       home: 'Início',
       newButton: 'Novo projeto',
@@ -2750,6 +3015,13 @@ export const pt = defineLocale({
 
   composer: {
     message: 'Mensagem',
+    voiceEngine: 'Motor de chat de voz',
+    voiceEngineChained: 'Conversão de fala em texto + voz do Hermes',
+    voiceEngineChainedShort: 'fala em texto',
+    voiceEngineChangeFailed: 'Não foi possível alterar o motor de chat de voz',
+    voiceEngineLive: 'GPT-Live (full-duplex, delega ao Hermes)',
+    voiceEngineLiveNeedsKey: 'Precisa de uma API key da OpenAI',
+    voiceEngineLiveShort: 'GPT-Live',
     addContext: 'Adicionar contexto',
     wakingProfile: (profile: string) => `Acordando ${profile}…`,
     placeholderStarting: 'Iniciando Hermes...',
@@ -3426,6 +3698,7 @@ export const pt = defineLocale({
     },
     statusbar: {
       unknown: 'desconhecido',
+      toggleFreeTier: 'Free tier',
       restart: 'reiniciar',
       update: 'atualizar',
       updateInProgress: 'Atualização em andamento',
@@ -3753,6 +4026,9 @@ export const pt = defineLocale({
 
   assistant: {
     thread: {
+      errorOauthExpired: provider => `Seu login em ${provider} expirou ou foi revogado. Entre de novo para continuar conversando.`,
+      errorSignInAgain: provider => `Entrar em ${provider} de novo`,
+      errorStartNewSession: 'Iniciar nova sessão',
       loadingSession: 'Carregando sessão',
       showEarlier: 'Mostrar mensagens anteriores',
       loadingResponse: 'Hermes está carregando uma resposta',
@@ -3980,11 +4256,40 @@ export const pt = defineLocale({
     sudoPlaceholder: 'senha sudo',
     secretTitle: 'Segredo necessário',
     secretDesc: 'O Hermes precisa de uma credencial para continuar.',
-    secretPlaceholder: 'valor secreto'
+    secretPlaceholder: 'valor secreto',
+    vaultUnlockSendFailed: 'Não foi possível enviar a senha mestra',
+    vaultUnlockTitle: (name: string) => `Desbloquear ${name}`,
+    vaultUnlockDesc: (name: string) =>
+      `O agente quer entrar num site com um login salvo em ${name}. Digite sua senha mestra para desbloqueá-lo nesta sessão — ela vai direto para o ${name} nesta máquina e nunca é armazenada nem mostrada ao agente.`,
+    vaultUnlockPlaceholder: 'Senha mestra',
+    vaultUnlockKeepLocked: 'Manter bloqueado',
+    vaultUnlockConfirm: 'Desbloquear',
+    vaultSaveSendFailed: 'Não foi possível salvar o login',
+    vaultSaveTitle: (site: string) => `Salvar seu login de ${site}?`,
+    vaultSaveDesc: (origin: string) =>
+      `O Hermes chegou a uma página de login em ${origin} e não tem login para ela. Preencha uma vez aqui; fica criptografado nesta máquina e é preenchido na página sem o modelo jamais ver a senha.`,
+    vaultSaveIdentifierLabel: 'E-mail ou usuário',
+    vaultSaveIdentifierPlaceholder: 'voce@exemplo.com',
+    vaultSavePasswordPlaceholder: 'Senha',
+    vaultSaveFootnote: 'Gerencie logins salvos em Configurações → Senhas & Logins.',
+    vaultSaveDecline: 'Não salvar',
+    vaultSaveConfirm: 'Salvar & entrar',
+    vaultCodeSendFailed: 'Não foi possível enviar o código',
+    vaultCodeTitle: (site: string) => `Código de verificação de ${site}`,
+    vaultCodeDesc: (site: string) =>
+      `${site} está pedindo um código de uso único (SMS, e-mail ou app autenticador). Preencha aqui e o Hermes digita na página; o modelo nunca o vê.`,
+    vaultCodeLabel: 'Código',
+    vaultCodeFootnote:
+      'Dica: salve a chave do autenticador deste login em Configurações → Senhas & Logins e o Hermes gera os códigos para você.',
+    vaultCodeSkip: 'Pular',
+    vaultCodeConfirm: 'Digitar código'
   },
 
   desktop: {
     audioReadFailed: 'Não foi possível ler o áudio gravado',
+    poolSlotTimeoutBody:
+      'Todos os slots de backend locais do perfil estão ocupados. Aumente Warm Bot Backends em Configurações → Avançado, ou tente de novo depois que um backend ocioso for removido.',
+    poolSlotTimeoutOpenSettings: 'Abrir configurações avançadas',
     sessionUnavailable: 'Sessão indisponível',
     createSessionFailed: 'Não foi possível criar uma nova sessão',
     promptFailed: 'Falha no prompt',

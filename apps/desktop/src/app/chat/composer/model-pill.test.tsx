@@ -157,7 +157,9 @@ describe('ModelPill pending-switch badge', () => {
       'queued — applies on the next turn'
     )
   })
-escribe('ModelPill per-surface model label', () => {
+})
+
+describe('ModelPill per-surface model label', () => {
   it('shows the chat-bar model even when the primary global differs', () => {
     setCurrentModel('primary/model')
     $activeSessionId.set('primary-runtime')

@@ -547,6 +547,30 @@ const ptBr: BotsMessages = {
     waitingForGateway:
       'Aguardando a conexão com o gateway… (gateways remotos podem levar alguns segundos; as tentativas são automáticas)'
   },
+
+  sections: {
+    newSection: 'Nova seção',
+    newTitle: 'Nova seção',
+    renameTitle: 'Renomear seção',
+    nameLabel: 'Nome da seção',
+    namePlaceholder: 'ex.: Clientes',
+    create: 'Criar',
+    rename: 'Renomear…',
+    moveUp: 'Mover para cima',
+    moveDown: 'Mover para baixo',
+    unassigned: 'Sem seção',
+    options: name => `opções da seção ${name}`,
+    headingTip: 'Solte bots aqui · clique duas vezes para renomear',
+    emptyHint: 'Arraste bots para cá',
+    moveTo: 'Mover para a seção',
+    newSectionEllipsis: 'Nova seção…',
+    removeFromSection: 'Remover da seção',
+    deleted: (name, count) =>
+      count === 0
+        ? `“${name}” excluída`
+        : `“${name}” excluída — ${count} ${count === 1 ? 'bot movido' : 'bots movidos'} para Sem seção`,
+    undo: 'Desfazer'
+  },
   bot: {
     newTitle: 'Novo bot',
     editTitle: 'Editar perfil',
@@ -702,29 +726,6 @@ const ptBr: BotsMessages = {
     runsRaw: 'Agendamento bruto — a cada Nm/Nh/Nd ou cron de 5 campos',
     timesTotal: (count: number) => `, ${count} vez(es) no total`
   },
-  sections: {
-    newSection: 'Nova seção',
-    newTitle: 'Nova seção',
-    renameTitle: 'Renomear seção',
-    nameLabel: 'Nome da seção',
-    namePlaceholder: 'ex.: Clientes',
-    create: 'Criar',
-    rename: 'Renomear…',
-    moveUp: 'Mover para cima',
-    moveDown: 'Mover para baixo',
-    unassigned: 'Sem seção',
-    options: name => `opções da seção ${name}`,
-    headingTip: 'Solte bots aqui · clique duas vezes para renomear',
-    emptyHint: 'Arraste bots para cá',
-    moveTo: 'Mover para a seção',
-    newSectionEllipsis: 'Nova seção…',
-    removeFromSection: 'Remover da seção',
-    deleted: (name, count) =>
-      count === 0
-        ? `“${name}” excluída`
-        : `“${name}” excluída — ${count} ${count === 1 ? 'bot movido' : 'bots movidos'} para Sem seção`,
-    undo: 'Desfazer'
-  }
 }
 
 const ja: BotsMessages = {
