@@ -3,7 +3,12 @@ import { useEffect, useMemo, useState } from 'react'
 
 import { getLocalModelsStatus } from '@/hermes'
 import { useI18n } from '@/i18n'
-import { catalogProviderMatches, modelOptionsQueryKey, requestModelOptions } from '@/lib/model-options'
+import {
+  catalogProviderMatches,
+  modelOptionsQueryKey,
+  readCachedModelOptions,
+  requestModelOptions
+} from '@/lib/model-options'
 import { modelSearchText } from '@/lib/model-search-text'
 import { currentPickerSelection } from '@/lib/model-status-label'
 import { foldIncludes, normalize } from '@/lib/text'
@@ -68,7 +73,11 @@ export function ModelPickerDialog({
   const modelOptions = useQuery({
     queryKey: modelOptionsQueryKey(profile, sessionId, ownerConnectionId),
     queryFn: () => requestModelOptions({ gateway: gw, profile, request, sessionId }),
-    enabled: open
+    enabled: open,
+    // Paint the last known catalog (localStorage) instantly — across restarts
+    // too — while the live fetch revalidates behind it. Null on first ever
+    // open (nothing cached) keeps the real loading state.
+    placeholderData: () => readCachedModelOptions() ?? undefined
   })
 
   // Live load state for the managed local server: which model is loading

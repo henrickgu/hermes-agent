@@ -8,6 +8,7 @@ import {
   firstSelectableCatalogModel,
   manualPickRemoved,
   modelOptionsQueryKey,
+  readCachedModelOptions,
   reconcileSelectionAfterCatalogRefresh,
   requestModelOptions,
   selectionInCatalog
@@ -22,6 +23,10 @@ vi.mock('@/hermes', () => ({
 describe('requestModelOptions', () => {
   afterEach(() => {
     vi.clearAllMocks()
+    // The last-known-catalog cache persists across tests via happy-dom's
+    // localStorage; a payload cached by an earlier happy-path test would
+    // otherwise satisfy (and mask) a later failure-path assertion.
+    localStorage.clear()
   })
 
   it('uses the connected gateway even before a session exists', async () => {
@@ -347,5 +352,78 @@ describe('reconcileSelectionAfterCatalogRefresh', () => {
     expect(reconcileSelectionAfterCatalogRefresh('glm-4.5-air', [moa], 'zhipu')).toBeNull()
     expect(reconcileSelectionAfterCatalogRefresh('glm-4.5-air', [], 'zhipu')).toBeNull()
     expect(reconcileSelectionAfterCatalogRefresh('glm-4.5-air', undefined, 'zhipu')).toBeNull()
+  })
+})
+
+describe('last-known catalog cache', () => {
+  afterEach(() => {
+    vi.clearAllMocks()
+    localStorage.clear()
+  })
+
+  it('persists a good catalog and serves it when the live fetch fails', async () => {
+    const goodPayload = {
+      model: 'BeastMode',
+      provider: 'moa',
+      providers: [{ models: ['BeastMode'], name: 'Mixture of Agents', slug: 'moa' }]
+    }
+
+    const gateway = { request: vi.fn(() => Promise.resolve(goodPayload)) }
+
+    await requestModelOptions({ gateway: gateway as never, sessionId: null })
+
+    const failingGateway = { request: vi.fn(() => Promise.reject(new Error('gateway gone'))) }
+
+    await expect(requestModelOptions({ gateway: failingGateway as never, sessionId: null })).resolves.toEqual(
+      goodPayload
+    )
+  })
+
+  it('never caches a catalog without selectable models', async () => {
+    const gateway = { request: vi.fn(() => Promise.resolve({ model: 'x', provider: 'y', providers: [] })) }
+
+    await requestModelOptions({ gateway: gateway as never })
+
+    expect(readCachedModelOptions()).toBeNull()
+
+    const failingGateway = { request: vi.fn(() => Promise.reject(new Error('gateway gone'))) }
+
+    await expect(requestModelOptions({ gateway: failingGateway as never })).rejects.toBeTruthy()
+  })
+
+  it('keeps an empty live catalog when nothing is cached (credential-group semantics)', async () => {
+    const gatewayPayload = { model: 'hermes-local', provider: 'hermes-local', providers: [] }
+    const gateway = { request: vi.fn(() => Promise.resolve(gatewayPayload)) }
+
+    await expect(requestModelOptions({ gateway: gateway as never })).resolves.toBe(gatewayPayload)
+  })
+
+  it('ignores the stale cache when the refresh is explicit', async () => {
+    const goodPayload = {
+      model: 'BeastMode',
+      provider: 'moa',
+      providers: [{ models: ['BeastMode'], name: 'Mixture of Agents', slug: 'moa' }]
+    }
+
+    await requestModelOptions({ gateway: { request: vi.fn(() => Promise.resolve(goodPayload)) } as never })
+
+    const failingGateway = { request: vi.fn(() => Promise.reject(new Error('gateway gone'))) }
+
+    await expect(requestModelOptions({ gateway: failingGateway as never, refresh: true })).rejects.toBeTruthy()
+  })
+
+  it('drops cache entries past the TTL', () => {
+    const entry = {
+      at: Date.now() - 25 * 60 * 60 * 1000,
+      data: {
+        model: 'BeastMode',
+        provider: 'moa',
+        providers: [{ models: ['BeastMode'], name: 'Mixture of Agents', slug: 'moa' }]
+      }
+    }
+
+    localStorage.setItem('hermes:model-options-cache:v1', JSON.stringify({ explicit: entry }))
+
+    expect(readCachedModelOptions()).toBeNull()
   })
 })

@@ -180,6 +180,44 @@ _rpc_pool_workers = max(2, env_int("HERMES_TUI_RPC_POOL_WORKERS", 8))
 _pool = concurrent.futures.ThreadPoolExecutor(max_workers=_rpc_pool_workers, thread_name_prefix="tui-rpc")
 atexit.register(lambda: _pool.shutdown(wait=False, cancel_futures=True))
 
+
+def warm_model_options_cache() -> None:
+    """Background warm-up of the model-picker substrate (serves the desktop picker).
+
+    The first ``model.options`` call after gateway start pays ~8s of lazy imports
+    (inventory → models catalog, auth, pricing) plus cold disk caches, which the
+    desktop picker shows as a long spinner on the first open of the session.
+    Building the payload once here — results only land in in-process / disk
+    caches, nothing is returned to a client — moves that cost to boot, so the
+    first picker open serves from a warm cache in ~1s.
+
+    Idempotent per process: the web-server lifespan (desktop/dashboard) and the
+    TUI stdio entry can both call it; first caller wins. Runs on the shared RPC
+    pool (bounded, daemon-timed at interpreter exit); any failure is swallowed
+    with a debug log — the picker degrades to the old cold-open behavior, never
+    an error surface.
+    """
+    global _warm_model_options_started
+
+    if _warm_model_options_started:
+        return
+
+    _warm_model_options_started = True
+
+    def _run() -> None:
+        try:
+            from hermes_cli.inventory import build_model_options_payload, load_picker_context
+
+            build_model_options_payload(load_picker_context(), include_unconfigured=True)
+            logger.info("model-options cache warmed for the picker")
+        except Exception:
+            logger.debug("model-options warm-up failed (picker will build cold)", exc_info=True)
+
+    _pool.submit(_run)
+
+
+_warm_model_options_started = False
+
 # Exact in-memory session record executing on the current turn thread — unlike a public session id,
 # this object identity cannot be supplied by RPC.
 _current_runtime_session_record: contextvars.ContextVar[dict | None] = contextvars.ContextVar(

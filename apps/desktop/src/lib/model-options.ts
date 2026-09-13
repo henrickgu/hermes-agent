@@ -201,6 +201,72 @@ function hasSelectableModels(options: ModelOptionsResponse | null | undefined): 
   return options?.providers?.some(provider => (provider.models?.length ?? 0) > 0) ?? false
 }
 
+// ─── Last-known catalog cache (localStorage) ────────────────────────────────
+// Building the catalog costs seconds on the backend (lazy imports + provider
+// probes on the first call after gateway start). Persisting the last good
+// payload lets any picker paint the known list instantly and revalidate in the
+// background instead of spinning from zero. Best-effort by design: a missing,
+// corrupt, or quota-frozen localStorage just means the old cold-open behavior.
+
+const CATALOG_CACHE_KEY = 'hermes:model-options-cache:v1'
+const CATALOG_CACHE_TTL_MS = 24 * 60 * 60 * 1000
+
+interface CatalogCacheEntry {
+  at: number
+  data: ModelOptionsResponse
+}
+
+function catalogCacheSlot(explicitOnly: boolean): 'explicit' | 'full' {
+  return explicitOnly ? 'explicit' : 'full'
+}
+
+function readCatalogStore(): Record<string, CatalogCacheEntry> {
+  try {
+    const raw = localStorage.getItem(CATALOG_CACHE_KEY)
+
+    return raw ? (JSON.parse(raw) as Record<string, CatalogCacheEntry>) : {}
+  } catch {
+    return {}
+  }
+}
+
+/** Last good catalog for `explicitOnly`, when fresh enough to serve. */
+export function readCachedModelOptions(explicitOnly = true): ModelOptionsResponse | null {
+  try {
+    const entry = readCatalogStore()[catalogCacheSlot(explicitOnly)]
+
+    if (!entry?.data || Date.now() - entry.at > CATALOG_CACHE_TTL_MS) {
+      return null
+    }
+
+    if (!hasSelectableModels(entry.data)) {
+      return null
+    }
+
+    return entry.data
+  } catch {
+    return null
+  }
+}
+
+function cacheModelOptions(explicitOnly: boolean, data: ModelOptionsResponse): void {
+  // Never pin an empty/broken catalog: it would defeat the selective
+  // recovery path in requestModelOptions and placeholder a picker with
+  // nothing selectable.
+  if (!hasSelectableModels(data)) {
+    return
+  }
+
+  try {
+    const store = readCatalogStore()
+
+    store[catalogCacheSlot(explicitOnly)] = { at: Date.now(), data }
+    localStorage.setItem(CATALOG_CACHE_KEY, JSON.stringify(store))
+  } catch {
+    // Quota / serialization — cache is best-effort.
+  }
+}
+
 function restModelOptions(
   explicitOnly: boolean,
   refresh: boolean,
@@ -212,7 +278,7 @@ function restModelOptions(
   return profileKey ? getGlobalModelOptions(opts, profileKey) : getGlobalModelOptions(opts)
 }
 
-export async function requestModelOptions({
+async function fetchModelOptions({
   explicitOnly = true,
   gateway,
   profile,
@@ -285,5 +351,50 @@ export async function requestModelOptions({
     throw gatewayError
   }
 
-  return restModelOptions(explicitOnly, refresh, profile)
+  const restOnly = await restModelOptions(explicitOnly, refresh, profile)
+
+  return restOnly
+}
+
+/**
+ * Fetch the catalog, falling back to the last known good one (localStorage)
+ * when the live fetch FAILS or yields nothing selectable. The persisted cache
+ * lets the picker paint instantly across app restarts even while the backend
+ * is still paying its cold-start cost. Semantics preserved from the inner
+ * fetch: a deliberately empty catalog (credential group swap) is still
+ * returned as-is when there is no cached alternative, and an explicit
+ * `refresh: true` never masks a failed refresh with stale data.
+ */
+export async function requestModelOptions(
+  req: ModelOptionsRequest
+): Promise<ModelOptionsResponse> {
+  const explicitOnly = req.explicitOnly ?? true
+  const cacheFallbackAllowed = !req.refresh
+  let live: ModelOptionsResponse | undefined
+
+  try {
+    live = await fetchModelOptions(req)
+  } catch (err) {
+    const cached = cacheFallbackAllowed ? readCachedModelOptions(explicitOnly) : null
+
+    if (cached) {
+      return cached
+    }
+
+    throw err
+  }
+
+  if (hasSelectableModels(live)) {
+    cacheModelOptions(explicitOnly, live)
+
+    return live
+  }
+
+  const cached = cacheFallbackAllowed ? readCachedModelOptions(explicitOnly) : null
+
+  if (cached) {
+    return cached
+  }
+
+  return live
 }

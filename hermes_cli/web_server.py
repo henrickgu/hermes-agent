@@ -251,6 +251,16 @@ async def _lifespan(app: "FastAPI"):
 
     start_background_bootstrap()
 
+    # Model-picker substrate: pre-build the model.options payload so the first
+    # picker open serves from warm caches (~1s) instead of paying ~8s of lazy
+    # imports + cold disk caches mid-spinner. Idempotent; best-effort.
+    try:
+        from tui_gateway.server import warm_model_options_cache
+
+        warm_model_options_cache()
+    except Exception as exc:  # noqa: BLE001
+        logging.getLogger(__name__).debug("model-options warm-up unavailable: %s", exc)
+
     try:
         yield
     finally:
