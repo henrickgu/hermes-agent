@@ -3,7 +3,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { $gatewayState, $sessions, setSessions } from '@/store/session'
 import { $sessionTiles } from '@/store/session-states'
 
-import { sessionTileResumeFailure, shouldResumeSessionTile, startUnrestoredTileTitleBackfill } from './session-tile'
+import {
+  planSessionTileResumeRetry,
+  sessionTileResumeFailure,
+  sessionTileResumeRetryDelayMs,
+  shouldResumeSessionTile,
+  startUnrestoredTileTitleBackfill
+} from './session-tile'
 
 describe('shouldResumeSessionTile', () => {
   const live = {
@@ -46,6 +52,44 @@ describe('sessionTileResumeFailure', () => {
 
   it('does not overwrite a tile that rebound while the lookup was pending', () => {
     expect(sessionTileResumeFailure('session not found', true, false)).toBeUndefined()
+  })
+})
+
+describe('sessionTileResumeRetryDelayMs', () => {
+  it('stays within the 500ms-base jittered ladder and respects its 15s cap', () => {
+    for (const attempt of [0, 1, 2, 3, 4, 5, 6, 10]) {
+      const delay = sessionTileResumeRetryDelayMs(attempt)
+
+      expect(delay).toBeGreaterThanOrEqual(0)
+      expect(delay).toBeLessThan(Math.min(15_000, 500 * 2 ** attempt))
+    }
+  })
+})
+
+describe('planSessionTileResumeRetry', () => {
+  it('keeps retrying transient 404s while the gateway is open', () => {
+    expect(planSessionTileResumeRetry({ attempt: 0, gatewayOpen: true })).toEqual({
+      attemptsLeft: 5,
+      delayMs: expect.any(Number)
+    })
+    expect(planSessionTileResumeRetry({ attempt: 4, gatewayOpen: true })?.attemptsLeft).toBe(1)
+  })
+
+  it('latches the error card once the ladder is exhausted', () => {
+    expect(planSessionTileResumeRetry({ attempt: 6, gatewayOpen: true })).toBeNull()
+    expect(planSessionTileResumeRetry({ attempt: 99, gatewayOpen: true })).toBeNull()
+  })
+
+  it('does not retry into a closed/idle gateway — the reopen effect re-arms instead', () => {
+    expect(planSessionTileResumeRetry({ attempt: 0, gatewayOpen: false })).toBeNull()
+  })
+
+  it('honors an explicit maxAttempts override', () => {
+    expect(planSessionTileResumeRetry({ attempt: 2, gatewayOpen: true, maxAttempts: 2 })).toBeNull()
+    expect(planSessionTileResumeRetry({ attempt: 1, gatewayOpen: true, maxAttempts: 2 })).toEqual({
+      attemptsLeft: 0,
+      delayMs: expect.any(Number)
+    })
   })
 })
 

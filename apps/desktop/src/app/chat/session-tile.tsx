@@ -35,6 +35,7 @@ import { transcribeAudio } from '@/hermes'
 import { translateNow, useI18n } from '@/i18n'
 import type { ChatMessage } from '@/lib/chat-messages'
 import { sessionTitle } from '@/lib/chat-runtime'
+import { reconnectBackoffDelayMs } from '@/lib/reconnect-backoff'
 import { transcribeAudioClientDirect } from '@/lib/voice-client-direct'
 import { createComposerAttachmentScope, draftTitleFor } from '@/store/composer'
 import { $pinnedSessionIds, pinSession, unpinSession } from '@/store/layout'
@@ -120,6 +121,40 @@ export function shouldResumeSessionTile(opts: {
   tileError: string | undefined
 }): boolean {
   return !opts.removalPending && opts.gatewayOpen && !opts.runtimeId && !opts.tileError && !opts.resuming
+}
+
+const SESSION_TILE_RESUME_MAX_ATTEMPTS = 6
+
+/** Full-jitter delay before tile-resume retry attempt `n` (0-indexed).
+ *  Deliberately the reconnect ladder's shape, rescaled: the gateway socket has
+ *  its own backoff, and resuming into a still-cold backend at reconnect time
+ *  is the common transient failure — the tile ladder just mirrors that. */
+export function sessionTileResumeRetryDelayMs(attempt: number): number {
+  return reconnectBackoffDelayMs(attempt, { baseDelayMs: 500 })
+}
+
+/** Next step of a failed tile resume: keep the attempt ladder running while
+ *  the gateway can still answer, stop once it can't (idle/shutdown — the
+ *  (re)open effect re-arms the ladder when the gateway comes back).
+ *
+ *  Returns the delay before the next attempt (ms) and how many attempts
+ *  remain after it, or null when the ladder is done (latch the error card). */
+export function planSessionTileResumeRetry(opts: {
+  attempt: number
+  gatewayOpen: boolean
+  maxAttempts?: number
+}): { attemptsLeft: number; delayMs: number } | null {
+  if (!opts.gatewayOpen) {
+    return null
+  }
+
+  const maxAttempts = opts.maxAttempts ?? SESSION_TILE_RESUME_MAX_ATTEMPTS
+
+  if (opts.attempt >= maxAttempts) {
+    return null
+  }
+
+  return { attemptsLeft: maxAttempts - opts.attempt - 1, delayMs: sessionTileResumeRetryDelayMs(opts.attempt) }
 }
 
 /** The tile's SessionView: the same atom shape the primary chat renders
@@ -356,6 +391,11 @@ export function SessionTilePane({ storedSessionId }: { storedSessionId: string }
   const gatewayOpen = useStore($gatewayState) === 'open'
   const delegateRevision = useStore($sessionTileDelegateRevision)
   const resumingRef = useRef(false)
+  // Monotonic token shared by every ladder this pane spawns: a retry timer
+  // only fires while its generation is still the newest one, so an effect
+  // re-run (reconnect, rebound runtime, manual retry) retires all pending
+  // retries without juggling individual timer handles.
+  const resumeLadderGenerationRef = useRef(0)
   const view = useMemo(() => buildTileView(storedSessionId), [storedSessionId])
 
   const storedSessionStillExists = useCallback(
@@ -431,36 +471,81 @@ export function SessionTilePane({ storedSessionId }: { storedSessionId: string }
       return
     }
 
+    // The ladder: a failed resume re-arms itself after a full-jitter backoff
+    // for a bounded number of attempts instead of latching the error card on
+    // the first failure. Transient failures (gateway restart, still-cold
+    // backend, profile socket re-dialing after wake) self-heal here; the card
+    // only appears when the ladder is exhausted or the gateway went idle. The
+    // (re)open effect below re-arms everything each time the gateway returns.
+    // All timers funnel through one cancellation token so a re-run of this
+    // effect (reconnect, rebound runtime, error clear) kills any pending retry.
     resumingRef.current = true
+    let generation = ++resumeLadderGenerationRef.current
 
-    delegate
-      .resumeTile(storedSessionId)
-      .then(id => patchSessionTile(storedSessionId, { error: undefined, runtimeId: id }))
-      .catch(async (err: unknown) => {
-        const message = err instanceof Error ? err.message : String(err)
+    const attemptResume = (attempt: number) => {
+      delegate
+        .resumeTile(storedSessionId)
+        .then(id => {
+          if (generation === resumeLadderGenerationRef.current) {
+            patchSessionTile(storedSessionId, { error: undefined, runtimeId: id })
+          }
+        })
+        .catch(async (err: unknown) => {
+          if (generation !== resumeLadderGenerationRef.current) {
+            return
+          }
 
-        if (!/session not found|\b404\b/i.test(message)) {
-          patchSessionTile(storedSessionId, { error: message })
+          const message = err instanceof Error ? err.message : String(err)
 
-          return
-        }
+          if (!/session not found|\b404\b/i.test(message)) {
+            patchSessionTile(storedSessionId, { error: message })
 
-        // A recents page is not authoritative, and resolveStoredSession()
-        // intentionally treats transient probe failures like a miss. Await it
-        // before releasing this resume attempt, then fail safe: a tile may be
-        // retried by the user, but must never be deleted on an inconclusive
-        // reconnect-time lookup.
-        const durableSession = await resolveStoredSession(storedSessionId, ownerRoute).catch(() => undefined)
-        const current = $sessionTiles.get().find(candidate => candidate.storedSessionId === storedSessionId)
-        const error = sessionTileResumeFailure(message, Boolean(durableSession), Boolean(current && !current.runtimeId))
+            return
+          }
 
-        if (error) {
-          patchSessionTile(storedSessionId, { error })
-        }
-      })
-      .finally(() => {
-        resumingRef.current = false
-      })
+          // A recents page is not authoritative, and resolveStoredSession()
+          // intentionally treats transient probe failures like a miss. Await it
+          // before releasing this resume attempt, then fail safe: a tile may be
+          // retried by the user, but must never be deleted on an inconclusive
+          // reconnect-time lookup.
+          const durableSession = await resolveStoredSession(storedSessionId, ownerRoute).catch(() => undefined)
+          const current = $sessionTiles.get().find(candidate => candidate.storedSessionId === storedSessionId)
+
+          if (current?.runtimeId || generation !== resumeLadderGenerationRef.current) {
+            return
+          }
+
+          const plan = planSessionTileResumeRetry({ attempt, gatewayOpen: $gatewayState.get() === 'open' })
+
+          if (plan) {
+            patchSessionTile(storedSessionId, { error: undefined })
+            window.setTimeout(() => {
+              if (generation === resumeLadderGenerationRef.current) {
+                attemptResume(attempt + 1)
+              }
+            }, plan.delayMs)
+
+            return
+          }
+
+          const error = sessionTileResumeFailure(message, Boolean(durableSession), Boolean(current && !current.runtimeId))
+
+          if (error) {
+            patchSessionTile(storedSessionId, { error })
+          }
+        })
+        .finally(() => {
+          if (generation === resumeLadderGenerationRef.current) {
+            resumingRef.current = false
+          }
+        })
+    }
+
+    attemptResume(0)
+
+    return () => {
+      generation = ++resumeLadderGenerationRef.current
+    }
   }, [delegateRevision, gatewayOpen, ownerRoute, runtimeId, storedSessionId, tile?.error])
 
   // The gateway (re)opening invalidates any latched error — it likely came
