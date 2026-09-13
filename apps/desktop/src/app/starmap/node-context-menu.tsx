@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { deleteLearningNode, editLearningNode, getLearningNode } from '@/hermes'
+import { translateNow } from '@/i18n'
 import { notifyError } from '@/store/notifications'
 import { evictStarmapNode, loadStarmapGraph } from '@/store/starmap'
 
@@ -187,7 +188,7 @@ export function NodeContextMenu({ onClose, onNodeRemoved, target }: NodeContextM
       ) : (
         <ConfirmDialog
           confirmLabel="Delete"
-          description="This memory is removed permanently."
+          description={translateNow('desktop.memoryDeletePermanent')}
           destructive
           dismissOnConfirm
           onClose={() => setDeleting(null)}

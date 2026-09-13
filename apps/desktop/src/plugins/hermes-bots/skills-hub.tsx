@@ -1,3 +1,4 @@
+import { Button, host, Input } from '@hermes/plugin-sdk'
 /**
  * The real skills hub page embedded as a picker, plus its offline search
  * fallback.
@@ -5,8 +6,6 @@
  * A leaf: the advanced profile editor and the create dialog both mount it, and
  * it reaches back into neither.
  */
-
-import { Button, host, Input } from '@hermes/plugin-sdk'
 import { useEffect, useRef, useState } from 'react'
 
 import { useBots } from './i18n'
@@ -231,7 +230,7 @@ export function HubSkillsSection({ forProfile, onInstalled }: HubSkillsSectionPr
         </div>
       ) : null}
       {results === null ? null : results.length === 0 ? (
-        <div className="px-1 py-1.5 text-[0.7rem] text-(--ui-text-quaternary)">No hub skills matched.</div>
+        <div className="px-1 py-1.5 text-[0.7rem] text-(--ui-text-quaternary)">{b.roster.noMatchFilters}</div>
       ) : (
         <div
           className="overflow-y-auto overscroll-contain"

@@ -1,3 +1,4 @@
+import { translateNow } from '@/i18n'
 /**
  * Tiny user-facing changelog builder. Takes a list of raw commit summaries,
  * parses the Conventional Commits 1.0 header (`type(scope)!: subject`),
@@ -9,7 +10,6 @@
  * in the sandboxed Electron renderer, and its actual parse logic for the
  * header is a small regex.
  */
-
 import { capitalize } from '@/lib/text'
 
 export type CommitGroupId = 'new' | 'fixed' | 'faster' | 'improved' | 'other'
@@ -76,7 +76,11 @@ const HIDDEN_TYPES = new Set([
   'wip'
 ])
 
-const FALLBACK_GROUP: CommitGroup = { id: 'other', items: ['Improvements and fixes'], label: 'In this update' }
+const FALLBACK_GROUP: CommitGroup = {
+  id: 'other',
+  items: ['Improvements and fixes'],
+  label: translateNow('desktop.updateIntro')
+}
 
 const CONVENTIONAL_HEADER = /^(?<type>[a-zA-Z][a-zA-Z0-9_-]*)(?:\((?<scope>[^)]+)\))?(?<bang>!)?:\s+(?<subject>.+)$/
 

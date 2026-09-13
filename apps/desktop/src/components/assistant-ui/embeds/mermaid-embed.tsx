@@ -4,6 +4,7 @@ import mermaid from 'mermaid'
 import { useEffect, useState } from 'react'
 
 import { Zoomable } from '@/components/ui/zoomable'
+import { translateNow } from '@/i18n'
 import { copySvgAsPng, normalizeSvgSize } from '@/lib/svg-image'
 import { cn } from '@/lib/utils'
 
@@ -95,7 +96,7 @@ export default function MermaidRenderer({ code, streaming }: RichFenceProps) {
   // renders before any zoom; the inline version stays capped at 33dvh.
   return (
     <Zoomable
-      label="Open diagram"
+      label={translateNow('desktop.openDiagram')}
       onCopy={() => copySvgAsPng(svg)}
       overlay={
         <div

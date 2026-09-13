@@ -1,3 +1,4 @@
+import { translateNow } from '@/i18n'
 import { asText, normalize } from '@/lib/text'
 import type { ConfigFieldSchema, HermesConfigRecord, ToolsetInfo } from '@/types/hermes'
 
@@ -44,9 +45,15 @@ export const providerGroup = (key: string) => {
   return best?.name ?? 'Other'
 }
 
-export const providerMeta = (name: string) =>
-  PROVIDER_GROUPS.find(g => g.name === name && (g.description || g.docsUrl)) ??
-  PROVIDER_GROUPS.find(g => g.name === name)
+export const providerMeta = (name: string) => {
+  const meta =
+    PROVIDER_GROUPS.find(g => g.name === name && (g.description || g.docsUrl)) ??
+    PROVIDER_GROUPS.find(g => g.name === name)
+
+  return meta
+    ? { ...meta, description: meta.description ? translateNow(meta.description) : meta.description }
+    : undefined
+}
 
 export const providerPriority = (name: string) => providerMeta(name)?.priority ?? 99
 

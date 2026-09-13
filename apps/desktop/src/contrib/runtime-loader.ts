@@ -28,6 +28,7 @@
  * trust seam.
  */
 
+import { translateNow } from '@/i18n'
 import { installPluginSdk, sdkImportMap } from '@/sdk/runtime'
 import { notifyError } from '@/store/notifications'
 
@@ -158,7 +159,7 @@ export async function loadRuntimePlugin(
       publishPlugin({
         id: `${plugin.id}:disk-shadowed`,
         name: `${plugin.name ?? plugin.id} (stale disk copy)`,
-        description: `Shadowed by the bundled "${plugin.id}" plugin — this folder is no longer used and can be deleted.`,
+        description: translateNow('desktop.runtimeShadowed', plugin.id),
         kind: options.kind ?? 'disk',
         file: options.file,
         status: 'disabled'

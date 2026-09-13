@@ -27,6 +27,7 @@ import { atom } from 'nanostores'
 import type { HandoffReceipt } from '@/app/contrib/handoff-leg'
 import { handoffReceiptKey, readHandoffReceipt } from '@/app/contrib/handoff-receipt'
 import type { GatewayRequest } from '@/app/session/hooks/use-prompt-actions/utils'
+import { translateNow } from '@/i18n'
 import { activeGatewayConnectionId } from '@/store/gateway'
 import { machineDescription } from '@/store/machine'
 import type { OnboardingAnswers } from '@/store/onboarding-answers'
@@ -318,7 +319,7 @@ export function buildHandoffCompleteNote(task: string): string {
 export async function ensureSetupProfile(request: GatewayRequest): Promise<void> {
   try {
     await request('profiles.create', {
-      description: 'Where Hermes met you — walks your first run, then checks in as you find your feet.',
+      description: translateNow('desktop.onboardingProfileDesc'),
       name: SETUP_PROFILE,
       clone_from: 'default',
       share_auth: true,

@@ -32,6 +32,7 @@ vi.mock('@/components/assistant-ui/thread/status', () => ({
 }))
 
 vi.mock('@/i18n', () => ({
+  translateNow: (key: string) => key,
   useI18n: () => ({
     t: {
       assistant: {

@@ -2,7 +2,7 @@ import { useState } from 'react'
 
 import { ImageLightbox } from '@/components/chat/zoomable-image'
 import { useImageDownload } from '@/hooks/use-image-download'
-import { useI18n } from '@/i18n'
+import { translateNow, useI18n } from '@/i18n'
 import { X } from '@/lib/icons'
 
 interface ReferenceChipProps {
@@ -26,7 +26,7 @@ export function ReferenceChip({ name, onRemove, src }: ReferenceChipProps) {
 
       <span className="max-w-40 truncate text-[0.64rem] font-medium text-foreground/50">{name || 'Reference'}</span>
       <button
-        aria-label="Remove reference"
+        aria-label={translateNow('desktop.removeReference')}
         className="text-(--ui-text-tertiary) transition not-hover:opacity-50"
         onClick={onRemove}
         type="button"

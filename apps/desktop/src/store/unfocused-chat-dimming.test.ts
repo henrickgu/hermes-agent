@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const loadStore = async () => {
   vi.resetModules()
+
   return import('./unfocused-chat-dimming')
 }
 

@@ -1,11 +1,3 @@
-/**
- * The two rows the Bots rail lists: one bot, and one group chat.
- *
- * Rows only. Both take their bot or room and their context-menu callbacks as
- * props and own no roster state, so the pane above them decides what to list
- * and the row decides only how it reads.
- */
-
 import {
   cn,
   coarseElapsed,
@@ -28,6 +20,13 @@ import {
   useI18n,
   useValue
 } from '@hermes/plugin-sdk'
+/**
+ * The two rows the Bots rail lists: one bot, and one group chat.
+ *
+ * Rows only. Both take their bot or room and their context-menu callbacks as
+ * props and own no roster state, so the pane above them decides what to list
+ * and the row decides only how it reads.
+ */
 
 import { avatarColor, botAppearance, BotFace } from './avatar'
 import { isBackfilledFacePng } from './avatar-image'
@@ -386,7 +385,7 @@ export function BotRow({ bot, onDelete, onEdit, onGroup, onNewSection, showHandl
                 })
                 host.notify({
                   kind: 'success',
-                  message: `Created ${name} — full copy of ${bot.name}`
+                  message: `${b.bot.duplicate}: ${name} — ${bot.name}`
                 })
               })
               .catch(err => host.notifyError(err, b.bot.duplicateFailed))
@@ -552,7 +551,7 @@ export function GroupRow({ active, group, members, needsYou, onOpen, onDisband }
     <ContextMenu>
       <ContextMenuTrigger asChild>{row}</ContextMenuTrigger>
       <ContextMenuContent>
-        <ContextMenuItem onSelect={() => onOpen(group)}>Open Group Chat</ContextMenuItem>
+        <ContextMenuItem onSelect={() => onOpen(group)}>{b.bot.openBotChat}</ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem
           className="text-destructive focus:text-destructive"

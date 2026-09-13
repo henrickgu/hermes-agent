@@ -1,8 +1,3 @@
-/**
- * Edit Profile: appearance, title, description, and the advanced profile
- * config disclosure for an existing bot.
- */
-
 import {
   Button,
   Dialog,
@@ -19,6 +14,10 @@ import {
   useI18n,
   useValue
 } from '@hermes/plugin-sdk'
+/**
+ * Edit Profile: appearance, title, description, and the advanced profile
+ * config disclosure for an existing bot.
+ */
 import { useState } from 'react'
 
 import { avatarColor, botAppearance, BotFace } from './avatar'
@@ -153,7 +152,7 @@ export function EditProfileDialog({ bot, open, onClose }: EditProfileDialogProps
           advancedFailed = true
           host.notify({
             kind: 'error',
-            message: `Some sections failed: ${failed.map(([k]) => k).join(', ')}`
+            message: `${b.bot.advancedFailed}: ${failed.map(([k]) => k).join(', ')}`
           })
         }
       } catch (err) {

@@ -2,6 +2,7 @@ import { type ToolCallMessagePartProps } from '@assistant-ui/react'
 import { type FC, useEffect, useState } from 'react'
 
 import { AGENT_MESSAGE_RE, agentAvatarCache, resolveAgentAvatar } from '@/components/assistant-ui/thread/user-message'
+import { translateNow } from '@/i18n'
 
 // Sender-side inter-agent delivery: `hermes -p <agent> chat … -q "Message
 // from 🤖 <sender>…"` run through the terminal tool IS the messaging
@@ -115,7 +116,7 @@ export const AgentDeliveryNotice: FC<ToolCallMessagePartProps> = props => {
         <div className={NOTICE_CLASS} data-slot="aui_agent-reply-notice">
           <span className="flex items-center justify-center gap-1.5">
             <AgentGlyph handle={target} />
-            <span className="wrap-anywhere">Message from {target}</span>
+            <span className="wrap-anywhere">{translateNow('desktop.messageFrom')} {target}</span>
           </span>
           <details className="self-center">
             <summary className="cursor-pointer select-none text-center text-muted-foreground/45 hover:text-muted-foreground/70">

@@ -1,4 +1,4 @@
-import { ConfirmDialog, host } from '@hermes/plugin-sdk'
+import { ConfirmDialog, host, translateNow } from '@hermes/plugin-sdk'
 import type { useI18n } from '@hermes/plugin-sdk'
 
 import { CreateAgentDialog, CreateGroupChatDialog, GroupDialog } from './create-dialog'
@@ -125,7 +125,7 @@ export function renderRosterDialogs({
           await refetch()
           host.notify({
             kind: 'success',
-            message: `Deleted profile ${name}`
+            message: translateNow('desktop.deletedProfile', name)
           })
         }}
         open={Boolean(deleting)}
@@ -150,7 +150,7 @@ export function renderRosterDialogs({
           await disbandGroupChat(deletingGroup.name, deletingGroup.members)
           host.notify({
             kind: 'success',
-            message: `Deleted group “${deletingGroup.name}”`
+            message: b.group.disbanded(deletingGroup.name)
           })
         }}
         open={Boolean(deletingGroup)}

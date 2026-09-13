@@ -1,3 +1,4 @@
+import * as sdk from '@hermes/plugin-sdk'
 /**
  * The canonical Bot Chat: one bot, one forever-chat, resolved by exact title.
  *
@@ -7,9 +8,7 @@
  * plugin.tsx, which owns the workspace and group state a bot open competes
  * with.
  */
-
-import * as sdk from '@hermes/plugin-sdk'
-import { host } from '@hermes/plugin-sdk'
+import { host, translateNow } from '@hermes/plugin-sdk'
 
 import { $botMeta, botMetaKey, botOwner, persistBotMetaSnapshot } from './data'
 import { backendTargetProfile, botConnectionRoute, botRosterMeta, botWorkspaceOwnerKey, requestForBot } from './routing'
@@ -159,11 +158,11 @@ function botModeGatewayNeedsUpdate(error: unknown) {
 
 export function notifyBotOpenFailure(error: unknown, bot: RosterRow, fallbackMessage: string) {
   if (botModeGatewayNeedsUpdate(error)) {
-    const gateway = bot.connectionLabel || bot.connectionId || 'this gateway'
+    const gateway = bot.connectionLabel || bot.connectionId || 'gateway'
     host.notify?.({
       kind: 'error',
-      title: 'Update this gateway to use Bot Mode',
-      message: `Update ${gateway}, then try again.`
+      title: translateNow('desktop.updateBotModeTitle'),
+      message: translateNow('desktop.updateGatewayThenRetry', gateway)
     })
 
     return

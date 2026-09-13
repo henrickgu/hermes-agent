@@ -4,6 +4,7 @@ import { PageLoader } from '@/components/page-loader'
 import { Button } from '@/components/ui/button'
 import { DisclosureCaret } from '@/components/ui/disclosure-caret'
 import { getMemoryProviderConfig, saveMemoryProviderConfig } from '@/hermes'
+import { translateNow } from '@/i18n'
 import { SlidersHorizontal } from '@/lib/icons'
 import { notifyError } from '@/store/notifications'
 import type { MemoryProviderConfig, MemoryProviderField } from '@/types/hermes'
@@ -38,7 +39,7 @@ export function ProviderConfigPanel({ profile, provider }: { profile?: string; p
       setLoadError(null)
     } catch (err) {
       setConfig(null)
-      setLoadError(err instanceof Error ? err.message : 'Memory provider settings failed to load')
+      setLoadError(err instanceof Error ? err.message : translateNow('memoryPanel.loadFailed'))
     }
   }, [profile, provider])
 
@@ -71,7 +72,7 @@ export function ProviderConfigPanel({ profile, provider }: { profile?: string; p
           setSaved(current => ({ ...current, [field.key]: value }))
         }
       } catch (err) {
-        notifyError(err, `Failed to save ${field.label}`)
+        notifyError(err, translateNow('memoryPanel.saveFailed', field.label))
       }
     },
     [profile, provider, saved]
@@ -96,7 +97,7 @@ export function ProviderConfigPanel({ profile, provider }: { profile?: string; p
       )
     }
 
-    return <PageLoader className="min-h-24" label="Loading memory provider settings..." />
+    return <PageLoader className="min-h-24" label={translateNow('memoryPanel.loading')} />
   }
 
   const inlineFields = config.fields.filter(field => field.inline)

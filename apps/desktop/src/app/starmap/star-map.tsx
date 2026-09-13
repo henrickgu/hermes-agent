@@ -3,6 +3,7 @@ import { atom, type WritableAtom } from 'nanostores'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { useThemeEpoch } from '@/hooks/use-theme-epoch'
+import { translateNow } from '@/i18n'
 import { createRendererLoopPauseController } from '@/lib/renderer-loop-pause'
 import { createDoubleTapDetector, isSmartZoomWheel } from '@/lib/trackpad-gestures'
 import type { StarmapGraph } from '@/types/hermes'
@@ -197,7 +198,7 @@ export function StarMap({
 
         return null
       } catch (err) {
-        return err instanceof ShareCodeError ? err.message : 'Could not read that map code.'
+        return err instanceof ShareCodeError ? err.message : translateNow('desktop.mapCodeUnreadable')
       }
     },
     [onImport]

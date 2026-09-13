@@ -18,6 +18,8 @@
  * re-derived. `nous-alt` is first-party — do not re-derive it from GitHub.
  */
 
+import { translateNow } from '@/i18n'
+
 import type { DesktopTheme, DesktopThemeTypography } from './types'
 
 // Color-emoji fonts to append to every stack as a last resort. None of the UI
@@ -56,7 +58,7 @@ export const DEFAULT_TYPOGRAPHY: DesktopThemeTypography = { fontSans: SYSTEM_SAN
 export const githubTheme: DesktopTheme = {
   name: 'github',
   label: 'GitHub',
-  description: 'GitHub Light Default and Dark Default',
+  description: translateNow('desktop.themeDescGithub'),
   colors: {
     background: '#ffffff',
     foreground: '#1f2328',
@@ -174,7 +176,7 @@ export const githubTheme: DesktopTheme = {
 export const nousTheme: DesktopTheme = {
   name: 'nous',
   label: 'Nous',
-  description: 'GitHub chrome, Nous blue accent',
+  description: translateNow('desktop.themeDescNous'),
   colors: {
     background: '#ffffff',
     foreground: '#1f2328',
@@ -280,7 +282,7 @@ export const nousTheme: DesktopTheme = {
 export const catppuccinTheme: DesktopTheme = {
   name: 'catppuccin',
   label: 'Catppuccin',
-  description: 'Soothing pastels — Latte and Mocha',
+  description: translateNow('desktop.themeDescCatppuccin'),
   colors: {
     background: '#eff1f5',
     foreground: '#4c4f69',
@@ -385,7 +387,7 @@ export const catppuccinTheme: DesktopTheme = {
 export const everforestTheme: DesktopTheme = {
   name: 'everforest',
   label: 'Everforest',
-  description: 'Warm, low-contrast forest greens',
+  description: translateNow('desktop.themeDescEverforest'),
   colors: {
     background: '#fdf6e3',
     foreground: '#5c6a72',
@@ -488,7 +490,7 @@ export const everforestTheme: DesktopTheme = {
 export const solarizedTheme: DesktopTheme = {
   name: 'solarized',
   label: 'Solarized',
-  description: 'Fixed-contrast light and dark',
+  description: translateNow('desktop.themeDescSolarized'),
   colors: {
     background: '#fdf6e3',
     foreground: '#1f1f1f',
@@ -601,7 +603,7 @@ const nousAltTintTransparent = (pct: number) => `color-mix(in srgb, ${NOUS_ALT_B
 export const nousAltTheme: DesktopTheme = {
   name: 'nous-alt',
   label: 'Nous Alt',
-  description: 'Glass neutrals, cream on mission-blue',
+  description: translateNow('desktop.themeDescNousAlt'),
   colors: {
     background: '#F8FAFF',
     foreground: '#17171A',
@@ -670,7 +672,7 @@ export const nousAltTheme: DesktopTheme = {
 export const midnightTheme: DesktopTheme = {
   name: 'midnight',
   label: 'Midnight',
-  description: 'Deep blue-violet with cool accents',
+  description: translateNow('desktop.themeDescMidnight'),
   colors: {
     background: '#08081c',
     foreground: '#ddd6ff',
@@ -706,7 +708,7 @@ export const midnightTheme: DesktopTheme = {
 export const emberTheme: DesktopTheme = {
   name: 'ember',
   label: 'Ember',
-  description: 'Warm crimson and bronze — forge vibes',
+  description: translateNow('desktop.themeDescEmber'),
   colors: {
     background: '#160800',
     foreground: '#ffd8b0',
@@ -743,7 +745,7 @@ export const emberTheme: DesktopTheme = {
 export const monoTheme: DesktopTheme = {
   name: 'mono',
   label: 'Mono',
-  description: 'Clean grayscale — minimal and focused',
+  description: translateNow('desktop.themeDescMono'),
   colors: {
     background: '#0e0e0e',
     foreground: '#eaeaea',
@@ -776,7 +778,7 @@ export const monoTheme: DesktopTheme = {
 export const cyberpunkTheme: DesktopTheme = {
   name: 'cyberpunk',
   label: 'Cyberpunk',
-  description: 'Neon green on black — matrix terminal',
+  description: translateNow('desktop.themeDescCyberpunk'),
   colors: {
     background: '#000a00',
     foreground: '#00ff41',
@@ -813,7 +815,7 @@ export const cyberpunkTheme: DesktopTheme = {
 export const slateTheme: DesktopTheme = {
   name: 'slate',
   label: 'Slate',
-  description: 'Cool slate blue — focused developer theme',
+  description: translateNow('desktop.themeDescSlate'),
   colors: {
     background: '#0d1117',
     foreground: '#c9d1d9',

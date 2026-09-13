@@ -1,3 +1,5 @@
+import { translateNow } from '@/i18n'
+
 import type { BillingApi, BillingResult } from './api'
 import type { BillingStateResponse, SubscriptionPreviewResponse, SubscriptionStateResponse } from './types'
 
@@ -71,7 +73,7 @@ export function createSimulatedBillingApi(fixture: SimulatedFixture): BillingApi
         pending_downgrade_tier_name: null
       })
 
-      return ok({ message: 'Change cancelled.', ok: true })
+      return ok({ message: translateNow('desktop.changeCancelled'), ok: true })
     },
     scheduleSubscriptionChange: async tierId => {
       await delay(SIMULATED_DELAY_MS)

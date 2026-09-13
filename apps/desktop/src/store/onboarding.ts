@@ -257,7 +257,7 @@ function notifyGatewayTools(tools: string[] | undefined) {
     durationMs: 8000,
     kind: 'info',
     message: `${list} now run through your Nous subscription — no separate API keys needed.`,
-    title: 'Tool Gateway enabled'
+    title: translateNow('store.onboarding.toolGatewayTitle')
   })
 }
 
@@ -398,7 +398,7 @@ async function completeWithModelConfirm(
         return
       }
 
-      onFail(error instanceof Error ? error.message : 'Hermes could not save the selected model.')
+      onFail(error instanceof Error ? error.message : translateNow('store.onboarding.modelSaveFailed'))
 
       return
     }
@@ -683,9 +683,8 @@ export async function refreshOnboarding(ctx: OnboardingContext) {
     notify({
       id: 'runtime-not-ready',
       kind: 'error',
-      title: 'Runtime not ready',
-      message:
-        'Hermes Desktop could not verify the running backend on startup. Some features may be unavailable until the gateway is reachable.'
+      title: translateNow('store.onboarding.runtimeNotReadyTitle'),
+      message: translateNow('store.onboarding.runtimeNotReadyBody')
     })
 
     return false
@@ -812,7 +811,7 @@ export async function startProviderOAuth(provider: OAuthProvider, ctx: Onboardin
       return
     }
 
-    setFlow({ status: 'error', provider, message: `Could not start sign-in: ${errMessage(error)}` })
+    setFlow({ status: 'error', provider, message: translateNow('store.onboarding.signInFailed', errMessage(error)) })
   }
 }
 
@@ -845,7 +844,7 @@ async function pollSession(provider: OAuthProvider, start: DeviceStart, ctx: Onb
     }
 
     clearPoll()
-    setFlow({ status: 'error', provider, start, message: `Polling failed: ${errMessage(error)}` })
+    setFlow({ status: 'error', provider, start, message: translateNow('store.onboarding.pollingFailed', errMessage(error)) })
   }
 }
 
@@ -1057,7 +1056,7 @@ export async function saveOnboardingLocalEndpoint(baseUrl: string, apiKey: strin
   const key = apiKey.trim()
 
   if (!url) {
-    return { ok: false, message: 'Enter the endpoint URL first.' }
+    return { ok: false, message: translateNow('store.onboarding.enterEndpointUrl') }
   }
 
   // Probe connectivity + discover the served models. Any HTTP response proves
@@ -1073,16 +1072,16 @@ export async function saveOnboardingLocalEndpoint(baseUrl: string, apiKey: strin
     }
 
     if (!probe.ok && probe.reachable) {
-      return { ok: false, message: probe.message || 'Could not reach that endpoint.' }
+      return { ok: false, message: probe.message || translateNow('store.onboarding.couldNotReach') }
     }
 
     if (!probe.reachable) {
-      return { ok: false, message: probe.message || `Could not reach ${url}.` }
+      return { ok: false, message: probe.message || translateNow('store.onboarding.couldNotReachUrl', url) }
     }
 
     model = (probe.models?.[0] ?? '').trim()
   } catch {
-    return { ok: false, message: `Could not reach ${url}.` }
+    return { ok: false, message: translateNow('store.onboarding.couldNotReachUrl', url) }
   }
 
   if (!model) {

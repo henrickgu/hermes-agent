@@ -1,5 +1,6 @@
 import { group, split } from '@/components/pane-shell/tree/model'
 import { registry } from '@/contrib/registry'
+import { translateNow } from '@/i18n'
 import { isOnboardingEnabled } from '@/lib/onboarding-enabled'
 
 // ---------------------------------------------------------------------------
@@ -65,10 +66,18 @@ const QUAD_TREE = split(
 
 export function registerLayoutPresets() {
   return registry.registerMany([
-    { id: 'default', area: 'layouts', title: 'Default', order: 0, data: DEFAULT_TREE },
-    ...(isOnboardingEnabled() ? [{ id: 'basic', area: 'layouts', title: 'Basic', order: 5, data: BASIC_TREE }] : []),
-    { id: 'focus', area: 'layouts', title: 'Focus', order: 10, data: FOCUS_TREE },
-    { id: 'terminal-deck', area: 'layouts', title: 'Terminal deck', order: 20, data: TERMINAL_TREE },
-    { id: 'quad', area: 'layouts', title: 'Quad', order: 30, data: QUAD_TREE }
+    { id: 'default', area: 'layouts', title: translateNow('desktop.defaultLabel'), order: 0, data: DEFAULT_TREE },
+    ...(isOnboardingEnabled()
+      ? [{ id: 'basic', area: 'layouts', title: translateNow('desktop.basicLabel'), order: 5, data: BASIC_TREE }]
+      : []),
+    { id: 'focus', area: 'layouts', title: translateNow('desktop.focusLabel'), order: 10, data: FOCUS_TREE },
+    {
+      id: 'terminal-deck',
+      area: 'layouts',
+      title: translateNow('desktop.terminalDeck'),
+      order: 20,
+      data: TERMINAL_TREE
+    },
+    { id: 'quad', area: 'layouts', title: translateNow('desktop.quadLabel'), order: 30, data: QUAD_TREE }
   ])
 }

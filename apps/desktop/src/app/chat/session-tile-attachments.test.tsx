@@ -18,6 +18,7 @@ import { deferred } from '../../test/deferred'
 const requestGateway = vi.fn()
 
 vi.mock('@/i18n', () => ({
+  translateNow: (key: string) => key,
   useI18n: () => ({
     t: {
       desktop: {

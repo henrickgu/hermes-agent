@@ -21,6 +21,7 @@ import {
 import { declinedLookAround, showProfileSignpost } from '@/components/onboarding-chat/signpost'
 import { findGroupOfPane } from '@/components/pane-shell/tree/model'
 import { $layoutTree, activateTreePane } from '@/components/pane-shell/tree/store'
+import { translateNow } from '@/i18n'
 import { toChatMessages } from '@/lib/chat-messages'
 import { isOnboardingEnabled } from '@/lib/onboarding-enabled'
 import { requestGatewayForAgent } from '@/store/gateway'
@@ -112,8 +113,8 @@ export function useOnboardingHandoff({
     } catch (error) {
       notify({
         kind: 'error',
-        title: 'First build needs attention',
-        message: error instanceof Error ? error.message : 'The first-build receipt could not be read.'
+        title: translateNow('onboarding.firstBuildTitle'),
+        message: error instanceof Error ? error.message : translateNow('onboarding.receiptUnreadable')
       })
     }
   }, [selectedStoredId])
@@ -310,15 +311,15 @@ export function useOnboardingHandoff({
 
         $newChatProfile.set(previousNewChatProfile)
         $newChatRoute.set(previousNewChatRoute)
-        const message = error instanceof Error ? error.message : 'The first build could not be started.'
+        const message = error instanceof Error ? error.message : translateNow('onboarding.firstBuildUnstarted')
         $handoffError.set(message)
         $setupHandoff.set({ ...setupHandoff, phase: 'error' })
         notify({
           id: 'onboarding-handoff',
           kind: 'error',
-          title: 'First build needs attention',
+          title: translateNow('onboarding.firstBuildTitle'),
           message,
-          action: { label: 'Retry first build', onClick: retrySetupHandoff }
+          action: { label: translateNow('onboarding.retryFirstBuild'), onClick: retrySetupHandoff }
         })
       }
     })()

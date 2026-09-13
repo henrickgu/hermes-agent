@@ -18,7 +18,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
-import { useI18n } from '@/i18n'
+import { translateNow, useI18n } from '@/i18n'
 import { desktopGit } from '@/lib/desktop-git'
 import { cn } from '@/lib/utils'
 import {
@@ -75,44 +75,44 @@ interface Option<T extends string = string> {
 }
 
 const GROUPINGS: Option<SidebarGrouping>[] = [
-  { icon: 'clock', id: 'date', label: 'Updated' },
-  { icon: 'root-folder', id: 'project', label: 'Project' },
-  { icon: 'pulse', id: 'status', label: 'Status' },
-  { icon: 'account', id: 'profile', label: 'Profile' }
+  { icon: 'clock', id: 'date', label: translateNow('desktop.sidebarGroupingUpdated') },
+  { icon: 'root-folder', id: 'project', label: translateNow('desktop.sidebarGroupingProject') },
+  { icon: 'pulse', id: 'status', label: translateNow('desktop.sidebarGroupingStatus') },
+  { icon: 'account', id: 'profile', label: translateNow('desktop.sidebarGroupingProfile') }
 ]
 
 const ORDERINGS: Option<SidebarOrdering>[] = [
-  { icon: 'clock', id: 'updated', label: 'Updated' },
-  { icon: 'add', id: 'created', label: 'Created' },
-  { icon: 'pulse', id: 'status', label: 'Status' },
-  { icon: 'symbol-numeric', id: 'tokens', label: 'Tokens' },
-  { icon: 'credit-card', id: 'cost', label: 'Cost' },
-  { icon: 'list-ordered', id: 'manual', label: 'Manual' }
+  { icon: 'clock', id: 'updated', label: translateNow('desktop.sidebarOrderingUpdated') },
+  { icon: 'add', id: 'created', label: translateNow('desktop.sidebarOrderingCreated') },
+  { icon: 'pulse', id: 'status', label: translateNow('desktop.sidebarGroupingStatus') },
+  { icon: 'symbol-numeric', id: 'tokens', label: translateNow('desktop.sidebarOrderingTokens') },
+  { icon: 'credit-card', id: 'cost', label: translateNow('desktop.sidebarOrderingCost') },
+  { icon: 'list-ordered', id: 'manual', label: translateNow('desktop.sidebarOrderingManual') }
 ]
 
 const ROW_META: Option<SidebarRowMeta>[] = [
-  { icon: 'clock', id: 'updated', label: 'Updated' },
-  { icon: 'comment', id: 'preview', label: 'Preview' },
-  { icon: 'symbol-numeric', id: 'tokens', label: 'Tokens' },
-  { icon: 'credit-card', id: 'cost', label: 'Cost' },
-  { icon: 'git-pull-request', id: 'pr', label: 'PR' },
-  { icon: 'account', id: 'profile', label: 'Profile' }
+  { icon: 'clock', id: 'updated', label: translateNow('desktop.sidebarOrderingUpdated') },
+  { icon: 'comment', id: 'preview', label: translateNow('desktop.sidebarOrderingPreview') },
+  { icon: 'symbol-numeric', id: 'tokens', label: translateNow('desktop.sidebarOrderingTokens') },
+  { icon: 'credit-card', id: 'cost', label: translateNow('desktop.sidebarOrderingCost') },
+  { icon: 'git-pull-request', id: 'pr', label: translateNow('desktop.sidebarOrderingPr') },
+  { icon: 'account', id: 'profile', label: translateNow('desktop.sidebarGroupingProfile') }
 ]
 
 const PR_FILTERS: Option<PullRequestBucket>[] = [
-  { icon: 'git-pull-request', id: 'open', label: 'Open' },
-  { icon: 'git-pull-request-draft', id: 'draft', label: 'Draft' },
-  { icon: 'git-merge', id: 'merged', label: 'Merged' },
-  { icon: 'git-pull-request-closed', id: 'closed', label: 'Closed' },
-  { icon: 'circle-slash', id: 'none', label: 'No PR' }
+  { icon: 'git-pull-request', id: 'open', label: translateNow('desktop.sidebarFilterOpen') },
+  { icon: 'git-pull-request-draft', id: 'draft', label: translateNow('desktop.sidebarFilterDraft') },
+  { icon: 'git-merge', id: 'merged', label: translateNow('desktop.sidebarFilterMerged') },
+  { icon: 'git-pull-request-closed', id: 'closed', label: translateNow('desktop.sidebarFilterClosed') },
+  { icon: 'circle-slash', id: 'none', label: translateNow('desktop.sidebarNoPR') }
 ]
 
 const STATUS_FILTERS: Option<SessionStatusBucket>[] = [
-  { dot: sessionDotClassName('needs-input'), id: 'needs-input', label: 'Needs input' },
-  { dot: sessionDotClassName('working'), id: 'working', label: 'Working' },
-  { dot: sessionDotClassName('unread'), id: 'unread', label: 'Unread' },
-  { dot: sessionDotClassName('draft'), id: 'draft', label: 'Draft' },
-  { dot: cn(sessionDotClassName('idle'), 'bg-(--ui-text-quaternary)'), id: 'idle', label: 'Idle' }
+  { dot: sessionDotClassName('needs-input'), id: 'needs-input', label: translateNow('desktop.sidebarFilterNeedsInput') },
+  { dot: sessionDotClassName('working'), id: 'working', label: translateNow('desktop.sidebarFilterWorking') },
+  { dot: sessionDotClassName('unread'), id: 'unread', label: translateNow('desktop.sidebarFilterUnread') },
+  { dot: sessionDotClassName('draft'), id: 'draft', label: translateNow('desktop.sidebarFilterDraft') },
+  { dot: cn(sessionDotClassName('idle'), 'bg-(--ui-text-quaternary)'), id: 'idle', label: translateNow('desktop.sidebarFilterIdle') }
 ]
 
 function OptionGlyph({ option }: { option: Option }) {
@@ -413,7 +413,9 @@ export function SidebarFilterMenu({ className }: { className?: string }) {
 
           {/* One way back rather than two near-identical ones: this drops the
               grouping and sort too, which "clear filters" left behind. */}
-          {viewCustomized && <DropdownMenuItem onSelect={resetSidebarView}>Reset to defaults</DropdownMenuItem>}
+          {viewCustomized && (
+            <DropdownMenuItem onSelect={resetSidebarView}>{translateNow('desktop.sidebarResetToDefaults')}</DropdownMenuItem>
+          )}
         </DropdownMenuGroup>
 
         <DropdownMenuSeparator />

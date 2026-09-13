@@ -160,9 +160,9 @@ export const ChatRoutesSurface = memo(function ChatRoutesSurface({
       gateway={gateway}
       maxVoiceRecordingSeconds={maxVoiceRecordingSeconds}
       modelMenuContent={modelMenuContent}
-      reasoningMenuContent={reasoningMenuContent}
       modelOptionsOwnerConnectionId={activeConnectionId || undefined}
       modelOptionsProfile={activeGatewayProfile}
+      reasoningMenuContent={reasoningMenuContent}
       requestModelOptionsForOwner={actions.requestGateway}
       {...chatActions}
     />

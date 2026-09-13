@@ -1,5 +1,6 @@
 import { useEffect, useReducer, useRef } from 'react'
 
+import { translateNow } from '@/i18n'
 import {
   initialQuickComposerState,
   QUICK_TARGET_CURRENT,
@@ -161,7 +162,7 @@ export function QuickEntryApp() {
             Send to
           </label>
           <select
-            aria-label="Target session"
+            aria-label={translateNow('desktop.targetSession')}
             disabled={!state.connected}
             id="quick-entry-target"
             onChange={event => dispatch({ target: event.target.value, type: 'target' })}
@@ -183,7 +184,7 @@ export function QuickEntryApp() {
             value={state.target}
           >
             <option value={QUICK_TARGET_CURRENT}>Current chat</option>
-            <option value={QUICK_TARGET_NEW}>New session</option>
+            <option value={QUICK_TARGET_NEW}>{translateNow('desktop.newSession')}</option>
             {state.sessions.map(session => (
               <option key={session.id} value={session.id}>
                 {session.title}

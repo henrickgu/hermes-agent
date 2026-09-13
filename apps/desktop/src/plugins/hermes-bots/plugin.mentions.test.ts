@@ -107,7 +107,8 @@ vi.mock('@hermes/plugin-sdk', async () => {
     COMPOSER_AREAS: { atCompletions: 'composer.atCompletions', middleware: 'composer.middleware' },
     host: hostMock,
     PALETTE_AREA: 'palette',
-    queryClient
+    queryClient,
+    translateNow: (key: string) => (key === 'desktop.chatNeverResets' ? 'This chat never resets' : key)
   }
 
   return new Proxy(known, {
@@ -146,7 +147,7 @@ async function contributions({
 
   try {
     plugin.register({
-      i18n: { register: () => () => undefined },
+      i18n: { register: () => () => undefined, t: (key: string) => key },
       onDispose: () => undefined,
       register: (contribution: Contribution) => registered.push(contribution),
       storage: { get: async () => undefined, remove: async () => undefined, set: async () => undefined }

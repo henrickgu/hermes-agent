@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 
-import { fmtDate } from '@/lib/time'
 import { translateNow } from '@/i18n'
+import { fmtDate } from '@/lib/time'
 import { FREE_TIER_MODEL } from '@/store/free-tier'
 import { openFreeTierSignIn } from '@/store/free-tier-sign-in'
 
@@ -464,6 +464,7 @@ function derivePlanCard(
   const unavailable = subscriptionResult ? !subscriptionResult.ok : false
 
   const t = (key: string, ...args: unknown[]) => translateNow(key, ...args)
+
   const caption = unavailable
     ? t('billing.planUnavailableCaption')
     : pending

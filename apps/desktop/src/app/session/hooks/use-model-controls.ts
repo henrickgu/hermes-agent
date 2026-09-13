@@ -8,8 +8,8 @@ import { isBusySessionModelSwitch } from '@/lib/gateway-rpc'
 import { surfaceModelSwitchConfirm } from '@/lib/guarded-model-switch'
 import { manualPickRemoved, modelOptionsQueryKey } from '@/lib/model-options'
 import { carryReasoningEffort } from '@/lib/reasoning-effort'
-import { notifyError } from '@/store/notifications'
 import { getModelPreset, setModelPreset } from '@/store/model-presets'
+import { notifyError } from '@/store/notifications'
 import { $activeGatewayProfile } from '@/store/profile'
 import {
   $activeSessionId,

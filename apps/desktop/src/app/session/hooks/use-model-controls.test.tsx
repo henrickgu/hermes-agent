@@ -5,19 +5,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ClientSessionState } from '@/app/types'
 import { getGlobalModelInfo } from '@/hermes'
 import { modelOptionsQueryKey } from '@/lib/model-options'
+import { $modelPresets, getModelPreset, setModelPreset } from '@/store/model-presets'
 import { $activeGatewayProfile } from '@/store/profile'
 import {
   $activeSessionId,
   $currentModel,
   $currentProvider,
-  $currentReasoningEffort,
   getCurrentModelSource,
   setCurrentModel,
   setCurrentModelSource,
   setCurrentProvider,
   setCurrentReasoningEffort
 } from '@/store/session'
-import { $modelPresets, getModelPreset, setModelPreset } from '@/store/model-presets'
 import * as SessionStates from '@/store/session-states'
 
 import { deferred } from '../../../test/deferred'
@@ -899,6 +898,7 @@ describe('useModelControls', () => {
     })
 
     const requestGateway = vi.fn(async () => ({}) as never)
+
     const { result } = renderHook(() =>
       useModelControls({
         cacheOwnerConnectionId: 'connection-b',

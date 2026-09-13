@@ -10,6 +10,7 @@ import { useMessageReactions } from '@/components/assistant-ui/thread/use-messag
 import { UserMessageText } from '@/components/assistant-ui/thread/user-message-text'
 import { Codicon } from '@/components/ui/codicon'
 import { useResizeObserver } from '@/hooks/use-resize-observer'
+import { translateNow } from '@/i18n'
 import { useI18n } from '@/i18n'
 import { triggerHaptic } from '@/lib/haptics'
 import { StopFilled } from '@/lib/icons'
@@ -215,7 +216,7 @@ const AgentMessageNote: FC<{ text: string }> = ({ text }) => {
             🤖
           </span>
         )}
-        <span className="wrap-anywhere">Message from {sender}</span>
+        <span className="wrap-anywhere">{translateNow('desktop.messageFrom')} {sender}</span>
       </span>
       {body && (
         <details className="self-center">

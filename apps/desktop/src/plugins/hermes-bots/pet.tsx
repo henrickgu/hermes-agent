@@ -1,9 +1,8 @@
+import { Button, cn, GlyphSpinner, host, Input, LruCache, RowButton, useQuery } from '@hermes/plugin-sdk'
 /**
  * The Pet tab: browse the petdex gallery and use a companion's first sprite
  * frame as the bot's profile picture.
  */
-
-import { Button, cn, GlyphSpinner, host, Input, LruCache, RowButton, useQuery } from '@hermes/plugin-sdk'
 import { useEffect, useState } from 'react'
 
 import { useBots } from './i18n'
@@ -215,7 +214,7 @@ export function PetTab({ image, onImage }: PetTabProps) {
         </Button>
       ) : null}
       {filtered.length === 0 ? (
-        <div className="py-3 text-center text-xs text-(--ui-text-quaternary)">No pets match.</div>
+        <div className="py-3 text-center text-xs text-(--ui-text-quaternary)">{b.roster.noMatchFilters}</div>
       ) : (
         <div
           className="overflow-y-auto"

@@ -155,6 +155,65 @@ export interface Translations {
     off: string
   }
 
+  desktopCommands: {
+    new: string
+    stop: string
+    branch: string
+    yolo: string
+    wake: string
+    handoff: string
+    profile: string
+    skin: string
+    title: string
+    help: string
+    browser: string
+    journey: string
+    model: string
+    resume: string
+    compress: string
+    btw: string
+    pet: string
+    hatch: string
+    save: string
+    status: string
+    skinList: string
+    skinNext: string
+    skinCurrent: string
+    unavailableAdvanced: (command: string) => string
+    unavailableComposerVoice: string
+    unavailableMessaging: (command: string) => string
+    unavailableSettings: (command: string) => string
+    unavailableTerminal: (command: string) => string
+    pickerModel: (command: string) => string
+    pickerSession: (command: string) => string
+  }
+
+  store: {
+    onboarding: {
+      toolGatewayTitle: string
+      modelSaveFailed: string
+      runtimeNotReadyTitle: string
+      runtimeNotReadyBody: string
+      signInFailed: (reason: string) => string
+      pollingFailed: (reason: string) => string
+      enterEndpointUrl: string
+      couldNotReach: string
+      couldNotReachUrl: (url: string) => string
+    }
+    updates: {
+      backendApplied: string
+      backendNoReturn: string
+      backendFailed: string
+    }
+    wakeWord: {
+      micFailed: string
+    }
+  }
+
+  session: {
+    gatewayErrorTitle: string
+  }
+
   fileMenu: {
     revealFinder: string
     revealExplorer: string
@@ -486,6 +545,125 @@ export interface Translations {
     stepUpDoneMessage: string
 
     amountReloadBelowThreshold: string
+  }
+
+  customEndpoints: {
+    title: string
+    addTitle: string
+    editTitle: string
+    name: string
+    providerId: string
+    endpointUrl: string
+    defaultModel: string
+    context: string
+    apiKey: string
+    apiKeyKeep: string
+    optional: string
+    useForNewChats: string
+    discoverModels: string
+    test: string
+    save: string
+    newEndpoint: string
+    use: string
+    active: string
+    apiKeySet: string
+    deleteTitle: string
+    noEndpoints: string
+    noEndpointsDesc: string
+    deleteConfirm: (name: string) => string
+    saved: string
+    saveFailed: string
+    deleteFailed: string
+    activateFailed: string
+    loadFailed: string
+    reachable: string
+    reachableModels: (count: number) => string
+    validationFailed: string
+    testFailed: string
+  }
+
+  dangerZone: {
+    title: string
+    checking: string
+    uninstallTitle: string
+    uninstallIntro: string
+    guiTitle: string
+    guiDesc: string
+    liteTitle: string
+    liteDesc: string
+    fullTitle: string
+    fullDesc: string
+    confirmTitle: string
+    confirmBody: (consequence: string) => string
+    consequenceGui: string
+    consequenceLite: string
+    consequenceFull: string
+    yesUninstall: string
+    uninstalling: string
+    cancel: string
+    couldNotStart: string
+  }
+
+  computerUse: {
+    checking: string
+    notSupported: (platform: string) => string
+    installHint: string
+    installHintGrant: string
+    macGrantNote: string
+    winNote: string
+    linuxNote: string
+    recheck: string
+    accessibility: string
+    accessibilityHint: string
+    screenRecording: string
+    screenRecordingHint: string
+    driverHealth: string
+    granted: string
+    notGranted: string
+    unknown: string
+    ready: string
+    notReady: string
+    readyLine: string
+    waitingApproval: string
+    grantPermissions: string
+    approveTitle: string
+    approveMessage: string
+    couldNotRequest: string
+    couldNotRead: string
+  }
+
+  memoryPanel: {
+    loadFailed: string
+    loading: string
+    saveFailed: (label: string) => string
+  }
+
+  providerDescriptions: {
+    nous: string
+    fireworks: string
+    openrouter: string
+    anthropic: string
+    xai: string
+    gemini: string
+    deepseek: string
+    dashscope: string
+    glm: string
+    kimi: string
+    kimiCn: string
+    minimax: string
+    minimaxCn: string
+    huggingface: string
+    opencodeZen: string
+    opencodeGo: string
+    nvidia: string
+    ollamaCloud: string
+    lmstudio: string
+    stepfun: string
+    xiaomi: string
+    arcee: string
+    gmi: string
+    azureFoundry: string
+    awsBedrock: string
   }
 
   sendDiagnostics: {
@@ -821,6 +999,7 @@ export interface Translations {
       productDesc: string
       technical: string
       technicalDesc: string
+      themeSearchPlaceholder: string
       themeTitle: string
       themeDesc: string
       themeProfileNote: (profile: string) => string
@@ -2972,6 +3151,13 @@ export interface Translations {
   }
 
   onboarding: {
+    firstBuildTitle: string
+    receiptUnreadable: string
+    retryFirstBuild: string
+    firstBuildUnstarted: string
+    restoreFailedTitle: string
+    welcomeChatTitle: string
+    welcomeChatUnstarted: string
     headerTitle: string
     headerDesc: string
     preparingInstall: string
@@ -3711,6 +3897,104 @@ export interface Translations {
   }
 
   desktop: {
+    anthropicExtraCredits: string
+    botCreatedCopy: (name: string, source: string) => string
+    openGroupChat: string
+    updateBotModeTitle: string
+    updateGatewayThenRetry: (gateway: string) => string
+    sectionsFailed: (sections: string) => string
+    noPetsMatch: string
+    newBot: string
+    chatNeverResets: string
+    deletedProfile: (name: string) => string
+    deletedGroup: (name: string) => string
+    newEllipsis: string
+    noHubSkills: string
+    selectBotFirst: string
+    updateDesktopForBot: string
+    toggleLayoutEdit: string
+    resetLayout: string
+    defaultLabel: string
+    basicLabel: string
+    focusLabel: string
+    terminalDeck: string
+    quadLabel: string
+    zoomOut: string
+    zoomIn: string
+    copied: string
+    copy: string
+    failedEmbed: (label: string) => string
+    removeReference: string
+    openInHermes: string
+    targetSession: string
+    newSession: string
+    memoryDeletePermanent: string
+    mapCodeUnreadable: string
+    failedToLoad: string
+    openDiagram: string
+    messageFrom: string
+    searchEllipsis: string
+    reset: string
+    close: string
+    updateIntro: string
+    noGatewayLogs: string
+    yourProject: string
+    themeDescGithub: string
+    themeDescNous: string
+    themeDescCatppuccin: string
+    themeDescEverforest: string
+    themeDescSolarized: string
+    themeDescNousAlt: string
+    themeDescMidnight: string
+    themeDescEmber: string
+    themeDescMono: string
+    themeDescCyberpunk: string
+    themeDescSlate: string
+    mcpDirectoryIntercom: string
+    mcpDirectoryAirtable: string
+    mcpDirectoryWebflow: string
+    mcpDirectoryPaypal: string
+    mcpDirectorySquare: string
+    onboardingProfileDesc: string
+    onboardingStillNextDoor: string
+    directApiAccess: (name: string) => string
+    changeCancelled: string
+    modelLabel: string
+    runtimeShadowed: (id: string) => string
+    mcpDirectoryAtlassian: string
+    mcpDirectoryLinear: string
+    mcpDirectoryFigma: string
+    mcpDirectorySentry: string
+    mcpDirectoryDatadog: string
+    mcpDirectoryNotion: string
+    mcpDirectoryStripe: string
+    mcpDirectoryVercel: string
+    mcpDirectorySupabase: string
+    mcpDirectoryNetlify: string
+    mcpDirectoryHuggingface: string
+    mcpDirectoryAsana: string
+    sidebarNoPR: string
+    sidebarResetToDefaults: string
+    sidebarGroupingUpdated: string
+    sidebarGroupingProject: string
+    sidebarGroupingStatus: string
+    sidebarGroupingProfile: string
+    sidebarOrderingUpdated: string
+    sidebarOrderingCreated: string
+    sidebarOrderingTokens: string
+    sidebarOrderingCost: string
+    sidebarOrderingManual: string
+    sidebarOrderingPreview: string
+    sidebarOrderingPr: string
+    sidebarFilterOpen: string
+    sidebarFilterDraft: string
+    sidebarFilterMerged: string
+    sidebarFilterClosed: string
+    sidebarFilterNeedsInput: string
+    sidebarFilterWorking: string
+    sidebarFilterUnread: string
+    sidebarFilterIdle: string
+    sidebarFilterDone: string
     audioReadFailed: string
     sessionUnavailable: string
     createSessionFailed: string

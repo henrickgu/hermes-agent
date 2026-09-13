@@ -47,14 +47,14 @@ export const PROVIDER_GROUPS: ProviderPrefix[] = [
   {
     prefix: 'NOUS_',
     name: 'Nous Portal',
-    description: 'Hosted Hermes & Nous-trained models',
+    description: 'providerDescriptions.nous',
     docsUrl: 'https://portal.nousresearch.com',
     priority: 0
   },
   {
     prefix: 'FIREWORKS_',
     name: 'Fireworks AI',
-    description: 'OpenAI-compatible direct model API',
+    description: 'providerDescriptions.fireworks',
     docsUrl: 'https://app.fireworks.ai/settings/users/api-keys',
     // Slot #2 — mirrors CANONICAL_PROVIDERS (after Nous, ahead of OpenRouter).
     // Same numeric priority as OpenRouter; name sort puts Fireworks first.
@@ -63,28 +63,28 @@ export const PROVIDER_GROUPS: ProviderPrefix[] = [
   {
     prefix: 'OPENROUTER_',
     name: 'OpenRouter',
-    description: 'Aggregator for hundreds of frontier models',
+    description: 'providerDescriptions.openrouter',
     docsUrl: 'https://openrouter.ai/keys',
     priority: 1
   },
   {
     prefix: 'ANTHROPIC_',
     name: 'Anthropic',
-    description: 'Claude API access (Sonnet, Opus, Haiku)',
+    description: 'providerDescriptions.anthropic',
     docsUrl: 'https://console.anthropic.com/settings/keys',
     priority: 2
   },
   {
     prefix: 'XAI_',
     name: 'xAI',
-    description: 'Grok models (use OAuth for SuperGrok / Premium+)',
+    description: 'providerDescriptions.xai',
     docsUrl: 'https://console.x.ai/',
     priority: 3
   },
   {
     prefix: 'GOOGLE_',
     name: 'Gemini',
-    description: 'Google AI Studio (Gemini 1.5 / 2.0 / 2.5)',
+    description: 'providerDescriptions.gemini',
     docsUrl: 'https://aistudio.google.com/app/apikey',
     priority: 4
   },
@@ -92,14 +92,14 @@ export const PROVIDER_GROUPS: ProviderPrefix[] = [
   {
     prefix: 'DEEPSEEK_',
     name: 'DeepSeek',
-    description: 'Direct DeepSeek API (V3.x, R1)',
+    description: 'providerDescriptions.deepseek',
     docsUrl: 'https://platform.deepseek.com/api_keys',
     priority: 5
   },
   {
     prefix: 'DASHSCOPE_',
     name: 'DashScope (Qwen)',
-    description: 'Alibaba Cloud DashScope — Qwen and multi-vendor models',
+    description: 'providerDescriptions.dashscope',
     docsUrl: 'https://modelstudio.console.alibabacloud.com/',
     priority: 6
   },
@@ -107,7 +107,7 @@ export const PROVIDER_GROUPS: ProviderPrefix[] = [
   {
     prefix: 'GLM_',
     name: 'GLM / Z.AI',
-    description: 'Zhipu GLM-4.6 and Z.AI hosted endpoints',
+    description: 'providerDescriptions.glm',
     docsUrl: 'https://z.ai/',
     priority: 7
   },
@@ -116,91 +116,91 @@ export const PROVIDER_GROUPS: ProviderPrefix[] = [
   {
     prefix: 'KIMI_',
     name: 'Kimi / Moonshot',
-    description: 'Moonshot Kimi K2 / coding endpoints',
+    description: 'providerDescriptions.kimi',
     docsUrl: 'https://platform.moonshot.cn/',
     priority: 8
   },
   {
     prefix: 'KIMI_CN_',
     name: 'Kimi (China)',
-    description: 'Moonshot China endpoint',
+    description: 'providerDescriptions.kimiCn',
     docsUrl: 'https://platform.moonshot.cn/',
     priority: 9
   },
   {
     prefix: 'MINIMAX_',
     name: 'MiniMax',
-    description: 'MiniMax-M2 and Hailuo international endpoints',
+    description: 'providerDescriptions.minimax',
     docsUrl: 'https://www.minimax.io/',
     priority: 10
   },
   {
     prefix: 'MINIMAX_CN_',
     name: 'MiniMax (China)',
-    description: 'MiniMax mainland China endpoint',
+    description: 'providerDescriptions.minimaxCn',
     docsUrl: 'https://www.minimaxi.com/',
     priority: 11
   },
   {
     prefix: 'HF_',
     name: 'Hugging Face',
-    description: 'Inference Providers — 20+ open models via router.huggingface.co',
+    description: 'providerDescriptions.huggingface',
     docsUrl: 'https://huggingface.co/settings/tokens',
     priority: 12
   },
   {
     prefix: 'OPENCODE_ZEN_',
     name: 'OpenCode Zen',
-    description: 'Pay-as-you-go access to curated coding models',
+    description: 'providerDescriptions.opencodeZen',
     docsUrl: 'https://opencode.ai/auth',
     priority: 13
   },
   {
     prefix: 'OPENCODE_GO_',
     name: 'OpenCode Go',
-    description: '$10/month subscription for open coding models',
+    description: 'providerDescriptions.opencodeGo',
     docsUrl: 'https://opencode.ai/auth',
     priority: 14
   },
   {
     prefix: 'NVIDIA_',
     name: 'NVIDIA NIM',
-    description: 'build.nvidia.com or your own local NIM endpoint',
+    description: 'providerDescriptions.nvidia',
     docsUrl: 'https://build.nvidia.com/',
     priority: 15
   },
   {
     prefix: 'OLLAMA_',
     name: 'Ollama Cloud',
-    description: 'Cloud-hosted open models from ollama.com',
+    description: 'providerDescriptions.ollamaCloud',
     docsUrl: 'https://ollama.com/settings',
     priority: 16
   },
   {
     prefix: 'LM_',
     name: 'LM Studio',
-    description: 'Local LM Studio server (OpenAI-compatible)',
+    description: 'providerDescriptions.lmstudio',
     docsUrl: 'https://lmstudio.ai/docs/local-server',
     priority: 17
   },
   {
     prefix: 'STEPFUN_',
     name: 'StepFun',
-    description: 'StepFun Step Plan coding models',
+    description: 'providerDescriptions.stepfun',
     docsUrl: 'https://platform.stepfun.com/',
     priority: 18
   },
   {
     prefix: 'XIAOMI_',
     name: 'Xiaomi MiMo',
-    description: 'MiMo-V2.5 and Xiaomi proprietary models',
+    description: 'providerDescriptions.xiaomi',
     docsUrl: 'https://platform.xiaomimimo.com',
     priority: 19
   },
   {
     prefix: 'ARCEEAI_',
     name: 'Arcee AI',
-    description: 'Arcee-hosted small + medium models',
+    description: 'providerDescriptions.arcee',
     docsUrl: 'https://chat.arcee.ai/',
     priority: 20
   },
@@ -208,21 +208,21 @@ export const PROVIDER_GROUPS: ProviderPrefix[] = [
   {
     prefix: 'GMI_',
     name: 'GMI Cloud',
-    description: 'GMI Cloud GPU + model serving',
+    description: 'providerDescriptions.gmi',
     docsUrl: 'https://www.gmicloud.ai/',
     priority: 21
   },
   {
     prefix: 'AZURE_FOUNDRY_',
     name: 'Azure Foundry',
-    description: 'Azure AI Foundry custom endpoints (OpenAI / Anthropic-compatible)',
+    description: 'providerDescriptions.azureFoundry',
     docsUrl: 'https://ai.azure.com/',
     priority: 22
   },
   {
     prefix: 'AWS_',
     name: 'AWS Bedrock',
-    description: 'Authenticate via AWS profile + region',
+    description: 'providerDescriptions.awsBedrock',
     docsUrl: 'https://docs.aws.amazon.com/bedrock/latest/userguide/bedrock-regions.html',
     priority: 23
   }

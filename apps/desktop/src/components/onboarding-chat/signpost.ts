@@ -15,6 +15,7 @@
  * version of this is a line in the chat (see the runbook's step 4).
  */
 
+import { translateNow } from '@/i18n'
 import { type ChatMessage, chatMessageText } from '@/lib/chat-messages'
 import { TOUR_OPTIONS } from '@/store/onboarding-script'
 
@@ -65,6 +66,6 @@ export async function showProfileSignpost(): Promise<void> {
     selector: RAIL,
     side: 'right',
     text: "You're in your own workspace now, and this is where the profiles live. The chat we just had is still in there — come back to it whenever you want a hand.",
-    title: 'Hermes is still next door'
+    title: translateNow('desktop.onboardingStillNextDoor')
   })
 }
