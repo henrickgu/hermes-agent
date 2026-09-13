@@ -5,6 +5,7 @@ import { PRIMARY_SESSION_VIEW } from '@/app/chat/session-view'
 import type { ChatMessage } from '@/lib/chat-messages'
 import { preserveLocalAssistantErrors } from '@/lib/chat-messages'
 import { createClientSessionState } from '@/lib/chat-runtime'
+import { readJson, writeJson } from '@/lib/storage'
 import { persistInFlightTurnState } from '@/lib/inflight-turn-journal'
 import { setMutableRef } from '@/lib/mutable-ref'
 import {
@@ -38,6 +39,30 @@ interface SessionStateCacheOptions {
   setAwaitingResponse: (awaiting: boolean) => void
   setBusy: (busy: boolean) => void
   setMessages: (messages: ChatMessage[]) => void
+}
+
+// Last-known reasoning effort per STORED session id, persisted so a resumed
+// conversation's pill paints the effort that session actually ran with before
+// its first `session.info` round-trip lands (otherwise the composer flashes
+// the profile default — medium — and then flips to the real level).
+const SESSION_EFFORT_CACHE_KEY = 'hermes.desktop.session-efforts:v1'
+
+function readSessionEffortCache(): Record<string, string> {
+  return readJson<Record<string, string>>(SESSION_EFFORT_CACHE_KEY) ?? {}
+}
+
+function rememberSessionEffort(storedSessionId: string, effort: string): void {
+  if (!storedSessionId || !effort) {
+    return
+  }
+
+  const cache = readSessionEffortCache()
+
+  if (cache[storedSessionId] === effort) {
+    return
+  }
+
+  writeJson(SESSION_EFFORT_CACHE_KEY, { ...cache, [storedSessionId]: effort })
 }
 
 function syncRuntimeMetadataToView(state: ClientSessionState) {
@@ -186,6 +211,15 @@ export function useSessionStateCache({
 
       if (storedSessionId) {
         runtimeIdByStoredSessionIdRef.current.set(storedSessionId, sessionId)
+
+        // First paint of a resumed conversation: seed the pill with the effort
+        // that session last ran at (persisted on every session.info) instead of
+        // flashing the profile default until the resume's session.info lands.
+        const rememberedEffort = readSessionEffortCache()[storedSessionId]
+
+        if (rememberedEffort) {
+          created.reasoningEffort = rememberedEffort
+        }
       }
 
       sessionStateCache.set(sessionId, created)
@@ -283,6 +317,10 @@ export function useSessionStateCache({
 
       const viewState = suppressTranscriptForView(state, transcriptViewGateByRuntimeIdRef.current.has(sessionId))
 
+      if (viewState.storedSessionId) {
+        rememberSessionEffort(viewState.storedSessionId, viewState.reasoningEffort ?? '')
+      }
+
       syncRuntimeMetadataToView(viewState)
       pendingViewStateRef.current = { sessionId, state: viewState }
 
@@ -350,6 +388,18 @@ export function useSessionStateCache({
       // change — including periodic ~1/s session.info heartbeats that churn
       // $sessionStates and its computed atoms on every tick.
       const next = updater(previous)
+
+      // Gateway-authoritative effort for this conversation — persist it so the
+      // next resume paints the pill with the level the session actually runs
+      // at, before its first session.info round-trip (anti-flash v7). Only
+      // when the session actually REPORTED an effort: an empty patch must not
+      // seed the cache with '' and must not resurrect a previous session's
+      // level onto an unrelated conversation (#anti-contamination contract).
+      const persistedStoredId = next.storedSessionId ?? storedSessionId ?? null
+
+      if (persistedStoredId && next.reasoningEffort) {
+        rememberSessionEffort(persistedStoredId, next.reasoningEffort)
+      }
 
       // If the updater returned the same reference, nothing changed for this
       // session — skip the store write, publishSessionState, and view sync.

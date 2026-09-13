@@ -125,6 +125,9 @@ describe('useSessionStateCache — per-session turn timer', () => {
     setCurrentReasoningEffort('')
     setCurrentServiceTier('')
     setCurrentFastMode(false)
+    // v7 persists last-known effort per stored id — each test starts from a
+    // clean slate exactly like a fresh browser profile would.
+    localStorage.removeItem('hermes.desktop.session-efforts:v1')
   })
 
   afterEach(() => {
