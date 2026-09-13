@@ -35,6 +35,11 @@ const COMPOSER_PROVIDER_KEY = 'hermes.desktop.composer.provider'
 const COMPOSER_MODEL_SOURCE_KEY = 'hermes.desktop.composer.model-source'
 const COMPOSER_EFFORT_KEY = 'hermes.desktop.composer.reasoning-effort'
 const COMPOSER_FAST_KEY = 'hermes.desktop.composer.fast'
+// Last-known profile default (`agent.reasoning_effort`), mirrored to storage so
+// the composer's FIRST paint on boot matches what the gateway will conclude
+// instead of flashing the built-in medium before config arrives (same
+// last-known-value pattern as the model-options catalog cache).
+const PROFILE_EFFORT_KEY = 'hermes.desktop.profile.reasoning-effort'
 
 // Unlike presentation-oriented $connection, this scope is published from the
 // gateway activation coordinate before profile-change effects can reseed the
@@ -1380,9 +1385,15 @@ export const setCurrentReasoningEffort = (next: Updater<string>) => {
 // need to render or apply "the default" resolve the user's configured level
 // instead of assuming DEFAULT_REASONING_EFFORT (lib/reasoning-effort). Empty
 // until config loads, and re-seeded on every profile switch by useHermesConfig.
-export const $defaultReasoningEffort = atom('')
+export const $defaultReasoningEffort = atom(storedString(PROFILE_EFFORT_KEY) ?? '')
 
-export const setDefaultReasoningEffort = (next: string) => updateAtom($defaultReasoningEffort, next)
+export const setDefaultReasoningEffort = (next: string) => {
+  updateAtom($defaultReasoningEffort, next)
+  // Persist only concrete levels; clearing (profile switch gap) must not pin a
+  // stale default for the next boot — empty re-reads as "unknown" and the pill
+  // falls back exactly as it did before this cache existed.
+  persistString(PROFILE_EFFORT_KEY, next || null)
+}
 
 export const setCurrentServiceTier = (next: Updater<string>) => updateAtom($currentServiceTier, next)
 
