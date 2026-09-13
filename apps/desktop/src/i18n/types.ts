@@ -321,6 +321,173 @@ export interface Translations {
     dismiss: string
   }
 
+  billing: {
+    headerTitle: string
+    sectionPlan: string
+    sectionPayment: string
+    sectionUsage: string
+    sectionInvoices: string
+    plansPageTitle: string
+    backToBillingAria: string
+    noPlansAvailable: string
+    perMonth: string
+    manageAction: string
+
+    summaryPlan: string
+    summaryBalance: string
+    summaryAutoRefill: string
+    summaryModel: string
+    summaryConnectors: string
+    valueIncluded: string
+    valueFreeTier: string
+    tierNameFree: string
+
+    freeTierTitle: string
+    freeTierMessage: string
+    freeTierSignIn: string
+    freeTierPlanCaption: string
+    freeTierPlanName: string
+    freeTierFootnote: string
+
+    planRenews: (when: string) => string
+    planNoSubscription: string
+    planUnavailableCaption: string
+    planPendingDowngrade: (tierName: string, when: string) => string
+    planPendingCancel: (when: string) => string
+    planChangeAction: string
+    planViewPlans: string
+    planAdjustLink: string
+    planUndo: string
+    planUndoing: string
+    planCurrentPill: string
+    planScheduledPill: string
+    planDowngradeButton: string
+
+    downgradeChecking: string
+    downgradeBlocked: string
+    downgradeNoOp: (tierName: string) => string
+    downgradeScheduled: (tierName: string, when: string) => string
+    downgradeCreditsDelta: (delta: string) => string
+    downgradeUnschedulable: string
+    downgradeScheduling: string
+    downgradeConfirm: string
+    planChoosePortal: string
+    tryAgain: string
+
+    paymentMethodTitle: string
+    paymentMethodManageDesc: string
+    paymentMethodAdd: string
+    paymentMethodUpdate: string
+    buyCreditsTitle: string
+    buyCreditsDesc: string
+    buyAction: string
+
+    autoRefillTitle: string
+    autoRefillGeneric: string
+    autoRefillManagePortal: string
+    autoRefillEnablePortal: string
+    autoRefillOffPill: string
+    autoRefillEnabledPill: string
+    autoRefillDifferentCard: string
+    autoRefillReconcile: string
+    autoRefillChargesCard: (card: string) => string
+    autoRefillChargesAmounts: (reloadTo: string, threshold: string) => string
+    autoRefillThreshold: string
+    autoRefillReloadTo: string
+    autoRefillThresholdAria: string
+    autoRefillReloadToAria: string
+    autoRefillTurnOffConfirm: string
+    autoRefillTurnOff: string
+    autoRefillDisable: string
+    autoRefillUpdated: string
+    autoRefillTurnedOff: string
+
+    usageSubscriptionCredits: string
+    usageBarRemaining: string
+    usageOfLeft: (remaining: string, monthly: string) => string
+    usageOfLeftOver: (remaining: string, monthly: string, over: string) => string
+    usageResets: (when: string) => string
+    usageTopupCredits: string
+    usageNoExpiry: string
+    usageCapTitle: string
+    usageCapBar: string
+    usageCapUsed: (spent: string, limit: string) => string
+    usageCapDefaultCeiling: string
+    usageCapMonthlyRemote: string
+
+    noticeConnectTitle: string
+    noticeConnectMessage: string
+    noticeConnectAction: string
+    noticeNoCardTitle: string
+    noticeNoCardMessage: string
+    noticeNoCardAction: string
+
+    provenanceAutoRefill: string
+    provenanceCustomerDefault: string
+    provenanceSubPin: string
+
+    refusalRetryIn: (mins: number) => string
+    refusalTooManyCharges: (retryIn: string) => string
+    refusalTooManyChargesTitle: string
+    refusalStripeTrouble: (retryIn: string) => string
+    refusalStripeTroubleTitle: string
+    refusalConsentTitle: string
+    refusalConsentMessage: string
+    refusalScopeTitle: string
+    refusalScopeMessage: string
+    refusalRevokedAdmin: string
+    refusalRevokedYou: string
+    refusalRevokedSuffix: string
+    refusalRevokedTitle: string
+    refusalSessionTitle: string
+    refusalSessionMessage: string
+    refusalDisabledTitle: string
+    refusalDisabledMessage: string
+    refusalRoleTitle: string
+    refusalRoleMessage: string
+    refusalIdempotencyTitle: string
+    refusalIdempotencyMessage: string
+    refusalNoCardSavedTitle: string
+    refusalNoCardSavedMessage: string
+    refusalOrgTitle: string
+    refusalOrgMessage: string
+    refusalCapTitle: string
+    refusalCapRemaining: (remaining: string) => string
+    refusalCapMessage: string
+    refusalDailyCapTitle: string
+    refusalDailyCapMessage: string
+    refusalEndpointTitle: string
+    refusalEndpointFallback: string
+    refusalTimeoutTitle: string
+    refusalTimeoutFallback: string
+    refusalTransportTitle: string
+    refusalTransportFallback: string
+    refusalGenericTitle: string
+    refusalGenericFallback: string
+
+    chargeAdded: (amount: number) => string
+    chargeFailedTitle: string
+    chargeUnconfirmedTitle: string
+    chargeUnconfirmedSuffix: string
+    chargeCheckFailedTitle: string
+    chargeCheckFailedMessage: string
+    chargeNoIdTitle: string
+    chargeNoIdMessage: string
+    chargeTimeoutTitle: string
+    chargeTimeoutMessage: string
+    charge3ds: string
+    chargeExpired: string
+    chargeDeclined: string
+    chargeGenericFailed: (reason: string) => string
+
+    stepUpDeniedTitle: string
+    stepUpDeniedMessage: string
+    stepUpDoneTitle: string
+    stepUpDoneMessage: string
+
+    amountReloadBelowThreshold: string
+  }
+
   sendDiagnostics: {
     title: string
     privacyNotice: string

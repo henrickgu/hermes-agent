@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button'
+import { translateNow } from '@/i18n'
 import { ExternalLink } from '@/lib/icons'
 
 import { BillingRefusalInline } from './inline-feedback'
@@ -22,7 +23,7 @@ export function CurrentPlanCard({ onViewPlans, plan }: { onViewPlans: () => void
               </span>
               {plan.price && (
                 <span className="text-[length:var(--conversation-caption-font-size)] text-(--ui-text-tertiary)">
-                  {plan.price}/mo
+                  {plan.price}{translateNow('billing.perMonth')}
                 </span>
               )}
             </div>
@@ -40,7 +41,7 @@ export function CurrentPlanCard({ onViewPlans, plan }: { onViewPlans: () => void
           {/* Scheduled downgrade → chargeless undo (subscription.resume), no confirm. */}
           {plan.pending && (
             <Button disabled={resumeFlow.busy} onClick={() => void resumeFlow.resume()} size="sm" type="button">
-              {resumeFlow.busy ? 'Undoing…' : 'Undo'}
+              {resumeFlow.busy ? translateNow('billing.planUndoing') : translateNow('billing.planUndo')}
             </Button>
           )}
           {plan.link && (

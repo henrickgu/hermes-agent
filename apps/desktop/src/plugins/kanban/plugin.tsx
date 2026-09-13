@@ -127,7 +127,7 @@ const plugin: HermesPlugin = {
         area: PALETTE_AREA,
         data: {
           id: 'kanban.open',
-          label: 'Kanban: Open board',
+          label: ctx.i18n.t('openBoard'),
           keywords: ['kanban', 'board', 'tasks', 'agents'],
           run: () => host.navigate('/kanban')
         } satisfies PaletteContribution

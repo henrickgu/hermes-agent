@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 
 import { Button } from '@/components/ui/button'
+import { translateNow } from '@/i18n'
 import { openExternalLink } from '@/lib/external-link'
 import { ChevronLeft, ExternalLink } from '@/lib/icons'
 import { cn } from '@/lib/utils'
@@ -17,8 +18,10 @@ type DowngradeFlow = ReturnType<typeof useDowngradeFlow>
 // The human sentence for the panel body, derived purely from the phase. `null` while
 // a refusal is the only thing to show (BillingRefusalInline renders that separately).
 function previewMessage(phase: DowngradePhase, fallbackTierName: string): null | string {
+  const t = (key: string, ...args: unknown[]) => translateNow(key, ...args)
+
   if (phase.kind === 'previewing') {
-    return 'Checking this change…'
+    return t('billing.downgradeChecking')
   }
 
   if (phase.kind === 'previewFailed') {
@@ -31,19 +34,19 @@ function previewMessage(phase: DowngradePhase, fallbackTierName: string): null |
 
   switch (preview.effect) {
     case 'blocked':
-      return preview.reason ?? 'That change cannot be made here.'
+      return preview.reason ?? t('billing.downgradeBlocked')
 
     case 'no_op':
-      return `You are already on ${targetName} — nothing to change.`
+      return t('billing.downgradeNoOp', targetName)
 
     case 'scheduled':
       return (
-        `Change to ${targetName} — takes effect ${formatBillingDate(preview.effective_at)}. No charge now; ` +
-        `you keep your current plan until then.${creditsDelta ? ` Monthly credits change: ${creditsDelta}.` : ''}`
+        t('billing.downgradeScheduled', targetName, formatBillingDate(preview.effective_at)) +
+        (creditsDelta ? t('billing.downgradeCreditsDelta', creditsDelta) : '')
       )
 
     default:
-      return 'This change cannot be scheduled here.'
+      return t('billing.downgradeUnschedulable')
   }
 }
 
@@ -91,19 +94,19 @@ function DowngradeConfirm({ flow, tier }: { flow: DowngradeFlow; tier: BillingPl
       <div className="flex min-w-0 flex-wrap items-center gap-2">
         {phase.kind === 'previewFailed' ? (
           <Button disabled={busy} onClick={flow.retryPreview} size="sm" type="button">
-            Try again
+            {translateNow('billing.tryAgain')}
           </Button>
         ) : canConfirm ? (
           <Button disabled={busy} onClick={() => void flow.confirm()} size="sm" type="button">
             {phase.kind === 'scheduling'
-              ? 'Scheduling…'
+              ? translateNow('billing.downgradeScheduling')
               : phase.kind === 'scheduleFailed'
-                ? 'Try again'
-                : 'Confirm downgrade'}
+                ? translateNow('billing.tryAgain')
+                : translateNow('billing.downgradeConfirm')}
           </Button>
         ) : null}
         <Button disabled={busy} onClick={flow.cancel} size="sm" type="button" variant="outline">
-          Cancel
+          {translateNow('common.cancel')}
         </Button>
       </div>
     </div>
@@ -155,9 +158,9 @@ function PlanCard({ flow, tier }: { flow: DowngradeFlow; tier: BillingPlanTierVi
       )}
 
       <div className="mt-auto min-w-0 pt-1">
-        {isCurrent && <Pill tone="primary">Current plan</Pill>}
+        {isCurrent && <Pill tone="primary">{translateNow('billing.planCurrentPill')}</Pill>}
 
-        {tier.state === 'scheduled' && <Pill>Scheduled</Pill>}
+        {tier.state === 'scheduled' && <Pill>{translateNow('billing.planScheduledPill')}</Pill>}
 
         {tier.state === 'upgrade' && (
           <Button
@@ -183,7 +186,7 @@ function PlanCard({ flow, tier }: { flow: DowngradeFlow; tier: BillingPlanTierVi
               type="button"
               variant="outline"
             >
-              Downgrade
+              {translateNow('billing.planDowngradeButton')}
             </Button>
           ))}
       </div>
@@ -200,7 +203,7 @@ export function BillingPlansView({ onBack, tiers }: { onBack: () => void; tiers:
     <div className="@container">
       <div className="mb-2.5 flex items-center gap-2 pt-2 text-[length:var(--conversation-text-font-size)] font-medium">
         <Button
-          aria-label="Back to billing"
+          aria-label={translateNow('billing.backToBillingAria')}
           className="size-7 p-0 text-(--ui-text-tertiary)"
           disabled={flow.mutating}
           onClick={onBack}
@@ -210,7 +213,7 @@ export function BillingPlansView({ onBack, tiers }: { onBack: () => void; tiers:
         >
           <ChevronLeft className="size-4" />
         </Button>
-        <span>Plans</span>
+        <span>{translateNow('billing.plansPageTitle')}</span>
       </div>
 
       {tiers.length > 0 ? (
@@ -221,7 +224,7 @@ export function BillingPlansView({ onBack, tiers }: { onBack: () => void; tiers:
         </div>
       ) : (
         <div className="rounded-xl bg-(--ui-bg-quaternary) p-4 text-[length:var(--conversation-caption-font-size)] text-(--ui-text-tertiary)">
-          No plans are available to change to right now.
+          {translateNow('billing.noPlansAvailable')}
         </div>
       )}
     </div>
