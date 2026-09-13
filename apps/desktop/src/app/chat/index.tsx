@@ -23,7 +23,7 @@ import { useI18n } from '@/i18n'
 import type { ChatMessage } from '@/lib/chat-messages'
 import { NEW_SESSION_TITLE, quickModelOptions, sessionTitle } from '@/lib/chat-runtime'
 import { useIncrementalExternalStoreRuntime } from '@/lib/incremental-external-store-runtime'
-import { modelOptionsQueryKey, requestModelOptions } from '@/lib/model-options'
+import { modelOptionsQueryKey, readCachedModelOptions, requestModelOptions } from '@/lib/model-options'
 import { useStoreSelector } from '@/lib/use-session-slice'
 import { cn } from '@/lib/utils'
 import { migrateSessionDraft } from '@/store/composer'
@@ -576,7 +576,10 @@ const ChatViewContent = memo(function ChatViewContent({
         request: requestModelOptionsForOwner,
         sessionId: activeSessionId
       }),
-    enabled: gatewayOpen
+    enabled: gatewayOpen,
+    // Same cold-key story as the menu panel: a brand-new session key would
+    // flash instead of painting the last known catalog while revalidating.
+    placeholderData: () => readCachedModelOptions() ?? undefined
   })
 
   const quickModels = useMemo(

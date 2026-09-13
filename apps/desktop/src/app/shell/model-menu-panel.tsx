@@ -8,7 +8,7 @@ import { DropdownMenuItem, dropdownMenuRow } from '@/components/ui/dropdown-menu
 import { Skeleton } from '@/components/ui/skeleton'
 import type { HermesGateway } from '@/hermes'
 import { useI18n } from '@/i18n'
-import { modelOptionsQueryKey, reconcileSelectionAfterCatalogRefresh, requestModelOptions } from '@/lib/model-options'
+import { modelOptionsQueryKey, readCachedModelOptions, reconcileSelectionAfterCatalogRefresh, requestModelOptions } from '@/lib/model-options'
 import { currentPickerSelection } from '@/lib/model-status-label'
 import { DEFAULT_REASONING_EFFORT } from '@/lib/reasoning-effort'
 import { cn } from '@/lib/utils'
@@ -84,7 +84,11 @@ export function ModelMenuPanel({
   const modelOptions = useQuery({
     queryKey: modelOptionsQueryKey(profile, activeSessionId, ownerConnectionId),
     queryFn: (): Promise<ModelOptionsResponse> =>
-      requestModelOptions({ gateway, profile, request: requestGateway, sessionId: activeSessionId })
+      requestModelOptions({ gateway, profile, request: requestGateway, sessionId: activeSessionId }),
+    // Paint the last known catalog (localStorage) instantly while the live
+    // fetch revalidates behind it — a new session's cold query key would
+    // otherwise flash the fallback (reasoning pill / model pill included).
+    placeholderData: () => readCachedModelOptions() ?? undefined
   })
 
   const { model: optionsModel, provider: optionsProvider } = currentPickerSelection(
