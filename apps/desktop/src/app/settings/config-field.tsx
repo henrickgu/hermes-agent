@@ -44,6 +44,14 @@ export function ConfigField({
   const { t } = useI18n()
   const c = t.settings.config
 
+  // Translated dropdown labels for schema-driven enums (approved modes, engines,
+  // backends…). Caller-supplied labels (e.g. ElevenLabs voices) win on clashes.
+  const translatedOptionLabels = t.settings.enumOptionLabels[schemaKey]
+  const mergedOptionLabels =
+    optionLabels || translatedOptionLabels
+      ? { ...translatedOptionLabels, ...optionLabels }
+      : undefined
+
   const label =
     fieldCopyForSchemaKey(t.settings.fieldLabels, schemaKey) ??
     fieldCopyForSchemaKey(FIELD_LABELS, schemaKey) ??
@@ -125,7 +133,7 @@ export function ConfigField({
       <ComboboxInput
         className={CONTROL_TEXT}
         onChange={onChange}
-        optionLabels={optionLabels}
+        optionLabels={mergedOptionLabels}
         options={selectOptions.filter(o => o !== '')}
         placeholder={c.notSet}
         value={String(value ?? '')}
@@ -146,7 +154,7 @@ export function ConfigField({
           {selectOptions.map(option => (
             <SelectItem key={option || EMPTY_SELECT_VALUE} value={option || EMPTY_SELECT_VALUE}>
               {option
-                ? (optionLabels?.[option] ?? prettyName(option))
+                ? (mergedOptionLabels?.[option] ?? prettyName(option))
                 : schemaKey === 'display.personality'
                   ? c.none
                   : schemaKey === 'memory.provider'

@@ -449,6 +449,16 @@ export const zhHant = defineLocale({
       voice: '語音',
       advanced: '進階'
     },
+    enumOptionLabels: {
+      'approvals.mode': { manual: '手動', smart: '智慧', off: '關閉' },
+      'agent.image_input_mode': { auto: '自動', native: '原生', text: '文字' },
+      'code_execution.mode': { project: '專案', strict: '嚴格' },
+      'context.engine': { compressor: '壓縮', default: '預設', custom: '自訂' },
+      'delegation.reasoning_effort': { low: '低', medium: '中', high: '高', xhigh: '極高', ultra: 'Ultra' },
+      'terminal.backend': { local: '本機', docker: 'Docker', singularity: 'Singularity', modal: 'Modal', daytona: 'Daytona', ssh: 'SSH' },
+      'voice.voice_chat_mode': { chained: '鏈式（文字與語音）', 'gpt-live': 'GPT-Live（即時語音）' },
+      'updates.non_interactive_local_changes': { stash: '保留變更（stash）', discard: '放棄變更' }
+    },
     searchPlaceholder: {
       about: '關於 Hermes Desktop',
       config: '搜尋設定…',

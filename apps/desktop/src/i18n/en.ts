@@ -1031,6 +1031,16 @@ export const en: Translations = {
       voice: 'Voice',
       advanced: 'Advanced'
     },
+    enumOptionLabels: {
+      'approvals.mode': { manual: 'Manual', smart: 'Smart', off: 'Off' },
+      'agent.image_input_mode': { auto: 'Auto', native: 'Native', text: 'Text' },
+      'code_execution.mode': { project: 'Project', strict: 'Strict' },
+      'context.engine': { compressor: 'Compression', default: 'Default', custom: 'Custom' },
+      'delegation.reasoning_effort': { low: 'Low', medium: 'Medium', high: 'High', xhigh: 'Very high', ultra: 'Ultra' },
+      'terminal.backend': { local: 'Local', docker: 'Docker', singularity: 'Singularity', modal: 'Modal', daytona: 'Daytona', ssh: 'SSH' },
+      'voice.voice_chat_mode': { chained: 'Chained (text and voice)', 'gpt-live': 'GPT-Live (real-time voice)' },
+      'updates.non_interactive_local_changes': { stash: 'Keep changes (stash)', discard: 'Discard changes' }
+    },
     searchPlaceholder: {
       about: 'About Hermes Desktop',
       config: 'Search settings...',
@@ -4513,6 +4523,16 @@ export const en: Translations = {
     sidebarFilterUnread: 'Unread',
     sidebarFilterIdle: 'Idle',
     sidebarFilterDone: 'Done',
+    sidebarFiltersLabel: 'Filters',
+    sidebarGroupingLabel: 'Grouping',
+    sidebarOrderingLabel: 'Ordering',
+    sidebarShowLabel: 'Show',
+    sidebarInboxStyle: 'Inbox style',
+    sidebarPullRequest: 'Pull request',
+    sidebarArchived: 'Archived',
+    sidebarExpandAll: 'Expand all',
+    sidebarCollapseAll: 'Collapse all',
+    sidebarMarkAllRead: 'Mark all as read',
     audioReadFailed: 'Could not read recorded audio',
     sessionUnavailable: 'Session unavailable',
     createSessionFailed: 'Could not create a new session',

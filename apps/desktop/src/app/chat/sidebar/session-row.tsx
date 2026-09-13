@@ -158,7 +158,7 @@ function SidebarSessionRowImpl({
   const age = formatAge(timestamp, r)
   const timestampDate = new Date(timestamp * 1000)
   const absoluteAge = formatMessageTimestamp(timestampDate, t.assistant.thread)
-  const handleLabel = `Reorder ${title}`
+  const handleLabel = t.sidebar.projects.reorder(title)
   // Opt-in row metadata from the sidebar's filter menu. Read from the store
   // rather than threaded as props: the subscription re-renders past the memo
   // below, and a toggle should repaint every row at once anyway.

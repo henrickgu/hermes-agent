@@ -1052,6 +1052,7 @@ export interface Translations {
     }
     fieldLabels: Record<string, string>
     fieldDescriptions: Record<string, string>
+    enumOptionLabels: Record<string, Record<string, string>>
     about: {
       heading: string
       version: (value: string) => string
@@ -3995,6 +3996,16 @@ export interface Translations {
     sidebarFilterUnread: string
     sidebarFilterIdle: string
     sidebarFilterDone: string
+    sidebarFiltersLabel: string
+    sidebarGroupingLabel: string
+    sidebarOrderingLabel: string
+    sidebarShowLabel: string
+    sidebarInboxStyle: string
+    sidebarPullRequest: string
+    sidebarArchived: string
+    sidebarExpandAll: string
+    sidebarCollapseAll: string
+    sidebarMarkAllRead: string
     audioReadFailed: string
     sessionUnavailable: string
     createSessionFailed: string

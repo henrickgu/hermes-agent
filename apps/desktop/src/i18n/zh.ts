@@ -1003,6 +1003,16 @@ export const zh: Translations = {
       voice: '语音',
       advanced: '高级'
     },
+    enumOptionLabels: {
+      'approvals.mode': { manual: '手动', smart: '智能', off: '关闭' },
+      'agent.image_input_mode': { auto: '自动', native: '原生', text: '文本' },
+      'code_execution.mode': { project: '项目', strict: '严格' },
+      'context.engine': { compressor: '压缩', default: '默认', custom: '自定义' },
+      'delegation.reasoning_effort': { low: '低', medium: '中', high: '高', xhigh: '极高', ultra: 'Ultra' },
+      'terminal.backend': { local: '本地', docker: 'Docker', singularity: 'Singularity', modal: 'Modal', daytona: 'Daytona', ssh: 'SSH' },
+      'voice.voice_chat_mode': { chained: '链式（文本与语音）', 'gpt-live': 'GPT-Live（实时语音）' },
+      'updates.non_interactive_local_changes': { stash: '保留更改（stash）', discard: '放弃更改' }
+    },
     searchPlaceholder: {
       about: '关于 Hermes Desktop',
       config: '搜索设置…',
@@ -4634,6 +4644,16 @@ export const zh: Translations = {
     sidebarFilterUnread: '未读',
     sidebarFilterIdle: '空闲',
     sidebarFilterDone: '已完成',
+    sidebarFiltersLabel: '筛选',
+    sidebarGroupingLabel: '分组',
+    sidebarOrderingLabel: '排序',
+    sidebarShowLabel: '显示',
+    sidebarInboxStyle: '收件箱样式',
+    sidebarPullRequest: '拉取请求',
+    sidebarArchived: '已归档',
+    sidebarExpandAll: '全部展开',
+    sidebarCollapseAll: '全部折叠',
+    sidebarMarkAllRead: '全部标为已读',
     audioReadFailed: '无法读取录制的音频',
     sessionUnavailable: '会话不可用',
     createSessionFailed: '无法创建新会话',

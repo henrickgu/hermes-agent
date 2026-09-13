@@ -24,7 +24,8 @@ vi.mock('@/i18n', () => ({
         messageCount: (count: number) => `${count} messages`,
         toolCallCount: (count: number) => `${count} tool calls`,
         projects: {
-          home: 'Home'
+          home: 'Home',
+          reorder: (label: string) => `Reorder ${label}`
         },
         row: {
           ageMin: 'm',
