@@ -1458,7 +1458,65 @@ export const zh: Translations = {
       attachmentSizeDesc:
         '桌面端为预览和图片附件加载本地文件的大小上限（MB）。默认为 16。远程非图片附件使用单独的 256 MB 上限。设置过大会将整个文件读入内存，可能导致应用卡死或崩溃。',
       attachmentSizeUnit: 'MB',
-      attachmentSizeLabel: '预览 / 图片加载大小上限（MB）'
+      attachmentSizeLabel: '预览 / 图片加载大小上限（MB）',
+    poolLimits: {
+      warmTitle: '预热的机器人后端数',
+      warmDesc: '保持运行以便即时切换的机器人后端数量。越多切换越快，内存占用也越大（每个后端约 60MB）。立即生效。',
+      warmAria: '预热的机器人后端数',
+      idleTitle: '后端空闲超时',
+      idleDesc: '未使用的机器人后端在关闭前保持预热的时间。如果每隔几分钟就会回到某些机器人，请调高此值以免它们冷启动。',
+      idleAria: '后端空闲超时（毫秒）'
+    },
+    memoryConnect: {
+      startFailed: '无法启动连接。',
+      startFailedTitle: '启动连接失败',
+      timedOut: '已超时 — 请重试。',
+      failed: '连接失败。',
+      connectOAuth: '通过 OAuth 连接',
+      reconnect: '重新连接',
+      connect: '连接',
+      waitingConsent: '等待浏览器授权…',
+      cancel: '取消',
+      apiKeySet: '已设置 API 密钥',
+      oauthSet: '已设置 OAuth'
+    },
+    memoryProvider: {
+      savedTitle: label => `${label} 已保存`,
+      savedMessage: '记忆提供方配置已更新。',
+      saveFailed: label => `保存 ${label} 设置失败`,
+      fullConfigTitle: label => `${label} — 完整配置`,
+      fullConfigDesc: (label, profile) =>
+        `${profile} 配置的所有 ${label} 选项。留空字段将回退到解析的主机值或内置默认值。`,
+      docsLink: label => `${label} 配置参考`,
+      save: '保存更改',
+      cancel: '取消',
+      settingsFor: label => `${label} 设置`,
+      fullConfig: '完整配置…',
+      secretSet: label => `${label} 已设置`,
+      secretNotSet: label => `${label} 未设置`,
+      keepCurrent: '留空以保留当前值',
+      aboutField: label => `关于 ${label}`,
+      setBadge: '已设置'
+    },
+    auxWarning: {
+      banner: (n, names, provider) =>
+        n === 1
+          ? `1 个辅助任务（${names}）仍在 ${provider} 上运行，而非你的主模型。`
+          : `${n} 个辅助任务（${names}）仍在 ${provider} 上运行，而非你的主模型。`,
+      bannerMultiProvider: (n, names) =>
+        n === 1
+          ? `1 个辅助任务（${names}）仍在其他提供方上运行，而非你的主模型。`
+          : `${n} 个辅助任务（${names}）仍在其他提供方上运行，而非你的主模型。`,
+      resetAll: '全部恢复为主模型'
+    },
+    inlineBilling: {
+      openVerification: '打开验证页面',
+      dismiss: '关闭',
+      waitingLink: '等待验证链接…',
+      verifyToContinue: '验证以继续',
+      openPortal: '打开门户'
+    },
+    showOptions: '显示选项'
     },
     quickEntry: {
       enabledTitle: '快速输入',

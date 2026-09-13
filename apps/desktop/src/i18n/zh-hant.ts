@@ -884,7 +884,65 @@ export const zhHant = defineLocale({
       imported: '設定已匯入',
       invalidJson: '設定 JSON 無效',
       keepAwakeTitle: '保持電腦喚醒',
-      keepAwakeDesc: '阻止本機睡眠，讓長時間或整夜執行持續進行。螢幕仍可變暗。'
+      keepAwakeDesc: '阻止本機睡眠，讓長時間或整夜執行持續進行。螢幕仍可變暗。',
+      poolLimits: {
+        warmTitle: '預熱的機器人後端數',
+        warmDesc: '保持執行以便即時切換的機器人後端數量。越多切換越快，記憶體佔用也越大（每個後端約 60MB）。立即生效。',
+        warmAria: '預熱的機器人後端數',
+        idleTitle: '後端閒置逾時',
+        idleDesc: '未使用的機器人後端在關閉前保持預熱的時間。如果每隔幾分鐘就會回到某些機器人，請調高此值以免它們冷啟動。',
+        idleAria: '後端閒置逾時（毫秒）'
+      },
+      memoryConnect: {
+        startFailed: '無法啟動連線。',
+        startFailedTitle: '啟動連線失敗',
+        timedOut: '已逾時 — 請重試。',
+        failed: '連線失敗。',
+        connectOAuth: '透過 OAuth 連線',
+        reconnect: '重新連線',
+        connect: '連線',
+        waitingConsent: '等待瀏覽器授權…',
+        cancel: '取消',
+        apiKeySet: '已設定 API 金鑰',
+        oauthSet: '已設定 OAuth'
+      },
+      memoryProvider: {
+        savedTitle: label => `${label} 已儲存`,
+        savedMessage: '記憶提供方設定已更新。',
+        saveFailed: label => `儲存 ${label} 設定失敗`,
+        fullConfigTitle: label => `${label} — 完整設定`,
+        fullConfigDesc: (label, profile) =>
+          `${profile} 設定的所有 ${label} 選項。留白欄位將回退到解析的主機值或內建預設值。`,
+        docsLink: label => `${label} 設定參考`,
+        save: '儲存變更',
+        cancel: '取消',
+        settingsFor: label => `${label} 設定`,
+        fullConfig: '完整設定…',
+        secretSet: label => `${label} 已設定`,
+        secretNotSet: label => `${label} 未設定`,
+        keepCurrent: '留白以保留目前的值',
+        aboutField: label => `關於 ${label}`,
+        setBadge: '已設定'
+      },
+      auxWarning: {
+        banner: (n, names, provider) =>
+          n === 1
+            ? `1 個輔助任務（${names}）仍在 ${provider} 上執行，而非你的主模型。`
+            : `${n} 個輔助任務（${names}）仍在 ${provider} 上執行，而非你的主模型。`,
+        bannerMultiProvider: (n, names) =>
+          n === 1
+            ? `1 個輔助任務（${names}）仍在其他提供方上執行，而非你的主模型。`
+            : `${n} 個輔助任務（${names}）仍在其他提供方上執行，而非你的主模型。`,
+        resetAll: '全部恢復為主模型'
+      },
+      inlineBilling: {
+        openVerification: '開啟驗證頁面',
+        dismiss: '關閉',
+        waitingLink: '等待驗證連結…',
+        verifyToContinue: '驗證以繼續',
+        openPortal: '開啟門戶'
+      },
+      showOptions: '顯示選項'
     },
     quickEntry: {
       enabledTitle: '快速輸入',

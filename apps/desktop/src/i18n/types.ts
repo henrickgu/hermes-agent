@@ -1112,6 +1112,57 @@ export interface Translations {
       attachmentSizeDesc: string
       attachmentSizeUnit: string
       attachmentSizeLabel: string
+      poolLimits: {
+        warmTitle: string
+        warmDesc: string
+        warmAria: string
+        idleTitle: string
+        idleDesc: string
+        idleAria: string
+      }
+      memoryConnect: {
+        startFailed: string
+        startFailedTitle: string
+        timedOut: string
+        failed: string
+        connectOAuth: string
+        reconnect: string
+        connect: string
+        waitingConsent: string
+        cancel: string
+        apiKeySet: string
+        oauthSet: string
+      }
+      memoryProvider: {
+        savedTitle: (label: string) => string
+        savedMessage: string
+        saveFailed: (label: string) => string
+        fullConfigTitle: (label: string) => string
+        fullConfigDesc: (label: string, profile: string) => string
+        docsLink: (label: string) => string
+        save: string
+        cancel: string
+        settingsFor: (label: string) => string
+        fullConfig: string
+        secretSet: (label: string) => string
+        secretNotSet: (label: string) => string
+        keepCurrent: string
+        aboutField: (label: string) => string
+        setBadge: string
+      }
+      auxWarning: {
+        banner: (n: number, names: string, provider: string) => string
+        bannerMultiProvider: (n: number, names: string) => string
+        resetAll: string
+      }
+      inlineBilling: {
+        openVerification: string
+        dismiss: string
+        waitingLink: string
+        verifyToContinue: string
+        openPortal: string
+      }
+      showOptions: string
     }
     quickEntry: {
       enabledTitle: string

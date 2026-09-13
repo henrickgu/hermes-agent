@@ -1262,7 +1262,67 @@ export const en: Translations = {
       attachmentSizeDesc:
         'How big a local file Desktop will load for previews and image attach, in MB. Default is 16. Remote non-image attach uses a separate 256 MB cap. Setting this very high loads the whole file into memory and can freeze or crash the app.',
       attachmentSizeUnit: 'MB',
-      attachmentSizeLabel: 'Max preview / image load size in megabytes'
+      attachmentSizeLabel: 'Max preview / image load size in megabytes',
+    poolLimits: {
+      warmTitle: 'Warm Bot Backends',
+      warmDesc:
+        'How many bot backends stay running for instant switching. Higher = faster switches, more memory (~60MB per backend). Applies immediately.',
+      warmAria: 'Warm bot backends',
+      idleTitle: 'Backend Idle Timeout',
+      idleDesc:
+        'How long an unused bot backend stays warm before it is shut down. Raise this so bots you revisit every few minutes never pay a cold start.',
+      idleAria: 'Backend idle timeout in milliseconds'
+    },
+    memoryConnect: {
+      startFailed: 'Could not start the connection.',
+      startFailedTitle: 'Failed to start connection',
+      timedOut: 'Timed out — try again.',
+      failed: 'Connection failed.',
+      connectOAuth: 'Connect via OAuth',
+      reconnect: 'Reconnect',
+      connect: 'Connect',
+      waitingConsent: 'Waiting for browser consent…',
+      cancel: 'Cancel',
+      apiKeySet: 'api key set',
+      oauthSet: 'oauth set'
+    },
+    memoryProvider: {
+      savedTitle: label => `${label} saved`,
+      savedMessage: 'Memory provider configuration updated.',
+      saveFailed: label => `Failed to save ${label} settings`,
+      fullConfigTitle: label => `${label} — full configuration`,
+      fullConfigDesc: (label, profile) =>
+        `Every ${label} option for the ${profile} profile. Blank fields fall back to the resolved host or built-in default.`,
+      docsLink: label => `${label} configuration reference`,
+      save: 'Save changes',
+      cancel: 'Cancel',
+      settingsFor: label => `${label} settings`,
+      fullConfig: 'Full config…',
+      secretSet: label => `${label} set`,
+      secretNotSet: label => `${label} not set`,
+      keepCurrent: 'Leave blank to keep current value',
+      aboutField: label => `About ${label}`,
+      setBadge: 'set'
+    },
+    auxWarning: {
+      banner: (n, names, provider) =>
+        n === 1
+          ? `1 auxiliary task (${names}) still runs on ${provider}, not your main model.`
+          : `${n} auxiliary tasks (${names}) still run on ${provider}, not your main model.`,
+      bannerMultiProvider: (n, names) =>
+        n === 1
+          ? `1 auxiliary task (${names}) still runs on other providers, not your main model.`
+          : `${n} auxiliary tasks (${names}) still run on other providers, not your main model.`,
+      resetAll: 'Reset all to main'
+    },
+    inlineBilling: {
+      openVerification: 'Open verification page',
+      dismiss: 'Dismiss',
+      waitingLink: 'Waiting for verification link…',
+      verifyToContinue: 'Verify to continue',
+      openPortal: 'Open portal'
+    },
+    showOptions: 'Show options'
     },
     quickEntry: {
       enabledTitle: 'Quick Entry',

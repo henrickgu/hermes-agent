@@ -394,8 +394,8 @@ describe('ModelSettings', () => {
     fireEvent.click(applyButton)
 
     // The switch-time notice names the pinned provider and offers a reset.
-    expect(await screen.findByText(/still run on/)).toBeTruthy()
-    expect(screen.getByText('nous')).toBeTruthy()
+    expect(await screen.findByText(/still runs? on/)).toBeTruthy()
+    expect(screen.getByText(/\bnous\b/)).toBeTruthy()
   })
 
   it('shows a persistent banner when a loaded aux slot mismatches the main provider', async () => {
@@ -407,7 +407,7 @@ describe('ModelSettings', () => {
     await renderModelSettings()
 
     // Banner present on load, no switch required.
-    expect(await screen.findByText(/still run on/)).toBeTruthy()
+    expect(await screen.findByText(/still runs? on/)).toBeTruthy()
   })
 
   it('does not flag an aux slot pinned to a local/LAN endpoint and shows its base_url', async () => {

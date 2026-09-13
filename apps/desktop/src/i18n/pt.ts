@@ -1509,7 +1509,67 @@ export const pt = defineLocale({
       attachmentSizeDesc:
         'O tamanho máximo, em MB, de um arquivo local que o Desktop carregará para prévias e anexos de imagem. Anexos remotos que não sejam imagens usam um limite separado de 256 MB. Definir um valor muito alto carrega o arquivo inteiro na memória e pode travar ou fechar o app.',
       attachmentSizeUnit: 'MB',
-      attachmentSizeLabel: 'Tamanho máximo para prévia / carregamento de imagem em megabytes'
+      attachmentSizeLabel: 'Tamanho máximo para prévia / carregamento de imagem em megabytes',
+    poolLimits: {
+      warmTitle: 'Backends de bot em espera',
+      warmDesc:
+        'Quantos backends de bot ficam rodando para trocas instantâneas. Mais = trocas mais rápidas, mais memória (~60 MB por backend). Aplica imediatamente.',
+      warmAria: 'Backends de bot em espera',
+      idleTitle: 'Tempo limite de ociosidade do backend',
+      idleDesc:
+        'Por quanto tempo um backend de bot não usado fica em espera antes de ser encerrado. Aumente para que bots revisitados a cada poucos minutos nunca pagem um início a frio.',
+      idleAria: 'Tempo limite de ociosidade do backend em milissegundos'
+    },
+    memoryConnect: {
+      startFailed: 'Não foi possível iniciar a conexão.',
+      startFailedTitle: 'Falha ao iniciar conexão',
+      timedOut: 'Tempo esgotado — tente novamente.',
+      failed: 'Falha na conexão.',
+      connectOAuth: 'Conectar via OAuth',
+      reconnect: 'Reconectar',
+      connect: 'Conectar',
+      waitingConsent: 'Aguardando consentimento no navegador…',
+      cancel: 'Cancelar',
+      apiKeySet: 'chave de API configurada',
+      oauthSet: 'OAuth configurado'
+    },
+    memoryProvider: {
+      savedTitle: (label: string) => `${label} salvo`,
+      savedMessage: 'Configuração do provedor de memória atualizada.',
+      saveFailed: (label: string) => `Falha ao salvar as configurações de ${label}`,
+      fullConfigTitle: (label: string) => `${label} — configuração completa`,
+      fullConfigDesc: (label: string, profile: string) =>
+        `Todas as opções de ${label} para o perfil ${profile}. Campos em branco usam o valor resolvido do host ou o padrão embutido.`,
+      docsLink: (label: string) => `Referência de configuração de ${label}`,
+      save: 'Salvar alterações',
+      cancel: 'Cancelar',
+      settingsFor: (label: string) => `Configurações de ${label}`,
+      fullConfig: 'Configuração completa…',
+      secretSet: (label: string) => `${label} configurado`,
+      secretNotSet: (label: string) => `${label} não configurado`,
+      keepCurrent: 'Deixe em branco para manter o valor atual',
+      aboutField: (label: string) => `Sobre ${label}`,
+      setBadge: 'configurado'
+    },
+    auxWarning: {
+      banner: (n: number, names: string, provider: string) =>
+        n === 1
+          ? `1 tarefa auxiliar (${names}) ainda roda em ${provider}, não no seu modelo principal.`
+          : `${n} tarefas auxiliares (${names}) ainda rodam em ${provider}, não no seu modelo principal.`,
+      bannerMultiProvider: (n: number, names: string) =>
+        n === 1
+          ? `1 tarefa auxiliar (${names}) ainda roda em outros provedores, não no seu modelo principal.`
+          : `${n} tarefas auxiliares (${names}) ainda rodam em outros provedores, não no seu modelo principal.`,
+      resetAll: 'Restaurar tudo para o principal'
+    },
+    inlineBilling: {
+      openVerification: 'Abrir página de verificação',
+      dismiss: 'Dispensar',
+      waitingLink: 'Aguardando link de verificação…',
+      verifyToContinue: 'Verificar para continuar',
+      openPortal: 'Abrir portal'
+    },
+    showOptions: 'Mostrar opções'
     },
     quickEntry: {
       enabledTitle: 'Entrada rápida',

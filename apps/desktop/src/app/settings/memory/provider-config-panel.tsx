@@ -4,7 +4,7 @@ import { PageLoader } from '@/components/page-loader'
 import { Button } from '@/components/ui/button'
 import { DisclosureCaret } from '@/components/ui/disclosure-caret'
 import { getMemoryProviderConfig, saveMemoryProviderConfig } from '@/hermes'
-import { translateNow } from '@/i18n'
+import { translateNow, useI18n } from '@/i18n'
 import { SlidersHorizontal } from '@/lib/icons'
 import { notifyError } from '@/store/notifications'
 import type { MemoryProviderConfig, MemoryProviderField } from '@/types/hermes'
@@ -22,6 +22,8 @@ function seedValues(config: MemoryProviderConfig): Record<string, string> {
 }
 
 export function ProviderConfigPanel({ profile, provider }: { profile?: string; provider: string }) {
+  const { t } = useI18n()
+  const mp = t.settings.config.memoryProvider
   const [config, setConfig] = useState<MemoryProviderConfig | null>(null)
   const [loadError, setLoadError] = useState<null | string>(null)
   const [values, setValues] = useState<Record<string, string>>({})
@@ -115,16 +117,16 @@ export function ProviderConfigPanel({ profile, provider }: { profile?: string; p
         >
           <DisclosureCaret open={expanded} />
           <span className="text-[length:var(--conversation-text-font-size)] font-medium text-foreground">
-            {config.label} settings
+            {mp.settingsFor(config.label)}
           </span>
           {secretFields.map(field => (
-            <Pill key={field.key}>{field.is_set ? `${field.label} set` : `${field.label} not set`}</Pill>
+            <Pill key={field.key}>{field.is_set ? mp.secretSet(field.label) : mp.secretNotSet(field.label)}</Pill>
           ))}
         </button>
         {hasFullConfig && (
           <Button onClick={() => setShowModal(true)} size="sm" type="button" variant="secondary">
             <SlidersHorizontal className="size-3.5" />
-            Full config…
+            {mp.fullConfig}
           </Button>
         )}
       </div>
