@@ -151,9 +151,18 @@ export function handleSessionInfoEvent(ctx: GatewayEventContext): boolean {
     // subsequent isActiveEvent gate keeps matching (#93942 scenario B).
     const rebound = maybeRebindPaneToRebuiltRuntime(ctx)
 
-    // Apply session-scoped fields when the event targets the active
-    // session, OR when it's a global broadcast and we have no session.
-    const apply = (explicitSid ? isActiveEvent : !activeSessionIdRef.current) || rebound
+    // Apply session-scoped fields when the event targets the active session.
+    // An UNNAMED event used to apply whenever no session was active (draft),
+    // but the gateway's broadcast/fan-out re-emits session.info for EVERY live
+    // session — often without a pane-scoped id — and a background session's
+    // effort (e.g. a GLM ultra turn running while the user sits on a fresh
+    // draft) would repaint the composer's pill: medium → ultra with no user
+    // action. Effort/fast/tier are session-facts, not global broadcasts: apply
+    // them only when the event provably belongs to this pane (explicit active
+    // sid, or the rebound rebuilt-runtime path that verified lineage first).
+    // Unnamed events keep the #55831 allowances (cwd/branch/approval) below via
+    // their own gates.
+    const apply = (explicitSid ? isActiveEvent : false) || rebound
     const statePatch = sessionInfoStatePatch(payload)
     const hasStatePatch = hasSessionInfoStatePatch(statePatch)
     const modelChanged = typeof payload?.model === 'string'

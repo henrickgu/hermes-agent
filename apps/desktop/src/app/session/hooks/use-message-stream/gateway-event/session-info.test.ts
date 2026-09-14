@@ -4,6 +4,8 @@ import type { ClientSessionState } from '@/app/types'
 import { createClientSessionState } from '@/lib/chat-runtime'
 import {
   $currentCwd,
+  $currentFastMode,
+  $currentReasoningEffort,
   $selectedStoredSessionId,
   $workspaceCwdOwner,
   releaseWorkspaceCwdOwner,
@@ -18,14 +20,18 @@ import type { GatewayEventContext } from './types'
 // still carries a real cwd.
 function sessionInfoEvent({
   activeSessionId,
-  cwd,
+  cwd = '',
   explicitSid = '',
-  storedSessionId = ''
+  storedSessionId = '',
+  reasoningEffort,
+  fast
 }: {
   activeSessionId: null | string
-  cwd: string
+  cwd?: string
   explicitSid?: string
   storedSessionId?: string
+  reasoningEffort?: string
+  fast?: boolean
 }): GatewayEventContext {
   const sessionId = explicitSid || activeSessionId
 
@@ -48,7 +54,12 @@ function sessionInfoEvent({
     fromActiveSource: () => true,
     isActiveEvent: !!sessionId && sessionId === activeSessionId,
     occurredAt: Date.now() / 1000,
-    payload: { cwd, stored_session_id: storedSessionId },
+    payload: {
+      cwd,
+      stored_session_id: storedSessionId,
+      ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
+      ...(fast !== undefined ? { fast } : {})
+    },
     scheduleConfigRefresh: vi.fn(),
     sessionId
   } as unknown as GatewayEventContext
@@ -91,6 +102,32 @@ describe('handleSessionInfoEvent workspace ownership', () => {
     }
 
     expect($currentCwd.get()).toBe('')
+  })
+
+  // v8: effort/fast/tier are session-facts. An UNNAMED broadcast (the gateway's
+  // fan-out for background sessions) must not repaint the draft composer — a
+  // background GLM ultra turn used to flip the pill medium → ultra with no user
+  // action while the user sat on a fresh chat.
+  it('does not let an unnamed broadcast repaint the draft composer effort', () => {
+    handleSessionInfoEvent(
+      sessionInfoEvent({ activeSessionId: null, reasoningEffort: 'ultra', fast: true })
+    )
+
+    expect($currentReasoningEffort.get()).not.toBe('ultra')
+    expect($currentFastMode.get()).toBe(false)
+  })
+
+  // …but the pane's own runtime (explicit, active sid) still applies it.
+  it('applies effort from the pane own active runtime session.info', () => {
+    handleSessionInfoEvent(
+      sessionInfoEvent({
+        activeSessionId: 'runtime-1',
+        explicitSid: 'runtime-1',
+        reasoningEffort: 'high'
+      })
+    )
+
+    expect($currentReasoningEffort.get()).toBe('high')
   })
 
   // The case the absent-id allowance exists for: a lazy session that has not
