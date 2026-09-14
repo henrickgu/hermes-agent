@@ -1531,6 +1531,14 @@ body.guest-pointer-lock :is(webview, iframe) {
   );
 }
 
+/* Mask-inert GPUs (this machine included) never paint the fade above, and the
+   ✕ would sit on glyphs. Clearance as LAYOUT instead: reserve the button's box
+   in the label, so the truncate clips before the ✕ area no matter what. The
+   mask (where it works) fades over the same reserved empty pixels — harmless. */
+[data-slot='pane-tab'][data-closeable] > .pane-tab-content > :last-child {
+  padding-right: calc(var(--pane-tab-close-width) + 0.5rem);
+}
+
 [data-slot='aui_assistant-message-content'] .aui-md,
 [data-slot='aui_assistant-message-content'] .aui-md :where(p, li, blockquote, table, pre) {
   font-size: inherit;
