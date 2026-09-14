@@ -1533,10 +1533,10 @@ body.guest-pointer-lock :is(webview, iframe) {
 
 /* Mask-inert GPUs (this machine included) never paint the fade above, and the
    ✕ would sit on glyphs. Clearance as LAYOUT instead: reserve the button's box
-   in the label, so the truncate clips before the ✕ area no matter what. The
-   mask (where it works) fades over the same reserved empty pixels — harmless. */
-[data-slot='pane-tab'][data-closeable] > .pane-tab-content > :last-child {
-  padding-right: calc(var(--pane-tab-close-width) + 0.5rem);
+   inside the content container — hits EVERY child (title, file chips, leads),
+   so no child can slide under the ✕ regardless of the tab's composition. */
+[data-slot='pane-tab'][data-closeable] > .pane-tab-content {
+  padding-right: calc(var(--pane-tab-close-width) + 0.25rem);
 }
 
 [data-slot='aui_assistant-message-content'] .aui-md,
