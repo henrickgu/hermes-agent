@@ -1520,11 +1520,14 @@ body.guest-pointer-lock :is(webview, iframe) {
   --pane-tab-close-width: 1.5rem;
 }
 
+/* The hover ✕ paints over the last 1.5rem of the tab; the label mask must
+   give it clearance — fade ends 1rem BEFORE the button instead of at its
+   edge, so long titles never touch the ✕ (user request 13/09/2026). */
 [data-slot='pane-tab'][data-closeable]:hover > .pane-tab-content {
   mask-image: linear-gradient(
     to right,
-    #000 calc(100% - var(--pane-tab-close-width) - 1rem),
-    transparent calc(100% - var(--pane-tab-close-width))
+    #000 calc(100% - var(--pane-tab-close-width) - 2rem),
+    transparent calc(100% - var(--pane-tab-close-width) - 1rem)
   );
 }
 
