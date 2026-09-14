@@ -3,6 +3,7 @@ import { textWithoutReferenceLines } from '@/components/assistant-ui/reference-k
 import { getSession } from '@/hermes'
 import { assistantTextPart, type ChatMessage, chatMessageText, textPart } from '@/lib/chat-messages'
 import { normalizePersonalityValue } from '@/lib/chat-runtime'
+import { readSessionEffortCache } from '@/app/session/hooks/use-session-state-cache'
 import { embeddedImageUrls, textWithoutEmbeddedImages } from '@/lib/embedded-images'
 import { parseErrorSurface } from '@/lib/error-surface'
 import { isMessagingSource, normalizeSessionSource } from '@/lib/session-source'
@@ -1756,7 +1757,14 @@ export function applyStoredSessionPreviewRuntimeInfo(
 ) {
   setCurrentModel(stored?.model || '')
   setCurrentProvider('')
-  setCurrentReasoningEffort('')
+  // Seed the pill with the effort this conversation LAST reported (persisted
+  // on every session.info) instead of blanking it: the blank fell through to
+  // the pill's medium fallback for the whole `session.resume` round-trip and
+  // then flipped to the real level — the "med → Ultra" flash on every resume
+  // of a non-default conversation. The runtime info from the resume response
+  // (and any later session.info) still overwrites this moments later, so a
+  // stale seed can only ever be replaced by fresher truth.
+  setCurrentReasoningEffort((storedSessionId ? readSessionEffortCache()[storedSessionId] : '') ?? '')
   setCurrentServiceTier('')
   setCurrentFastMode(false)
   setYoloActive(false)

@@ -45,9 +45,9 @@ interface SessionStateCacheOptions {
 // conversation's pill paints the effort that session actually ran with before
 // its first `session.info` round-trip lands (otherwise the composer flashes
 // the profile default — medium — and then flips to the real level).
-const SESSION_EFFORT_CACHE_KEY = 'hermes.desktop.session-efforts:v1'
+export const SESSION_EFFORT_CACHE_KEY = 'hermes.desktop.session-efforts:v1'
 
-function readSessionEffortCache(): Record<string, string> {
+export function readSessionEffortCache(): Record<string, string> {
   return readJson<Record<string, string>>(SESSION_EFFORT_CACHE_KEY) ?? {}
 }
 
