@@ -29,7 +29,7 @@ import {
   setCurrentModel,
   setCurrentPersonality,
   setCurrentProvider,
-  setCurrentReasoningEffort,
+  syncSessionReasoningEffort,
   setCurrentServiceTier,
   setCurrentUsage,
   setMessagingSessions,
@@ -1657,7 +1657,7 @@ function publishRuntimeToComposer(state: SessionRuntimeStatePatch): void {
   }
 
   if (state.reasoningEffort !== undefined) {
-    setCurrentReasoningEffort(state.reasoningEffort, 'runtime-sync')
+    syncSessionReasoningEffort(state.reasoningEffort, 'runtime-sync')
   }
 
   if (state.serviceTier !== undefined) {
@@ -1764,7 +1764,10 @@ export function applyStoredSessionPreviewRuntimeInfo(
   // of a non-default conversation. The runtime info from the resume response
   // (and any later session.info) still overwrites this moments later, so a
   // stale seed can only ever be replaced by fresher truth.
-  setCurrentReasoningEffort((storedSessionId ? readSessionEffortCache()[storedSessionId] : '') ?? '', 'resume-preview')
+  // v9: the resumed conversation's first paint comes from the persisted per-session
+  // cache — but as a RUNTIME display value, not the draft preference (v11): the
+  // cold resume must not re-seed what the next new chat starts at.
+  syncSessionReasoningEffort((storedSessionId ? readSessionEffortCache()[storedSessionId] : '') ?? '', 'resume-preview')
   setCurrentServiceTier('')
   setCurrentFastMode(false)
   setYoloActive(false)

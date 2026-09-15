@@ -257,4 +257,32 @@ describe('draft: runtime events must not rewrite the draft effort', () => {
 
     expect(window.localStorage.getItem('hermes.desktop.composer.reasoning-effort')).toContain('medium')
   })
+
+  // THE Henrick scenario end-to-end (v11): draft medium → background session A
+  // reports ultra → a delayed event must not flip the draft, and the persisted
+  // preference must never have left medium.
+  it('full ownership scenario: runtime reports never move the draft preference', () => {
+    // 1-2. A draft exists with the profile-default medium.
+    setCurrentReasoningEffort('medium', 'draft-init')
+
+    // 3. Session A (a live runtime, another conversation) reports ultra.
+    handleSessionInfoEvent(
+      sessionInfoEvent({
+        activeSessionId: 'runtime-draft',
+        explicitSid: 'runtime-A',
+        storedSessionId: 'stored-A',
+        reasoningEffort: 'ultra',
+        fast: false
+      })
+    )
+
+    // 4-7. A LATE unnamed event from session A (the fan-out) lands on the draft.
+    handleSessionInfoEvent(
+      sessionInfoEvent({ activeSessionId: null, reasoningEffort: 'ultra', fast: true })
+    )
+
+    expect($currentReasoningEffort.get()).toBe('medium')
+    expect($currentFastMode.get()).toBe(false)
+    expect(window.localStorage.getItem('hermes.desktop.composer.reasoning-effort')).toContain('medium')
+  })
 })

@@ -23,8 +23,10 @@ import {
   toChatMessages
 } from '@/lib/chat-messages'
 import { isMissingRpcMethod } from '@/lib/gateway-rpc'
+import { DEFAULT_REASONING_EFFORT, resolveReasoningEffort } from '@/lib/reasoning-effort'
 import { recoverInFlightTurnJournal } from '@/lib/inflight-turn-journal'
 import { setSessionYolo } from '@/lib/yolo-session'
+import { getModelPreset } from '@/store/model-presets'
 import { $clarifyRequests } from '@/store/clarify'
 import { migrateSessionDraft } from '@/store/composer'
 import { clearQueuedPrompts, migrateQueuedPrompts } from '@/store/composer-queue'
@@ -60,6 +62,7 @@ import {
   $currentModel,
   $currentProvider,
   $currentReasoningEffort,
+  $defaultReasoningEffort,
   $messages,
   $newChatWorkspaceTarget,
   $sessions,
@@ -69,6 +72,7 @@ import {
   type NewChatWorkspaceTarget,
   resolveComposerSessionKey,
   sessionPinId,
+  setCurrentReasoningEffort,
   setActiveSessionId,
   setActiveSessionStoredIdRotation,
   setAwaitingResponse,
@@ -504,8 +508,27 @@ export function useSessionActions({
       // profile default still owns first-run seeding and profile switches (see
       // refreshCurrentModel). Only $currentServiceTier (a live-session mirror)
       // is cleared.
+      //
+      // v11 REVISION — the sticky premise was wrong for the effort: the atom is
+      // ALSO the mirror runtime reporters write (session.info, runtime sync,
+      // resume), so "sticky" made a fresh draft inherit whatever level the last
+      // session reported (the deterministic medium→ultra draft flash). The draft
+      // preference is now resolved HERE, synchronously, before the first paint,
+      // from sources that belong to the draft itself:
+      //   1. the current model/provider's remembered preset (a manual pick's
+      //      level survives)
+      //   2. the profile default (agent.reasoning_effort)
+      //   3. the built-in medium
+      // Nothing from the previous session participates: a runtime never
+      // re-seeds the next draft's starting level (the ownership rule).
       setCurrentServiceTier('')
       setYoloActive(false)
+      const presetEffort = getModelPreset($currentProvider.get(), $currentModel.get()).effort?.trim() || ''
+      const resolvedDraftEffort = resolveReasoningEffort(
+        presetEffort || $defaultReasoningEffort.get(),
+        DEFAULT_REASONING_EFFORT
+      )
+      setCurrentReasoningEffort(resolvedDraftEffort, 'draft-init')
       setNewChatWorkspaceTarget(hasWorkspaceTarget ? workspaceTarget : undefined)
 
       if (!hasWorkspaceTarget) {

@@ -3,7 +3,7 @@ import { atom } from 'nanostores'
 import { persistString, storedString } from '@/lib/storage'
 
 import { notifyError } from './notifications'
-import { setCurrentFastMode, setCurrentReasoningEffort } from './session'
+import { setCurrentFastMode, setCurrentReasoningEffort, syncSessionReasoningEffort } from './session'
 import { sessionTileDelegate } from './session-states'
 
 const STORAGE_KEY = 'hermes.desktop.model-presets'
@@ -66,7 +66,14 @@ export async function applyModelPreset(
 ): Promise<void> {
   if (ctx.primary ?? true) {
     if (effort !== undefined) {
-      setCurrentReasoningEffort(effort, 'preset-apply')
+      // With a live session the preset targets THAT session (config.set below) —
+      // a display mirror, not the draft preference (v11). Without one it's a
+      // manual draft pick and persists.
+      if (ctx.sessionId) {
+        syncSessionReasoningEffort(effort, 'preset-apply')
+      } else {
+        setCurrentReasoningEffort(effort, 'preset-apply')
+      }
     }
 
     if (fast !== undefined) {

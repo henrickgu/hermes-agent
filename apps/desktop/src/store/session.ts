@@ -1379,6 +1379,14 @@ export const markComposerSelectionManual = (): void => {
 // WHO wrote the effort — required (compile-enforced at every call site) so the
 // medium→ultra draft flash can be attributed from a live trace instead of
 // guessed. Runtime writers MUST NOT be able to pass without naming themselves.
+//
+// OWNERSHIP (the v11 split that fixed the draft flash): the composer atom +
+// `COMPOSER_EFFORT_KEY` persist ONLY the DRAFT preference. A live session's
+// effort lives in its `ClientSessionState.reasoningEffort` slice — the pill
+// reads the slice when a session is active (primaryField) and the atom only
+// while a draft exists. Runtime reporters (`session-info`, runtime sync,
+// resume) therefore write the VIEW mirror but never the draft preference:
+// a session reporting its own level must not re-seed the next new chat.
 export type ReasoningEffortSource =
   | 'draft-init'
   | 'manual-click'
@@ -1391,20 +1399,50 @@ export type ReasoningEffortSource =
 
 let __effortTraceSeq = 0
 
+function traceEffort(
+  kind: 'draft' | 'runtime',
+  source: ReasoningEffortSource,
+  prev: string,
+  now: string
+): void {
+  // eslint-disable-next-line no-console
+  console.error(
+    `[effort-trace #${++__effortTraceSeq}] ${kind}/${source}: ${JSON.stringify(prev)} -> ${JSON.stringify(now)}` +
+      ` | active=${JSON.stringify($activeSessionId.get())}` +
+      ` selected=${JSON.stringify($selectedStoredSessionId.get())}` +
+      ` model=${JSON.stringify($currentModel.get())}/${JSON.stringify($currentProvider.get())}`
+  )
+}
+
+/** DRAFT preference writer — the only path that owns `COMPOSER_EFFORT_KEY`.
+ *  Manual picks, the profile-default seed and the new-chat draft-init resolve
+ *  here. A value written here IS the next new chat's starting level. */
 export const setCurrentReasoningEffort = (next: Updater<string>, source: ReasoningEffortSource) => {
   const prev = $currentReasoningEffort.get()
   updateAtom($currentReasoningEffort, next)
   const now = $currentReasoningEffort.get()
 
-  // eslint-disable-next-line no-console
-  console.error(
-    `[effort-trace #${++__effortTraceSeq}] ${source}: ${JSON.stringify(prev)} -> ${JSON.stringify(now)}` +
-      ` | active=${JSON.stringify($activeSessionId.get())}` +
-      ` selected=${JSON.stringify($selectedStoredSessionId.get())}` +
-      ` model=${JSON.stringify($currentModel.get())}/${JSON.stringify($currentProvider.get())}`
-  )
+  traceEffort('draft', source, prev, now)
 
   persistString(COMPOSER_EFFORT_KEY, now || null)
+}
+
+/** RUNTIME view mirror — repaints the visible pill for the pane WITHOUT
+ *  touching the draft preference or `COMPOSER_EFFORT_KEY`. Called by
+ *  session.info / state-cache sync / resume hydration, which report a live
+ *  session's own level. With a session active the pill reads the session's
+ *  slice, so this atom write is display-only; it must never leak into the
+ *  next draft's starting level (the v8/v11 flash). */
+export const syncSessionReasoningEffort = (next: string, source: ReasoningEffortSource) => {
+  const prev = $currentReasoningEffort.get()
+  updateAtom($currentReasoningEffort, next)
+  const now = $currentReasoningEffort.get()
+
+  if (prev === now) {
+    return
+  }
+
+  traceEffort('runtime', source, prev, now)
 }
 
 // The profile's `agent.reasoning_effort`, mirrored from config so surfaces that

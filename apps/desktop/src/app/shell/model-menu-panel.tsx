@@ -18,7 +18,8 @@ import {
   $defaultReasoningEffort,
   markComposerSelectionManual,
   setCurrentFastMode,
-  setCurrentReasoningEffort
+  setCurrentReasoningEffort,
+  syncSessionReasoningEffort
 } from '@/store/session'
 import { sessionTileDelegate } from '@/store/session-states'
 import type { ModelOptionsResponse } from '@/types/hermes'
@@ -139,7 +140,14 @@ export function ModelMenuPanel({
 
   // Push a reasoning change onto the session that owns it, with rollback.
   const patchReasoning = async (next: string, previous: string, provider: string, model: string) => {
-    if (touchesPrimary) {
+    if (touchesPrimary && activeSessionId) {
+      // Manual pick on a live session: the session's slice + config.set own the
+      // level. The draft preference must not follow (v11): the next new chat
+      // resolves its own level from preset → profile default.
+      markComposerSelectionManual()
+      syncSessionReasoningEffort(next, 'manual-click')
+    } else if (touchesPrimary) {
+      // Manual pick on a DRAFT: this IS the draft preference — persist it.
       markComposerSelectionManual()
       setCurrentReasoningEffort(next, 'manual-click')
     } else if (activeSessionId) {
@@ -156,7 +164,9 @@ export function ModelMenuPanel({
     try {
       await requestGateway('config.set', { key: 'reasoning', session_id: activeSessionId, value: next })
     } catch (err) {
-      if (touchesPrimary) {
+      if (touchesPrimary && activeSessionId) {
+        syncSessionReasoningEffort(previous, 'manual-click')
+      } else if (touchesPrimary) {
         setCurrentReasoningEffort(previous, 'manual-click')
       } else {
         sessionTileDelegate()?.updateSession(activeSessionId, state => ({ ...state, reasoningEffort: previous }))
