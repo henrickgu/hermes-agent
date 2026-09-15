@@ -6,11 +6,17 @@ import {
   $currentCwd,
   $currentFastMode,
   $currentReasoningEffort,
+  $currentServiceTier,
   $selectedStoredSessionId,
   $workspaceCwdOwner,
   releaseWorkspaceCwdOwner,
-  setCurrentCwd
+  setCurrentCwd,
+  setCurrentFastMode,
+  setCurrentReasoningEffort,
+  setCurrentServiceTier,
+  setSelectedStoredSessionId
 } from '@/store/session'
+import { persistString } from '@/lib/storage'
 
 import { handleSessionInfoEvent } from './session-info'
 import type { GatewayEventContext } from './types'
@@ -182,5 +188,73 @@ describe('handleSessionInfoEvent workspace ownership', () => {
     handleSessionInfoEvent(ctx)
 
     expect(next).toBe(original)
+  })
+})
+
+// REGRESSÃO (flash medium→ultra no draft): a conversa A roda em ultra; o usuário
+// abre um draft novo. O draft pinta medium (config default) e DEVE CONTINUAR medium
+// quando qualquer session.info atrasado/de outra sessão chegar. Escritores de
+// runtime (session-info, runtime-sync, resume) não podem tocar o esforço global do
+// draft — a preferência de draft só muda por ação do usuário (manual-click) ou
+// pelo seed explícito do draft-init.
+describe('draft: runtime events must not rewrite the draft effort', () => {
+  beforeEach(() => {
+    $selectedStoredSessionId.set(null)
+    setSelectedStoredSessionId(null)
+    setCurrentFastMode(false)
+    setCurrentServiceTier('')
+    setCurrentReasoningEffort('medium', 'draft-init')
+  })
+
+  afterEach(() => {
+    setSelectedStoredSessionId(null)
+  })
+
+  it('a delayed session.info from session A (ultra) does not repaint the draft', () => {
+    // Draft ativo: sem sessão runtime; conversa A em background emite o evento dela.
+    const ctx = sessionInfoEvent({
+      activeSessionId: null,
+      explicitSid: 'runtime-A',
+      storedSessionId: 'stored-A',
+      reasoningEffort: 'ultra',
+      cwd: '/repo/A'
+    })
+
+    handleSessionInfoEvent(ctx)
+
+    expect($currentReasoningEffort.get()).toBe('medium')
+    expect($currentFastMode.get()).toBe(false)
+    expect($currentServiceTier.get()).toBe('')
+  })
+
+  it('a named session.info that does not belong to the active pane cannot rewrite the composer', () => {
+    setCurrentReasoningEffort('medium', 'draft-init')
+    // O draft TEM runtime (usuário já digitou e session.create rodou) mas o evento
+    // chegou da sessão A — sid diferente do ativo.
+    const ctx = sessionInfoEvent({
+      activeSessionId: 'runtime-draft',
+      explicitSid: 'runtime-A',
+      storedSessionId: 'stored-A',
+      reasoningEffort: 'ultra'
+    })
+
+    handleSessionInfoEvent(ctx)
+
+    expect($currentReasoningEffort.get()).toBe('medium')
+  })
+
+  it('the draft preference is not persisted by runtime events (localStorage untouched)', () => {
+    setCurrentReasoningEffort('medium', 'draft-init')
+    persistString('hermes.desktop.composer.reasoning-effort', 'medium')
+
+    const ctx = sessionInfoEvent({
+      activeSessionId: 'runtime-draft',
+      explicitSid: 'runtime-A',
+      storedSessionId: 'stored-A',
+      reasoningEffort: 'ultra'
+    })
+    handleSessionInfoEvent(ctx)
+
+    expect(window.localStorage.getItem('hermes.desktop.composer.reasoning-effort')).toContain('medium')
   })
 })

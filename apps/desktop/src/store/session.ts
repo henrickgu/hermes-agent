@@ -1397,7 +1397,7 @@ export const setCurrentReasoningEffort = (next: Updater<string>, source: Reasoni
   const now = $currentReasoningEffort.get()
 
   // eslint-disable-next-line no-console
-  console.info(
+  console.error(
     `[effort-trace #${++__effortTraceSeq}] ${source}: ${JSON.stringify(prev)} -> ${JSON.stringify(now)}` +
       ` | active=${JSON.stringify($activeSessionId.get())}` +
       ` selected=${JSON.stringify($selectedStoredSessionId.get())}` +

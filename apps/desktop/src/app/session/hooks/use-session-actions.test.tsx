@@ -720,6 +720,28 @@ describe('startFreshSessionDraft', () => {
     expect(revealTreePane).toHaveBeenCalledWith('workspace')
     expect($terminalTakeover.get()).toBe(true)
   })
+
+  // REGRESSÃO (draft flash): o esforço global carrega o que a ÚLTIMA sessão ativa
+  // reportou (ex.: session-info ultra da conversa A). Abrir um draft não pode herdar
+  // isso por acidente: startFreshSessionDraft resolve o esforço do draft de UMA fonte
+  // definida — preset do model/provider atual → profile default → built-in — de forma
+  // síncrona, na mesma tick da abertura. Source 'draft-init' distingue a escrita.
+  it('seeds the draft effort synchronously instead of inheriting the last session level', async () => {
+    const navigate = vi.fn()
+    const requestGateway = vi.fn(async () => ({}) as never)
+    let handle: HarnessHandle | null = null
+
+    // Sessão anterior deixou ultra no átomo global (runtime-sync da A).
+    setCurrentReasoningEffort('ultra', 'session-info')
+
+    render(<Harness navigate={navigate} onReady={value => (handle = value)} requestGateway={requestGateway} />)
+    await waitFor(() => expect(handle).not.toBeNull())
+
+    act(() => handle!.startFreshSessionDraft({ preserveRoute: true, workspaceTarget: null }))
+
+    // O draft NÃO herda ultra: nasce com o default do perfil (medium) na primeira pintura.
+    expect($currentReasoningEffort.get()).toBe('medium')
+  })
 })
 
 describe('createBackendSessionForSend profile routing', () => {
