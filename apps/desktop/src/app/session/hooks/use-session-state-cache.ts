@@ -16,7 +16,6 @@ import {
   setCurrentModel,
   setCurrentPersonality,
   setCurrentProvider,
-  syncSessionReasoningEffort,
   setCurrentServiceTier,
   setTurnStartedAt,
   setYoloActive
@@ -68,7 +67,6 @@ function rememberSessionEffort(storedSessionId: string, effort: string): void {
 function syncRuntimeMetadataToView(state: ClientSessionState) {
   setCurrentModel(state.model ?? '')
   setCurrentProvider(state.provider ?? '')
-  syncSessionReasoningEffort(state.reasoningEffort ?? '', 'runtime-sync')
   setCurrentServiceTier(state.serviceTier ?? '')
   setCurrentFastMode(state.fast ?? false)
   setYoloActive(state.yolo ?? false)

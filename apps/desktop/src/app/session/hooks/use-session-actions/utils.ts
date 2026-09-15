@@ -29,7 +29,6 @@ import {
   setCurrentModel,
   setCurrentPersonality,
   setCurrentProvider,
-  syncSessionReasoningEffort,
   setCurrentServiceTier,
   setCurrentUsage,
   setMessagingSessions,
@@ -1656,9 +1655,7 @@ function publishRuntimeToComposer(state: SessionRuntimeStatePatch): void {
     setCurrentPersonality(state.personality)
   }
 
-  if (state.reasoningEffort !== undefined) {
-    syncSessionReasoningEffort(state.reasoningEffort, 'runtime-sync')
-  }
+
 
   if (state.serviceTier !== undefined) {
     setCurrentServiceTier(state.serviceTier)
@@ -1767,7 +1764,8 @@ export function applyStoredSessionPreviewRuntimeInfo(
   // v9: the resumed conversation's first paint comes from the persisted per-session
   // cache — but as a RUNTIME display value, not the draft preference (v11): the
   // cold resume must not re-seed what the next new chat starts at.
-  syncSessionReasoningEffort((storedSessionId ? readSessionEffortCache()[storedSessionId] : '') ?? '', 'resume-preview')
+  // v12: no atom write — the resumed session's slice is seeded (v9 path via
+  // updateSessionState) and the pill reads the slice while the session is active.
   setCurrentServiceTier('')
   setCurrentFastMode(false)
   setYoloActive(false)

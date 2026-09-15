@@ -810,13 +810,14 @@ describe('useModelControls', () => {
       value: 'glm-5.3 --provider zai'
     })
     // …and the effort carry-over followed: xhigh clamps to high (closest
-    // supported below), pushed to the session AND remembered as the preset.
+    // supported below), pushed to the session. v12: carry is INTRA-CONTEXT
+    // state — it must NOT persist a remembered preset for future drafts.
     expect(requestGateway).toHaveBeenCalledWith('config.set', {
       key: 'reasoning',
       session_id: 'session-1',
       value: 'high'
     })
-    expect(getModelPreset('zai', 'glm-5.3').effort).toBe('high')
+    expect(getModelPreset('zai', 'glm-5.3').effort).toBeUndefined()
   })
 
   it('carries the remembered preset level when the composer level is empty', async () => {
@@ -850,6 +851,9 @@ describe('useModelControls', () => {
       session_id: 'session-1',
       value: 'high'
     })
+    // v12: the remembered preset is a READ source for the carry, never a WRITE —
+    // the carried level must not become the new model's persistent preset.
+    expect(getModelPreset('zai', 'glm-5.3').effort).toBeUndefined()
   })
 
   it('carries nothing when the new route has no known effort vocabulary', async () => {
@@ -879,6 +883,10 @@ describe('useModelControls', () => {
   })
 
   it('carries the effort onto a tile session without touching the primary composer', async () => {
+    // patchSessionSliceEffort resolves the delegate INSIDE session-states (the
+    // module's own export is not re-read through the vi.mock here), so register
+    // the spy through the module's real setter.
+    SessionStates.setSessionTileDelegate({ updateSession: sessionUpdate } as never)
     const queryClient = new QueryClient()
     $activeSessionId.set('runtime-a')
     SessionStates.$sessionStates.set({
@@ -915,29 +923,30 @@ describe('useModelControls', () => {
       session_id: 'runtime-b',
       value: 'high'
     })
-    // The tile's own slice got the carried level, not the primary composer.
+    // v12: the carry routes the clamped level to the TILE's own slice (the tile
+    // delegate), not the primary composer and not the draft preference.
     expect(sessionUpdate).toHaveBeenCalledWith('runtime-b', expect.any(Function))
 
-    const updater = sessionUpdate.mock.calls.filter(call => call[0] === 'runtime-b').at(-1)?.[1] as (
-      state: ClientSessionState
-    ) => ClientSessionState
+    const baseState = {
+      branch: '',
+      busy: false,
+      cwd: '',
+      messages: [],
+      model: 'gpt-5.6-sol',
+      personality: '',
+      provider: 'openai-codex',
+      reasoningEffort: 'xhigh',
+      serviceTier: '',
+      awaitingResponse: false,
+      fast: false,
+      yolo: false
+    } as never
 
-    expect(
-      updater({
-        branch: '',
-        busy: false,
-        cwd: '',
-        messages: [],
-        model: 'gpt-5.6-sol',
-        personality: '',
-        provider: 'openai-codex',
-        reasoningEffort: 'xhigh',
-        serviceTier: '',
-        awaitingResponse: false,
-        fast: false,
-        yolo: false
-      } as never).reasoningEffort
-    ).toBe('high')
+    const carriedLevels = sessionUpdate.mock.calls
+      .filter(call => call[0] === 'runtime-b')
+      .map(call => (call[1] as (s: ClientSessionState) => ClientSessionState)(baseState).reasoningEffort)
+
+    expect(carriedLevels).toContain('high')
     // Primary composer never moved.
     expect($currentModel.get()).toBe('')
   })

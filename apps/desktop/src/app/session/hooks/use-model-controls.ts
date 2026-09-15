@@ -15,17 +15,16 @@ import {
   $activeSessionId,
   $currentModel,
   $currentProvider,
-  $currentReasoningEffort,
+  $draftReasoningEffort,
   getComposerSelectionGeneration,
   getCurrentModelSource,
   markComposerSelectionManual,
   setCurrentModel,
   setCurrentModelSource,
   setCurrentProvider,
-  setCurrentReasoningEffort,
-  syncSessionReasoningEffort
+  setCurrentReasoningEffort
 } from '@/store/session'
-import { $sessionStates, sessionTileDelegate } from '@/store/session-states'
+import { $sessionStates, patchSessionSliceEffort, sessionTileDelegate } from '@/store/session-states'
 import type { ModelOptionsResponse } from '@/types/hermes'
 
 interface ModelControlsOptions {
@@ -232,15 +231,17 @@ export function useModelControls({
         return
       }
 
-      if (!liveSessionId || liveSessionId === $activeSessionId.get()) {
-        setCurrentReasoningEffort(carried, 'model-carry')
+      // v12: carry is TRANSIENT intra-context state. With a live session the
+      // carried level goes to THAT session's slice; on a draft it is the draft's
+      // own pick (persisted as draft preference). It must NEVER mint or update
+      // a remembered model preset — a historical clamp ('ultra' → 'high') used
+      // to persist as if the user had pinned it and later re-seeded fresh
+      // drafts through the preset branch of resolveFreshDraftEffort().
+      if (liveSessionId && liveSessionId !== $activeSessionId.get()) {
+        patchSessionSliceEffort(liveSessionId, carried, false)
       } else {
-        sessionTileDelegate()?.updateSession(liveSessionId, state => ({ ...state, reasoningEffort: carried }))
+        setCurrentReasoningEffort(carried, 'model-carry')
       }
-
-      // Remember the level as the new model's preset so reopening this model
-      // (here or on any surface) restores the carried level.
-      setModelPreset(target.provider, target.model, { effort: carried })
 
       if (liveSessionId) {
         void requestGateway('config.set', { key: 'reasoning', session_id: liveSessionId, value: carried }).catch(
@@ -288,9 +289,13 @@ export function useModelControls({
       // Snapshot the outgoing effort level BEFORE the optimistic paint —
       // paintSelection overwrites the same atoms this reads. carryEffortOver
       // moves this level onto the new model once the switch lands.
-      const prevEffort = touchesPrimary
-        ? $currentReasoningEffort.get()
-        : ($sessionStates.get()[liveSessionId!]?.reasoningEffort ?? '')
+      // v12: the outgoing level mirrors what the pill displays — the live
+      // session's slice when one exists, the draft preference when the composer
+      // is a draft. The slice is consulted FIRST so a session-reported level
+      // wins, with the draft atom as fallback while no session.info arrived yet.
+      const prevEffort =
+        (liveSessionId ? ($sessionStates.get()[liveSessionId]?.reasoningEffort ?? '') : '') ||
+        (touchesPrimary ? $draftReasoningEffort.get() : '')
 
       const paintSelection = () => {
         if (touchesPrimary) {

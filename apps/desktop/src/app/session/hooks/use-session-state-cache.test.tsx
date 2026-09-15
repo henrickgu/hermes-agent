@@ -8,7 +8,7 @@ import {
   $currentFastMode,
   $currentModel,
   $currentProvider,
-  $currentReasoningEffort,
+  $draftReasoningEffort,
   $currentServiceTier,
   $messages,
   $turnStartedAt,
@@ -217,7 +217,7 @@ describe('useSessionStateCache — per-session turn timer', () => {
 
     // Background metadata is cached but must not bleed into the visible statusbar.
     expect($currentModel.get()).toBe('')
-    expect($currentReasoningEffort.get()).toBe('')
+    expect($draftReasoningEffort.get()).toBe('')
     expect($currentFastMode.get()).toBe(false)
 
     rerender(<Harness activeSessionId="bg-runtime" onReady={c => (cache = c)} selectedStoredSessionId="bg-stored" />)
@@ -231,7 +231,9 @@ describe('useSessionStateCache — per-session turn timer', () => {
 
     expect($currentModel.get()).toBe('anthropic/claude-opus-4.8')
     expect($currentProvider.get()).toBe('anthropic')
-    expect($currentReasoningEffort.get()).toBe('high')
+    // v12: the session's effort lives in the SLICE — the draft preference atom
+    // is never a runtime mirror, so switching sessions cannot rewrite it.
+    expect($draftReasoningEffort.get()).toBe('')
     expect($currentServiceTier.get()).toBe('priority')
     expect($currentFastMode.get()).toBe(true)
   })
@@ -264,7 +266,9 @@ describe('useSessionStateCache — per-session turn timer', () => {
 
     expect($currentModel.get()).toBe('')
     expect($currentProvider.get()).toBe('')
-    expect($currentReasoningEffort.get()).toBe('')
+    // v12: the draft preference is NOT session metadata — a session switch with
+    // no cached effort must not blank the user's draft level.
+    expect($draftReasoningEffort.get()).toBe('high')
     expect($currentServiceTier.get()).toBe('')
     expect($currentFastMode.get()).toBe(false)
   })

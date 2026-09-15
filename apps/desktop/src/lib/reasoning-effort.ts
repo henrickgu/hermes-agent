@@ -133,3 +133,18 @@ export function carryReasoningEffort(effort: string, nativeEfforts?: string[]): 
 
   return nearestReasoningEffort(effortsForModel(nativeEfforts), effort)
 }
+
+/** The ONE authority for a fresh chat's starting effort (v12).
+ *  Order: 1) an EXPLICITLY applicable preset — only a level the user themselves
+ *  pinned for this exact model/provider in the composer; 2) the profile default
+ *  (`agent.reasoning_effort`); 3) the built-in default. Carry-over levels and
+ *  display mirrors of a live session are NOT inputs here: a runtime must never
+ *  re-seed the next draft's starting level. */
+export function resolveFreshDraftEffort(inputs: { presetEffort?: string; profileDefault?: string }): string {
+  const explicit = (inputs.presetEffort || '').trim()
+  if (explicit) {
+    return resolveReasoningEffort(explicit)
+  }
+
+  return resolveReasoningEffort((inputs.profileDefault || '').trim())
+}

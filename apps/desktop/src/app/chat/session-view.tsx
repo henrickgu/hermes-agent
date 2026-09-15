@@ -11,7 +11,7 @@ import {
   $currentFastMode,
   $currentModel,
   $currentProvider,
-  $currentReasoningEffort,
+  $draftReasoningEffort,
   $messages,
   $selectedStoredSessionId,
   $turnStartedAt
@@ -85,7 +85,7 @@ function primaryField<T>(select: (state: ClientSessionState) => T, $draft: Reada
 let __pillSourceProbeLast = ''
 let __pillSourceProbeSeq = 0
 export const $pillSourceProbe = computed(
-  [$activeSessionId, $sessionStates, $currentReasoningEffort, $selectedStoredSessionId],
+  [$activeSessionId, $sessionStates, $draftReasoningEffort, $selectedStoredSessionId],
   (runtimeId, states, draftEffort, selectedStored) => {
     const slice = runtimeId ? states[runtimeId] : undefined
     const sliceEffort = slice?.reasoningEffort
@@ -138,7 +138,7 @@ export const PRIMARY_SESSION_VIEW: SessionView = {
   $model: primaryField<string>(state => state.model, $currentModel),
   $modelSwitchPending: primaryField<boolean>(state => state.modelSwitchPending ?? false, atom(false)),
   $provider: primaryField<string>(state => state.provider, $currentProvider),
-  $reasoningEffort: primaryField<string>(state => state.reasoningEffort, $currentReasoningEffort),
+  $reasoningEffort: primaryField<string>(state => state.reasoningEffort, $draftReasoningEffort),
   $runtimeId: $activeSessionId,
   $storedId: $selectedStoredSessionId,
   $turnStartedAt: primaryField<number | null>(state => state.turnStartedAt, $turnStartedAt)

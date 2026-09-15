@@ -5,7 +5,7 @@ import { createClientSessionState } from '@/lib/chat-runtime'
 import {
   $currentCwd,
   $currentFastMode,
-  $currentReasoningEffort,
+  $draftReasoningEffort,
   $currentServiceTier,
   $selectedStoredSessionId,
   $workspaceCwdOwner,
@@ -119,21 +119,38 @@ describe('handleSessionInfoEvent workspace ownership', () => {
       sessionInfoEvent({ activeSessionId: null, reasoningEffort: 'ultra', fast: true })
     )
 
-    expect($currentReasoningEffort.get()).not.toBe('ultra')
+    expect($draftReasoningEffort.get()).not.toBe('ultra')
     expect($currentFastMode.get()).toBe(false)
   })
 
-  // …but the pane's own runtime (explicit, active sid) still applies it.
-  it('applies effort from the pane own active runtime session.info', () => {
-    handleSessionInfoEvent(
-      sessionInfoEvent({
-        activeSessionId: 'runtime-1',
-        explicitSid: 'runtime-1',
-        reasoningEffort: 'high'
-      })
+  // …but the pane's own runtime (explicit, active sid) still applies it — to the
+  // SESSION SLICE, not to the draft preference (v12 ownership): the pill reads
+  // the slice while the session is active, and the draft atom is untouched.
+  it('applies effort from the pane own active runtime session.info to the slice only', () => {
+    const state = { ...createClientSessionState('stored-1'), reasoningEffort: 'medium' }
+    const ctx = sessionInfoEvent({
+      activeSessionId: 'runtime-1',
+      explicitSid: 'runtime-1',
+      reasoningEffort: 'high'
+    })
+    ctx.deps.sessionStateByRuntimeIdRef.current.set('runtime-1', state)
+    // Apply the updater like the real updateSessionState does — the handler must
+    // route the session fact into the slice, and only there.
+    ctx.deps.updateSessionState = vi.fn(
+      (_sessionId: string, updater: (s: ClientSessionState) => ClientSessionState) => {
+        const next = updater(state)
+        Object.assign(state, next)
+
+        return next
+      }
     )
 
-    expect($currentReasoningEffort.get()).toBe('high')
+    handleSessionInfoEvent(ctx)
+
+    expect(state.reasoningEffort).toBe('high')
+    // No draft was seeded in this describe — the v12 assertion is that the
+    // runtime write went to the SLICE ONLY, whatever the atom held.
+    expect($draftReasoningEffort.get()).toBe('')
   })
 
   // The case the absent-id allowance exists for: a lazy session that has not
@@ -222,7 +239,7 @@ describe('draft: runtime events must not rewrite the draft effort', () => {
 
     handleSessionInfoEvent(ctx)
 
-    expect($currentReasoningEffort.get()).toBe('medium')
+    expect($draftReasoningEffort.get()).toBe('medium')
     expect($currentFastMode.get()).toBe(false)
     expect($currentServiceTier.get()).toBe('')
   })
@@ -240,7 +257,7 @@ describe('draft: runtime events must not rewrite the draft effort', () => {
 
     handleSessionInfoEvent(ctx)
 
-    expect($currentReasoningEffort.get()).toBe('medium')
+    expect($draftReasoningEffort.get()).toBe('medium')
   })
 
   it('the draft preference is not persisted by runtime events (localStorage untouched)', () => {
@@ -281,7 +298,7 @@ describe('draft: runtime events must not rewrite the draft effort', () => {
       sessionInfoEvent({ activeSessionId: null, reasoningEffort: 'ultra', fast: true })
     )
 
-    expect($currentReasoningEffort.get()).toBe('medium')
+    expect($draftReasoningEffort.get()).toBe('medium')
     expect($currentFastMode.get()).toBe(false)
     expect(window.localStorage.getItem('hermes.desktop.composer.reasoning-effort')).toContain('medium')
   })

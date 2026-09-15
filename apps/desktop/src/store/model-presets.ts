@@ -3,7 +3,8 @@ import { atom } from 'nanostores'
 import { persistString, storedString } from '@/lib/storage'
 
 import { notifyError } from './notifications'
-import { setCurrentFastMode, setCurrentReasoningEffort, syncSessionReasoningEffort } from './session'
+import { patchSessionSliceEffort } from './session-states'
+import { setCurrentFastMode, setCurrentReasoningEffort } from './session'
 import { sessionTileDelegate } from './session-states'
 
 const STORAGE_KEY = 'hermes.desktop.model-presets'
@@ -70,7 +71,7 @@ export async function applyModelPreset(
       // a display mirror, not the draft preference (v11). Without one it's a
       // manual draft pick and persists.
       if (ctx.sessionId) {
-        syncSessionReasoningEffort(effort, 'preset-apply')
+        patchSessionSliceEffort(ctx.sessionId, effort, true)
       } else {
         setCurrentReasoningEffort(effort, 'preset-apply')
       }

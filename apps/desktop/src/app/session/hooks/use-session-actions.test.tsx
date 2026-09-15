@@ -34,7 +34,7 @@ import {
   $currentFastMode,
   $currentModel,
   $currentProvider,
-  $currentReasoningEffort,
+  $draftReasoningEffort,
   $messages,
   $messagingSessions,
   $newChatWorkspaceTarget,
@@ -67,7 +67,7 @@ import {
 } from '@/store/session'
 import { $removedSessionIds, $sessionMutationsInFlight } from '@/store/session-removal'
 import { requestForSessionProfile, type SessionProfileRoute } from '@/store/session-request-router'
-import { $sessionTiles, sessionTileOwnerRoute } from '@/store/session-states'
+import { $sessionStates, $sessionTiles, sessionTileOwnerRoute } from '@/store/session-states'
 import { $sessionSeenCounts, $unreadFinishedMarkers } from '@/store/session-unread'
 
 import sessionResumeActiveTurn from '../../../../../../tests/fixtures/session-resume-active-turn.json'
@@ -740,7 +740,7 @@ describe('startFreshSessionDraft', () => {
     act(() => handle!.startFreshSessionDraft({ preserveRoute: true, workspaceTarget: null }))
 
     // O draft NÃO herda ultra: nasce com o default do perfil (medium) na primeira pintura.
-    expect($currentReasoningEffort.get()).toBe('medium')
+    expect($draftReasoningEffort.get()).toBe('medium')
   })
 })
 
@@ -757,7 +757,7 @@ describe('createBackendSessionForSend profile routing', () => {
     $currentModel.set('')
     $currentProvider.set('')
     setCurrentModelSource('')
-    $currentReasoningEffort.set('')
+    $draftReasoningEffort.set('')
     setNewChatWorkspaceTarget(undefined)
     vi.restoreAllMocks()
   })
@@ -4160,6 +4160,57 @@ describe('openNewSessionTile workspace target', () => {
     })
 
     expect(createParams).not.toHaveProperty('cwd')
+  })
+
+  // v12: the fresh-tile create must carry the DRAFT's resolved effort — never the
+  // display mirror of whichever session is active (the medium→high tile flash).
+  it('creates the tile with the draft effort, not the active session mirror', async () => {
+    // A session is active with a high slice (what the pill displays)…
+    $activeSessionId.set('runtime-active')
+    $sessionStates.set({
+      'runtime-active': {
+        branch: '',
+        busy: false,
+        cwd: '',
+        messages: [],
+        model: 'm',
+        personality: '',
+        provider: 'p',
+        reasoningEffort: 'high',
+        serviceTier: '',
+        awaitingResponse: false,
+        fast: false,
+        yolo: false
+      }
+    } as never)
+    // …and the composer draft holds medium (profile default seed).
+    setCurrentReasoningEffort('medium', 'draft-init')
+
+    let createParams: Record<string, unknown> | undefined
+
+    const requestGateway = vi.fn(async (method: string, params?: Record<string, unknown>) => {
+      if (method === 'session.create') {
+        createParams = params
+
+        return {
+          info: { cwd: '', model: 'test-model', tools: {}, skills: {} },
+          session_id: RUNTIME_SESSION_ID,
+          stored_session_id: 'stored-tile-v12'
+        } as never
+      }
+
+      return {} as never
+    })
+
+    let handle: HarnessHandle | null = null
+    render(<Harness onReady={value => (handle = value)} requestGateway={requestGateway} />)
+    await waitFor(() => expect(handle).not.toBeNull())
+
+    await act(async () => {
+      await handle!.openNewSessionTile('center', { cwd: null, listed: false })
+    })
+
+    expect(createParams).toMatchObject({ reasoning_effort: 'medium' })
   })
 })
 describe('selectSidebarItem', () => {

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import { $modelPresets, applyModelPreset, getModelPreset, modelPresetKey, setModelPreset } from './model-presets'
-import { $currentFastMode, $currentReasoningEffort, setCurrentFastMode, setCurrentReasoningEffort } from './session'
+import { $currentFastMode, $draftReasoningEffort, setCurrentFastMode, setCurrentReasoningEffort } from './session'
 
 describe('model presets', () => {
   beforeEach(() => {
@@ -51,7 +51,7 @@ describe('model presets', () => {
 
     await applyModelPreset({ effort: 'high', fast: true }, { failMessage: 'x', request, sessionId: null })
 
-    expect($currentReasoningEffort.get()).toBe('high')
+    expect($draftReasoningEffort.get()).toBe('high')
     expect($currentFastMode.get()).toBe(true)
     expect(calls).toEqual([])
   })

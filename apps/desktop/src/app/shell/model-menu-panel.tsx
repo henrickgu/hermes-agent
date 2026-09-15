@@ -18,10 +18,9 @@ import {
   $defaultReasoningEffort,
   markComposerSelectionManual,
   setCurrentFastMode,
-  setCurrentReasoningEffort,
-  syncSessionReasoningEffort
+  setCurrentReasoningEffort
 } from '@/store/session'
-import { sessionTileDelegate } from '@/store/session-states'
+import { patchSessionSliceEffort, sessionTileDelegate } from '@/store/session-states'
 import type { ModelOptionsResponse } from '@/types/hermes'
 
 import { ModelCatalogMenu, type ModelMenuController } from './model-catalog-menu'
@@ -140,18 +139,16 @@ export function ModelMenuPanel({
 
   // Push a reasoning change onto the session that owns it, with rollback.
   const patchReasoning = async (next: string, previous: string, provider: string, model: string) => {
-    if (touchesPrimary && activeSessionId) {
-      // Manual pick on a live session: the session's slice + config.set own the
-      // level. The draft preference must not follow (v11): the next new chat
-      // resolves its own level from preset → profile default.
+    if (activeSessionId) {
+      // Manual pick on a LIVE session (primary or tile): the session's slice +
+      // config.set own the level. The draft preference must not follow: the
+      // next new chat resolves its own level (v12 ownership).
       markComposerSelectionManual()
-      syncSessionReasoningEffort(next, 'manual-click')
-    } else if (touchesPrimary) {
+      patchSessionSliceEffort(activeSessionId, next, touchesPrimary)
+    } else {
       // Manual pick on a DRAFT: this IS the draft preference — persist it.
       markComposerSelectionManual()
       setCurrentReasoningEffort(next, 'manual-click')
-    } else if (activeSessionId) {
-      sessionTileDelegate()?.updateSession(activeSessionId, state => ({ ...state, reasoningEffort: next }))
     }
 
     // Preset-only without a session: the gateway's `config.set` falls back to
@@ -164,12 +161,10 @@ export function ModelMenuPanel({
     try {
       await requestGateway('config.set', { key: 'reasoning', session_id: activeSessionId, value: next })
     } catch (err) {
-      if (touchesPrimary && activeSessionId) {
-        syncSessionReasoningEffort(previous, 'manual-click')
-      } else if (touchesPrimary) {
-        setCurrentReasoningEffort(previous, 'manual-click')
+      if (activeSessionId) {
+        patchSessionSliceEffort(activeSessionId, previous, touchesPrimary)
       } else {
-        sessionTileDelegate()?.updateSession(activeSessionId, state => ({ ...state, reasoningEffort: previous }))
+        setCurrentReasoningEffort(previous, 'manual-click')
       }
 
       setModelPreset(provider, model, { effort: previous })

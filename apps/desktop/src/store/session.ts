@@ -12,6 +12,7 @@ import {
   rescopeConnectionScopedStores
 } from '@/lib/connection-scoped'
 import { persistBoolean, persistString, readJson, storedBoolean, storedString, writeJson } from '@/lib/storage'
+import { resolveFreshDraftEffort } from '@/lib/reasoning-effort'
 import { syncCronModelImpactConnection } from '@/store/cron-model-impact-scope'
 import type { SessionInfo, UsageStats } from '@/types/hermes'
 
@@ -1094,7 +1095,11 @@ export function getSessionOwnerHint(
 export const $resumeExhaustedSessionId = atom<string | null>(null)
 export const $currentModel = atom(storedComposerString(COMPOSER_MODEL_KEY) ?? '')
 export const $currentProvider = atom(storedComposerString(COMPOSER_PROVIDER_KEY) ?? '')
-export const $currentReasoningEffort = atom(storedString(COMPOSER_EFFORT_KEY) ?? '')
+// DRAFT preference — the ONLY meaning this atom carries. A live session's
+// effort lives in its ClientSessionState slice; this atom is what a fresh
+// chat starts from (persisted) and what manual picks write. Runtime
+// reporters must never write here (v11/v12 ownership split).
+export const $draftReasoningEffort = atom(storedString(COMPOSER_EFFORT_KEY) ?? '')
 export const $currentServiceTier = atom('')
 export const $currentFastMode = atom(storedBoolean(COMPOSER_FAST_KEY, false))
 // Effective approval-bypass state mirrored from the gateway (session.info).
@@ -1418,32 +1423,24 @@ function traceEffort(
  *  Manual picks, the profile-default seed and the new-chat draft-init resolve
  *  here. A value written here IS the next new chat's starting level. */
 export const setCurrentReasoningEffort = (next: Updater<string>, source: ReasoningEffortSource) => {
-  const prev = $currentReasoningEffort.get()
-  updateAtom($currentReasoningEffort, next)
-  const now = $currentReasoningEffort.get()
+  const prev = $draftReasoningEffort.get()
+  updateAtom($draftReasoningEffort, next)
+  const now = $draftReasoningEffort.get()
 
   traceEffort('draft', source, prev, now)
 
   persistString(COMPOSER_EFFORT_KEY, now || null)
 }
 
-/** RUNTIME view mirror — repaints the visible pill for the pane WITHOUT
- *  touching the draft preference or `COMPOSER_EFFORT_KEY`. Called by
- *  session.info / state-cache sync / resume hydration, which report a live
- *  session's own level. With a session active the pill reads the session's
- *  slice, so this atom write is display-only; it must never leak into the
- *  next draft's starting level (the v8/v11 flash). */
-export const syncSessionReasoningEffort = (next: string, source: ReasoningEffortSource) => {
-  const prev = $currentReasoningEffort.get()
-  updateAtom($currentReasoningEffort, next)
-  const now = $currentReasoningEffort.get()
-
-  if (prev === now) {
-    return
-  }
-
-  traceEffort('runtime', source, prev, now)
-}
+/** THE fresh-draft authority (v12). Every fresh-runtime creation path (draft
+ *  submit, new-session tile) MUST seed from this — never from the display
+ *  mirror of a live session. Reads only draft-owned state: the explicit
+ *  composer preset for the current model/provider and the profile default. */
+export const computeFreshDraftEffort = (presetEffort?: string): string =>
+  resolveFreshDraftEffort({
+    presetEffort,
+    profileDefault: $defaultReasoningEffort.get()
+  })
 
 // The profile's `agent.reasoning_effort`, mirrored from config so surfaces that
 // need to render or apply "the default" resolve the user's configured level

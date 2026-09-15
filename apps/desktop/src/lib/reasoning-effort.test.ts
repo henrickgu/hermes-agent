@@ -10,6 +10,7 @@ import {
   REASONING_EFFORT_VALUES,
   REASONING_EFFORTS,
   reasoningEffortLabel,
+  resolveFreshDraftEffort,
   resolveReasoningEffort
 } from './reasoning-effort'
 
@@ -111,5 +112,32 @@ describe('carryReasoningEffort', () => {
   it('carries nothing when the new route has no known vocabulary', () => {
     expect(carryReasoningEffort('high', undefined)).toBeUndefined()
     expect(carryReasoningEffort('high', [])).toBeUndefined()
+  })
+})
+
+
+// v12 — resolveFreshDraftEffort: única autoridade do esforço de um draft novo.
+// preset lembrado LEGÍTIMO (definido manualmente para o modelo no composer) vence;
+// default do perfil e o built-in completam a cascata. Carry histórico NÃO entra —
+// ele vive intra-sessão e nunca vira preset.
+describe('resolveFreshDraftEffort (v12 — única autoridade do draft novo)', () => {
+  it('preset legítimo do modelo vence o default do perfil', () => {
+    expect(resolveFreshDraftEffort({ presetEffort: 'xhigh', profileDefault: 'medium' })).toBe('xhigh')
+  })
+
+  it('preset inválido/estranho cai no default do perfil', () => {
+    expect(resolveFreshDraftEffort({ presetEffort: 'banana', profileDefault: 'medium' })).toBe('medium')
+  })
+
+  it('sem preset: usa o default do perfil', () => {
+    expect(resolveFreshDraftEffort({ presetEffort: '', profileDefault: 'high' })).toBe('high')
+  })
+
+  it('sem preset e sem default de perfil: built-in medium', () => {
+    expect(resolveFreshDraftEffort({ presetEffort: undefined, profileDefault: '' })).toBe('medium')
+  })
+
+  it('none explícito do perfil significa thinking off (valor vazio, não medium)', () => {
+    expect(resolveFreshDraftEffort({ presetEffort: '', profileDefault: 'none' })).toBe('')
   })
 })

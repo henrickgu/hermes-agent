@@ -531,6 +531,24 @@ export function publishSessionState(runtimeId: string, state: ClientSessionState
   handleTransition(prev, state, runtimeId)
 }
 
+/** Optimistic reasoning-effort write on a live session's slice (v12). The pill
+ *  reads the slice while a session is active; the authoritative value still
+ *  arrives via session.info after config.set lands. `touchesPrimary` skips the
+ *  tile delegate — the primary slice lives directly in $sessionStates. */
+export function patchSessionSliceEffort(runtimeId: string, effort: string, touchesPrimary: boolean): void {
+  if (touchesPrimary) {
+    const current = $sessionStates.get()[runtimeId]
+
+    if (current) {
+      publishSessionState(runtimeId, { ...current, reasoningEffort: effort })
+    }
+
+    return
+  }
+
+  sessionTileDelegate()?.updateSession(runtimeId, state => ({ ...state, reasoningEffort: effort }))
+}
+
 /** Keep the cheap status projection for a cold session while releasing its
  * transcript. Unread completion is stored separately, so it survives too. */
 export function releaseSessionTranscript(runtimeId: string, state?: ClientSessionState) {

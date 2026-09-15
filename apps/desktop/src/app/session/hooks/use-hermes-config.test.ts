@@ -8,7 +8,7 @@ import { persistString } from '@/lib/storage'
 import {
   $currentCwd,
   $currentFastMode,
-  $currentReasoningEffort,
+  $draftReasoningEffort,
   $defaultReasoningEffort,
   markComposerSelectionManual,
   setCurrentCwd,
@@ -62,7 +62,7 @@ describe('useHermesConfig refreshHermesConfig', () => {
 
     expect($defaultReasoningEffort.get()).toBe('high')
     // The manual pick itself is still respected.
-    expect($currentReasoningEffort.get()).toBe('low')
+    expect($draftReasoningEffort.get()).toBe('low')
   })
 
   it('does not let terminal.cwd replace an inactive selected workspace', async () => {
@@ -116,7 +116,7 @@ describe('useHermesConfig refreshHermesConfig', () => {
       await pendingRefresh
     })
 
-    expect($currentReasoningEffort.get()).toBe('high')
+    expect($draftReasoningEffort.get()).toBe('high')
     expect($currentFastMode.get()).toBe(false)
   })
 
@@ -142,7 +142,7 @@ describe('useHermesConfig refreshHermesConfig', () => {
     })
 
     expect($defaultReasoningEffort.get()).toBe('')
-    expect($currentReasoningEffort.get()).toBe('')
+    expect($draftReasoningEffort.get()).toBe('')
     expect($currentFastMode.get()).toBe(false)
     expect($terminalFontFamily.get()).toBe('')
   })
@@ -170,7 +170,7 @@ describe('useHermesConfig refreshHermesConfig', () => {
       await refreshB
     })
 
-    expect($currentReasoningEffort.get()).toBe('low')
+    expect($draftReasoningEffort.get()).toBe('low')
     expect($currentFastMode.get()).toBe(false)
   })
 

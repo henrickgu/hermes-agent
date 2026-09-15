@@ -17,7 +17,6 @@ import {
   setCurrentCwdTransient,
   setCurrentFastMode,
   setCurrentPersonality,
-  syncSessionReasoningEffort,
   setCurrentServiceTier,
   setCurrentUsage,
   setSessions,
@@ -247,10 +246,7 @@ export function handleSessionInfoEvent(ctx: GatewayEventContext): boolean {
         setCurrentPersonality(normalizePersonalityValue(payload.personality))
       }
 
-      if (typeof payload?.reasoning_effort === 'string') {
-        // session-fact mirror only — a session's own level never re-seeds the draft preference (v11 ownership split)
-        syncSessionReasoningEffort(payload.reasoning_effort, 'session-info')
-      }
+
 
       if (typeof payload?.service_tier === 'string') {
         setCurrentServiceTier(payload.service_tier)

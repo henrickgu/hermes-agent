@@ -6,6 +6,9 @@ import { BUILTIN_PERSONALITIES, normalizePersonalityValue, personalityNamesFromC
 import { normalize } from '@/lib/text'
 import { setDisplayTimestampsFromConfig } from '@/store/display-timestamps'
 import {
+  $currentModel,
+  $currentProvider,
+  computeFreshDraftEffort,
   getComposerSelectionGeneration,
   getCurrentModelSource,
   setAvailablePersonalities,
@@ -16,6 +19,7 @@ import {
   setDefaultReasoningEffort,
   setIntroPersonality
 } from '@/store/session'
+import { getModelPreset } from '@/store/model-presets'
 import { refreshVoiceLiveStatus } from '@/store/voice-live'
 import {
   applyAutoSpeakFromConfig,
@@ -117,7 +121,15 @@ export function useHermesConfig({ activeSessionIdRef }: HermesConfigOptions) {
             return
           }
 
-          setCurrentReasoningEffort(reasoning, 'config-seed')
+          // v12: config is an INPUT to the one fresh-draft authority, not a
+          // second resolver. Re-run the SAME resolution the draft-init runs
+          // (explicit preset → profile default → built-in) so a late config
+          // refresh can't disagree with an already-resolved draft — the preset
+          // input and the profile default are read identically on both paths.
+          setCurrentReasoningEffort(
+            computeFreshDraftEffort(getModelPreset($currentProvider.get(), $currentModel.get()).effort),
+            'config-seed'
+          )
           setCurrentFastMode(FAST_TIERS.has(tier.toLowerCase()))
         }
 

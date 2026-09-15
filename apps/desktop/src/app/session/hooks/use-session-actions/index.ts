@@ -23,7 +23,6 @@ import {
   toChatMessages
 } from '@/lib/chat-messages'
 import { isMissingRpcMethod } from '@/lib/gateway-rpc'
-import { DEFAULT_REASONING_EFFORT, resolveReasoningEffort } from '@/lib/reasoning-effort'
 import { recoverInFlightTurnJournal } from '@/lib/inflight-turn-journal'
 import { setSessionYolo } from '@/lib/yolo-session'
 import { getModelPreset } from '@/store/model-presets'
@@ -61,7 +60,7 @@ import {
   $currentFastMode,
   $currentModel,
   $currentProvider,
-  $currentReasoningEffort,
+  $draftReasoningEffort,
   $defaultReasoningEffort,
   $messages,
   $newChatWorkspaceTarget,
@@ -72,6 +71,7 @@ import {
   type NewChatWorkspaceTarget,
   resolveComposerSessionKey,
   sessionPinId,
+  computeFreshDraftEffort,
   setCurrentReasoningEffort,
   setActiveSessionId,
   setActiveSessionStoredIdRotation,
@@ -308,7 +308,7 @@ async function desktopSessionCreateParams(
   const isManualSelection = getCurrentModelSource() === 'manual'
 
   const selection = {
-    effort: $currentReasoningEffort.get().trim(),
+    effort: $draftReasoningEffort.get().trim(),
     fast: $currentFastMode.get(),
     model: isManualSelection ? $currentModel.get().trim() : '',
     provider: isManualSelection ? $currentProvider.get().trim() : ''
@@ -523,12 +523,12 @@ export function useSessionActions({
       // re-seeds the next draft's starting level (the ownership rule).
       setCurrentServiceTier('')
       setYoloActive(false)
-      const presetEffort = getModelPreset($currentProvider.get(), $currentModel.get()).effort?.trim() || ''
-      const resolvedDraftEffort = resolveReasoningEffort(
-        presetEffort || $defaultReasoningEffort.get(),
-        DEFAULT_REASONING_EFFORT
+      // v12: ONE authority for the fresh draft — explicit preset → profile
+      // default → built-in. Reads only draft-owned state.
+      setCurrentReasoningEffort(
+        computeFreshDraftEffort(getModelPreset($currentProvider.get(), $currentModel.get()).effort),
+        'draft-init'
       )
-      setCurrentReasoningEffort(resolvedDraftEffort, 'draft-init')
       setNewChatWorkspaceTarget(hasWorkspaceTarget ? workspaceTarget : undefined)
 
       if (!hasWorkspaceTarget) {
