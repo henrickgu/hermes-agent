@@ -7,7 +7,7 @@ describe('model presets', () => {
   beforeEach(() => {
     $modelPresets.set({})
     setCurrentFastMode(false)
-    setCurrentReasoningEffort('')
+    setCurrentReasoningEffort('', 'manual-click')
   })
 
   it('round-trips a preset and merges patches without dropping prior fields', () => {

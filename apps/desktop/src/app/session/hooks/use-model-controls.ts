@@ -232,7 +232,7 @@ export function useModelControls({
       }
 
       if (!liveSessionId || liveSessionId === $activeSessionId.get()) {
-        setCurrentReasoningEffort(carried)
+        setCurrentReasoningEffort(carried, 'model-carry')
       } else {
         sessionTileDelegate()?.updateSession(liveSessionId, state => ({ ...state, reasoningEffort: carried }))
       }

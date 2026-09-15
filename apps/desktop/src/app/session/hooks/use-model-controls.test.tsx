@@ -94,7 +94,7 @@ describe('useModelControls', () => {
     setCurrentModel('')
     setCurrentModelSource('')
     setCurrentProvider('')
-    setCurrentReasoningEffort('')
+    setCurrentReasoningEffort('', 'manual-click')
     $modelPresets.set({})
     sessionUpdate.mockReset()
     SessionStates.$sessionStates.set({})
@@ -108,7 +108,7 @@ describe('useModelControls', () => {
     setCurrentModel('')
     setCurrentModelSource('')
     setCurrentProvider('')
-    setCurrentReasoningEffort('')
+    setCurrentReasoningEffort('', 'manual-click')
     $modelPresets.set({})
     sessionUpdate.mockReset()
     SessionStates.$sessionStates.set({})
@@ -780,7 +780,7 @@ describe('useModelControls', () => {
     setCurrentModel('gpt-5.6-sol')
     setCurrentProvider('openai-codex')
     setCurrentModelSource('manual')
-    setCurrentReasoningEffort('xhigh')
+    setCurrentReasoningEffort('xhigh', 'manual-click')
     // The model-options cache the switch repaints: the NEW model's route
     // exposes low/medium/high/max (GLM-5.3 vocabulary → UI low..ultra).
     queryClient.setQueryData(modelOptionsQueryKey('default', 'session-1'), {
@@ -825,7 +825,7 @@ describe('useModelControls', () => {
     setCurrentModel('gpt-5.6-sol')
     setCurrentProvider('openai-codex')
     setCurrentModelSource('manual')
-    setCurrentReasoningEffort('')
+    setCurrentReasoningEffort('', 'manual-click')
     setModelPreset('openai-codex', 'gpt-5.6-sol', { effort: 'high' })
     queryClient.setQueryData(modelOptionsQueryKey('default', 'session-1'), {
       providers: [
@@ -857,7 +857,7 @@ describe('useModelControls', () => {
     setCurrentModel('gpt-5.6-sol')
     setCurrentProvider('openai-codex')
     setCurrentModelSource('manual')
-    setCurrentReasoningEffort('xhigh')
+    setCurrentReasoningEffort('xhigh', 'manual-click')
     queryClient.setQueryData(modelOptionsQueryKey('default', 'session-1'), {
       providers: [
         { capabilities: { mystery: { fast: false, reasoning: true } }, models: ['mystery'], name: 'X', slug: 'x' }

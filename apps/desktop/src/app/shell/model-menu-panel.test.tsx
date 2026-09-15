@@ -148,7 +148,7 @@ describe('ModelMenuPanel reasoning mode', () => {
   it('updates the active session from a dedicated effort menu', async () => {
     $currentProvider.set('deepseek')
     $currentModel.set('deepseek-v4-pro')
-    setCurrentReasoningEffort('high')
+    setCurrentReasoningEffort('high', 'manual-click')
     const { requestGateway } = renderReasoningPanel()
 
     expect(await screen.findByText('Effort')).toBeTruthy()
@@ -179,7 +179,7 @@ describe('ModelMenuPanel reasoning mode', () => {
     })
     $currentProvider.set('deepseek')
     $currentModel.set('deepseek-v4-pro')
-    setCurrentReasoningEffort('high')
+    setCurrentReasoningEffort('high', 'manual-click')
     renderReasoningPanel()
 
     expect(await screen.findByText('Effort')).toBeTruthy()

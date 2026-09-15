@@ -66,7 +66,7 @@ export async function applyModelPreset(
 ): Promise<void> {
   if (ctx.primary ?? true) {
     if (effort !== undefined) {
-      setCurrentReasoningEffort(effort)
+      setCurrentReasoningEffort(effort, 'preset-apply')
     }
 
     if (fast !== undefined) {

@@ -122,7 +122,7 @@ describe('useSessionStateCache — per-session turn timer', () => {
     setTurnStartedAt(null)
     setCurrentModel('')
     setCurrentProvider('')
-    setCurrentReasoningEffort('')
+    setCurrentReasoningEffort('', 'manual-click')
     setCurrentServiceTier('')
     setCurrentFastMode(false)
     // v7 persists last-known effort per stored id — each test starts from a
@@ -136,7 +136,7 @@ describe('useSessionStateCache — per-session turn timer', () => {
     setTurnStartedAt(null)
     setCurrentModel('')
     setCurrentProvider('')
-    setCurrentReasoningEffort('')
+    setCurrentReasoningEffort('', 'manual-click')
     setCurrentServiceTier('')
     setCurrentFastMode(false)
   })
@@ -239,7 +239,7 @@ describe('useSessionStateCache — per-session turn timer', () => {
   it('clears stale model metadata when the newly focused session has no cached value', () => {
     setCurrentModel('previous-model')
     setCurrentProvider('previous-provider')
-    setCurrentReasoningEffort('high')
+    setCurrentReasoningEffort('high', 'manual-click')
     setCurrentServiceTier('priority')
     setCurrentFastMode(true)
 

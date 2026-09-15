@@ -68,7 +68,7 @@ function rememberSessionEffort(storedSessionId: string, effort: string): void {
 function syncRuntimeMetadataToView(state: ClientSessionState) {
   setCurrentModel(state.model ?? '')
   setCurrentProvider(state.provider ?? '')
-  setCurrentReasoningEffort(state.reasoningEffort ?? '')
+  setCurrentReasoningEffort(state.reasoningEffort ?? '', 'runtime-sync')
   setCurrentServiceTier(state.serviceTier ?? '')
   setCurrentFastMode(state.fast ?? false)
   setYoloActive(state.yolo ?? false)

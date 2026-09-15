@@ -831,7 +831,7 @@ describe('createBackendSessionForSend profile routing', () => {
       setCurrentModel('openai/gpt-5.6-sol')
       setCurrentProvider('openai-codex')
       setCurrentModelSource('default')
-      setCurrentReasoningEffort('high')
+      setCurrentReasoningEffort('high', 'manual-click')
     })
 
     expect(params).not.toHaveProperty('model')
@@ -891,7 +891,7 @@ describe('createBackendSessionForSend profile routing', () => {
     // atoms directly, so set the source explicitly. Only a manual selection
     // rides along as a per-session override.
     setCurrentModelSource('manual')
-    setCurrentReasoningEffort('high')
+    setCurrentReasoningEffort('high', 'manual-click')
     setCurrentFastMode(false)
 
     let createParams: Record<string, unknown> | undefined
@@ -920,7 +920,7 @@ describe('createBackendSessionForSend profile routing', () => {
     // the profile is waking. This send must still use what was visible at Enter.
     setCurrentModel('openai/gpt-5.5')
     setCurrentProvider('openai-codex')
-    setCurrentReasoningEffort('low')
+    setCurrentReasoningEffort('low', 'manual-click')
     setCurrentFastMode(true)
     profileReady.resolve()
 

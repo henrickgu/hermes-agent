@@ -248,7 +248,7 @@ export function handleSessionInfoEvent(ctx: GatewayEventContext): boolean {
       }
 
       if (typeof payload?.reasoning_effort === 'string') {
-        setCurrentReasoningEffort(payload.reasoning_effort)
+        setCurrentReasoningEffort(payload.reasoning_effort, 'session-info')
       }
 
       if (typeof payload?.service_tier === 'string') {

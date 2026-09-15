@@ -1376,9 +1376,35 @@ export const markComposerSelectionManual = (): void => {
   setCurrentModelSource('manual')
 }
 
-export const setCurrentReasoningEffort = (next: Updater<string>) => {
+// WHO wrote the effort — required (compile-enforced at every call site) so the
+// medium→ultra draft flash can be attributed from a live trace instead of
+// guessed. Runtime writers MUST NOT be able to pass without naming themselves.
+export type ReasoningEffortSource =
+  | 'draft-init'
+  | 'manual-click'
+  | 'session-info'
+  | 'runtime-sync'
+  | 'resume-preview'
+  | 'model-carry'
+  | 'config-seed'
+  | 'preset-apply'
+
+let __effortTraceSeq = 0
+
+export const setCurrentReasoningEffort = (next: Updater<string>, source: ReasoningEffortSource) => {
+  const prev = $currentReasoningEffort.get()
   updateAtom($currentReasoningEffort, next)
-  persistString(COMPOSER_EFFORT_KEY, $currentReasoningEffort.get() || null)
+  const now = $currentReasoningEffort.get()
+
+  // eslint-disable-next-line no-console
+  console.info(
+    `[effort-trace #${++__effortTraceSeq}] ${source}: ${JSON.stringify(prev)} -> ${JSON.stringify(now)}` +
+      ` | active=${JSON.stringify($activeSessionId.get())}` +
+      ` selected=${JSON.stringify($selectedStoredSessionId.get())}` +
+      ` model=${JSON.stringify($currentModel.get())}/${JSON.stringify($currentProvider.get())}`
+  )
+
+  persistString(COMPOSER_EFFORT_KEY, now || null)
 }
 
 // The profile's `agent.reasoning_effort`, mirrored from config so surfaces that

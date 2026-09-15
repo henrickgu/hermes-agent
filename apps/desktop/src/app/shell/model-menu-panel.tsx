@@ -141,7 +141,7 @@ export function ModelMenuPanel({
   const patchReasoning = async (next: string, previous: string, provider: string, model: string) => {
     if (touchesPrimary) {
       markComposerSelectionManual()
-      setCurrentReasoningEffort(next)
+      setCurrentReasoningEffort(next, 'manual-click')
     } else if (activeSessionId) {
       sessionTileDelegate()?.updateSession(activeSessionId, state => ({ ...state, reasoningEffort: next }))
     }
@@ -157,7 +157,7 @@ export function ModelMenuPanel({
       await requestGateway('config.set', { key: 'reasoning', session_id: activeSessionId, value: next })
     } catch (err) {
       if (touchesPrimary) {
-        setCurrentReasoningEffort(previous)
+        setCurrentReasoningEffort(previous, 'manual-click')
       } else {
         sessionTileDelegate()?.updateSession(activeSessionId, state => ({ ...state, reasoningEffort: previous }))
       }

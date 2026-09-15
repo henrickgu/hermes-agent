@@ -1657,7 +1657,7 @@ function publishRuntimeToComposer(state: SessionRuntimeStatePatch): void {
   }
 
   if (state.reasoningEffort !== undefined) {
-    setCurrentReasoningEffort(state.reasoningEffort)
+    setCurrentReasoningEffort(state.reasoningEffort, 'runtime-sync')
   }
 
   if (state.serviceTier !== undefined) {
@@ -1764,7 +1764,7 @@ export function applyStoredSessionPreviewRuntimeInfo(
   // of a non-default conversation. The runtime info from the resume response
   // (and any later session.info) still overwrites this moments later, so a
   // stale seed can only ever be replaced by fresher truth.
-  setCurrentReasoningEffort((storedSessionId ? readSessionEffortCache()[storedSessionId] : '') ?? '')
+  setCurrentReasoningEffort((storedSessionId ? readSessionEffortCache()[storedSessionId] : '') ?? '', 'resume-preview')
   setCurrentServiceTier('')
   setCurrentFastMode(false)
   setYoloActive(false)

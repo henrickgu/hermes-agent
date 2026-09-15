@@ -117,7 +117,7 @@ export function useHermesConfig({ activeSessionIdRef }: HermesConfigOptions) {
             return
           }
 
-          setCurrentReasoningEffort(reasoning)
+          setCurrentReasoningEffort(reasoning, 'config-seed')
           setCurrentFastMode(FAST_TIERS.has(tier.toLowerCase()))
         }
 
