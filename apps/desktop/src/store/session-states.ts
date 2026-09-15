@@ -387,6 +387,8 @@ export function getRecentlySettledSessionIds(now: number = Date.now()): string[]
   return live
 }
 
+let __pillSliceProbeSeq = 0
+
 // --- Transition detection (called automatically from publishSessionState) ---
 function handleTransition(previous: ClientSessionState | null, next: ClientSessionState, runtimeId: string) {
   // Compression id rotation: signal the route-follow effect with enough
@@ -504,6 +506,18 @@ export function publishSessionState(runtimeId: string, state: ClientSessionState
 
   if (prev === state) {
     return
+  }
+
+  // [pill-source-probe] mudança de reasoningEffort DIRETO no slice (não passa pelo
+  // átomo global) — a outra metade da troca de fonte da pill.
+  if (prev && prev.reasoningEffort !== state.reasoningEffort) {
+    // eslint-disable-next-line no-console
+    console.error(
+      `[pill-slice #${++__pillSliceProbeSeq}] runtime=${JSON.stringify(runtimeId)}` +
+        ` sliceEffort=${JSON.stringify(prev.reasoningEffort)} -> ${JSON.stringify(state.reasoningEffort)}` +
+        ` stored=${JSON.stringify(state.storedSessionId ?? null)}` +
+        ` busy=${String(state.busy)}`
+    )
   }
 
   if (prev && evictable(runtimeId, state)) {

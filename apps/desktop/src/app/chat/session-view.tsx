@@ -80,6 +80,39 @@ function primaryField<T>(select: (state: ClientSessionState) => T, $draft: Reada
   return $field
 }
 
+// [pill-source-probe] Loga a TROCA DE FONTE da pill de esforço (draft-atom ↔
+// session-slice) sem tocar em writers. Diagnóstico do flash residual do v11.
+let __pillSourceProbeLast = ''
+let __pillSourceProbeSeq = 0
+export const $pillSourceProbe = computed(
+  [$activeSessionId, $sessionStates, $currentReasoningEffort, $selectedStoredSessionId],
+  (runtimeId, states, draftEffort, selectedStored) => {
+    const slice = runtimeId ? states[runtimeId] : undefined
+    const sliceEffort = slice?.reasoningEffort
+    const chosen = slice ? (sliceEffort ?? '') : draftEffort
+    const source = slice ? 'session-slice' : 'draft-atom'
+    const lifecycle = !runtimeId
+      ? 'no-runtime(draft-puro)'
+      : selectedStored
+        ? `resume/stored=${selectedStored}`
+        : 'fresh-runtime(no-stored-id)'
+    const line =
+      `[pill-source #${++__pillSourceProbeSeq}] runtime=${JSON.stringify(runtimeId)}` +
+      ` source=${source} chosen=${JSON.stringify(chosen)}` +
+      ` | sliceEffort=${JSON.stringify(sliceEffort ?? null)}` +
+      ` atomEffort=${JSON.stringify(draftEffort)}` +
+      ` | selected=${JSON.stringify(selectedStored)} lifecycle=${lifecycle}`
+
+    if (line !== __pillSourceProbeLast) {
+      // eslint-disable-next-line no-console
+      console.error(line)
+      __pillSourceProbeLast = line
+    }
+
+    return { source, chosen, runtimeId }
+  }
+)
+
 const $primaryMessages = primaryField<ChatMessage[]>(state => state.messages, $messages)
 
 /**
