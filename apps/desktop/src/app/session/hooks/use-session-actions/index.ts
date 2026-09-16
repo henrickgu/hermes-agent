@@ -711,9 +711,11 @@ export function useSessionActions({
         const yoloArmed = $yoloActive.get()
         const runtimeInfo = applyRuntimeInfo(created.info)
 
-        if (runtimeInfo) {
-          updateSessionState(created.session_id, state => ({ ...state, ...runtimeInfo }), stored)
-        }
+        // v13: same slice seeding as the tile path — the slice must never paint
+        // its fallback while the real level is already known.
+        const createEffort = runtimeInfo?.reasoningEffort || $draftReasoningEffort.get()
+        const seededRuntimeInfo = { ...runtimeInfo, reasoningEffort: createEffort }
+        updateSessionState(created.session_id, state => ({ ...state, ...seededRuntimeInfo }), stored)
 
         // User may have armed YOLO on the new-chat draft before the runtime
         // session existed — apply it to the freshly created session.
@@ -864,7 +866,14 @@ export function useSessionActions({
         // Project "+" created a session while the main chat was occupied
         // (#76696). Split/side tiles deliberately stay isolated.
         const runtimeInfo = applyRuntimeInfo(created.info, { foreground: false })
-        updateSessionState(created.session_id, state => (runtimeInfo ? { ...state, ...runtimeInfo } : state), stored)
+        // v13: seed the slice with the effort THIS create carries (the draft's
+        // resolved level) when the response didn't report it (older backends).
+        // The pill reads the slice from the first paint — an empty value would
+        // fall through to the profile-default/medium fallback and flash when
+        // the first session.info landed with the real level.
+        const createEffort = runtimeInfo?.reasoningEffort || $draftReasoningEffort.get()
+        const seededRuntimeInfo = { ...runtimeInfo, reasoningEffort: createEffort }
+        updateSessionState(created.session_id, state => ({ ...state, ...seededRuntimeInfo }), stored)
 
         openSessionTile(stored, dir, options?.anchor, options?.before, workspaceScope)
         patchSessionTile(stored, { runtimeId: created.session_id })

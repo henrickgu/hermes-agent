@@ -140,6 +140,38 @@ function storedSession(overrides: Partial<SessionInfo> = {}): SessionInfo {
   }
 }
 
+const updateSessionStateSpy = vi.fn(
+  (
+    id: string,
+    updater: (s: ClientSessionState) => ClientSessionState
+  ): ClientSessionState => {
+    const store = updateSessionStateSpy as unknown as { states?: Map<string, ClientSessionState> }
+    const states = store.states ?? new Map<string, ClientSessionState>()
+    store.states = states
+
+    const next = updater(
+      states.get(id) ??
+        ({
+          branch: '',
+          busy: false,
+          cwd: '',
+          messages: [],
+          model: '',
+          personality: '',
+          provider: '',
+          reasoningEffort: '',
+          serviceTier: '',
+          awaitingResponse: false,
+          fast: false,
+          yolo: false
+        } as unknown as ClientSessionState)
+    )
+    states.set(id, next)
+
+    return next
+  }
+)
+
 function Harness({
   activeSessionId = null,
   activeSessionIdRef: activeSessionIdRefOverride,
@@ -159,7 +191,7 @@ function Harness({
 }) {
   const ref = <T,>(value: T): MutableRefObject<T> => ({ current: value })
 
-  const actions = useSessionActions({
+    const actions = useSessionActions({
     activeSessionId,
     activeSessionIdRef: activeSessionIdRefOverride ?? ref(activeSessionId),
     busyRef: ref(false),
@@ -175,7 +207,7 @@ function Harness({
     selectedStoredSessionIdRef: selectedStoredSessionIdRefOverride ?? ref(selectedStoredSessionId),
     sessionStateByRuntimeIdRef: ref(new Map<string, ClientSessionState>()),
     syncSessionStateToView: vi.fn(),
-    updateSessionState: () => ({}) as ClientSessionState
+    updateSessionState: updateSessionStateSpy
   })
 
   useEffect(() => {
@@ -4120,6 +4152,7 @@ describe('openNewSessionTile workspace target', () => {
     cleanup()
     $projectScope.set(ALL_PROJECTS)
     $projectTree.set([])
+    ;(updateSessionStateSpy as unknown as { states?: Map<string, ClientSessionState> }).states = undefined
     vi.restoreAllMocks()
   })
 
@@ -4211,6 +4244,73 @@ describe('openNewSessionTile workspace target', () => {
     })
 
     expect(createParams).toMatchObject({ reasoning_effort: 'medium' })
+  })
+
+  // v13 — slice seeding: o primeiro paint da pill lê o SLICE da tile; ele deve
+  // nascer com o esforço real do create (nunca vazio → fallback medium → flash).
+  it.each([
+    ['high', 'high'],
+    ['ultra', 'ultra'],
+    ['medium', 'medium']
+  ])('seeds the tile slice with the create effort (%s) even when the response omits it', async (draftEffort, expected) => {
+    setCurrentReasoningEffort(draftEffort, 'draft-init')
+
+    const requestGateway = vi.fn(async (method: string, params?: Record<string, unknown>) => {
+      if (method === 'session.create') {
+        // Response WITHOUT reasoning_effort (older backend): the desktop must
+        // seed the slice from its own resolved draft level.
+        return {
+          info: { cwd: '', model: 'test-model', tools: {}, skills: {} },
+          session_id: RUNTIME_SESSION_ID,
+          stored_session_id: 'stored-tile-v13'
+        } as never
+      }
+
+      return {} as never
+    })
+
+    let handle: HarnessHandle | null = null
+    render(<Harness onReady={value => (handle = value)} requestGateway={requestGateway} />)
+    await waitFor(() => expect(handle).not.toBeNull())
+
+    await act(async () => {
+      await handle!.openNewSessionTile('center', { cwd: null, listed: false })
+    })
+
+    const slice = (updateSessionStateSpy as unknown as { states: Map<string, ClientSessionState> }).states.get(
+      RUNTIME_SESSION_ID
+    )
+    expect(slice?.reasoningEffort).toBe(expected)
+  })
+
+  it('prefers the create-reported effort over the local seed (new backend)', async () => {
+    setCurrentReasoningEffort('medium', 'draft-init')
+
+    const requestGateway = vi.fn(async (method: string, params?: Record<string, unknown>) => {
+      if (method === 'session.create') {
+        // v13 backend: the create response carries the server-resolved level.
+        return {
+          info: { cwd: '', model: 'test-model', tools: {}, skills: {}, reasoning_effort: 'high' },
+          session_id: RUNTIME_SESSION_ID,
+          stored_session_id: 'stored-tile-v13b'
+        } as never
+      }
+
+      return {} as never
+    })
+
+    let handle: HarnessHandle | null = null
+    render(<Harness onReady={value => (handle = value)} requestGateway={requestGateway} />)
+    await waitFor(() => expect(handle).not.toBeNull())
+
+    await act(async () => {
+      await handle!.openNewSessionTile('center', { cwd: null, listed: false })
+    })
+
+    const sliceB = (updateSessionStateSpy as unknown as { states: Map<string, ClientSessionState> }).states.get(
+      RUNTIME_SESSION_ID
+    )
+    expect(sliceB?.reasoningEffort).toBe('high')
   })
 })
 describe('selectSidebarItem', () => {
