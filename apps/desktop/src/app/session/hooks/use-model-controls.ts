@@ -22,7 +22,8 @@ import {
   setCurrentModel,
   setCurrentModelSource,
   setCurrentProvider,
-  setCurrentReasoningEffort
+  setCurrentReasoningEffort,
+  noteModelSelectionInUse
 } from '@/store/session'
 import { $sessionStates, patchSessionSliceEffort, sessionTileDelegate } from '@/store/session-states'
 import type { ModelOptionsResponse } from '@/types/hermes'
@@ -302,6 +303,9 @@ export function useModelControls({
           setCurrentModel(selection.model)
           setCurrentProvider(selection.provider)
           markComposerSelectionManual()
+          // v14: an explicit user pick is a real-use selection — feed the
+          // cross-scope New Session sticky.
+          noteModelSelectionInUse(selection.model, selection.provider)
         }
 
         if (liveSessionId) {

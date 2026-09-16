@@ -68,6 +68,7 @@ import {
 import { $removedSessionIds, $sessionMutationsInFlight } from '@/store/session-removal'
 import { requestForSessionProfile, type SessionProfileRoute } from '@/store/session-request-router'
 import { $sessionStates, $sessionTiles, sessionTileOwnerRoute } from '@/store/session-states'
+import { persistString } from '@/lib/storage'
 import { $sessionSeenCounts, $unreadFinishedMarkers } from '@/store/session-unread'
 
 import sessionResumeActiveTurn from '../../../../../../tests/fixtures/session-resume-active-turn.json'
@@ -4153,6 +4154,10 @@ describe('openNewSessionTile workspace target', () => {
     $projectScope.set(ALL_PROJECTS)
     $projectTree.set([])
     ;(updateSessionStateSpy as unknown as { states?: Map<string, ClientSessionState> }).states = undefined
+    // v14: clear the cross-scope sticky so a leaked last-used pair cannot feed
+    // the next test's draft seed.
+    persistString('hermes.desktop.composer.last-model', null)
+    persistString('hermes.desktop.composer.last-provider', null)
     vi.restoreAllMocks()
   })
 
@@ -4246,6 +4251,49 @@ describe('openNewSessionTile workspace target', () => {
     expect(createParams).toMatchObject({ reasoning_effort: 'medium' })
   })
 
+  // v14 sticky-universal: a New Session opens on the LAST model/provider pair
+  // used on ANY surface, resolved before the first paint — even when the last
+  // switch happened under a different connection scope than the draft's.
+  it('seeds the draft with the last used model/provider pair', async () => {
+    persistString('hermes.desktop.composer.last-model', 'cline-pass/glm-5.3-flash')
+    persistString('hermes.desktop.composer.last-provider', 'clinepass')
+
+    const requestGateway = vi.fn(async () => ({}) as never)
+
+    let handle: HarnessHandle | null = null
+    render(<Harness onReady={value => (handle = value)} requestGateway={requestGateway} />)
+    await waitFor(() => expect(handle).not.toBeNull())
+
+    await act(async () => {
+      await handle!.startFreshSessionDraft({ preserveRoute: true, workspaceTarget: null })
+    })
+
+    expect($currentModel.get()).toBe('cline-pass/glm-5.3-flash')
+    expect($currentProvider.get()).toBe('clinepass')
+  })
+
+  it('a resumed session pair already mirrored as last-used re-seeds as a no-op', async () => {
+    // The resumed conversation's confirmed model wrote itself into the mirror
+    // (noteModelSelectionInUse); the New Session must open on the SAME pair.
+    persistString('hermes.desktop.composer.last-model', 'cline-pass/glm-5.3-flash')
+    persistString('hermes.desktop.composer.last-provider', 'clinepass')
+    setCurrentModel('cline-pass/glm-5.3-flash')
+    setCurrentProvider('clinepass')
+
+    const requestGateway = vi.fn(async () => ({}) as never)
+
+    let handle: HarnessHandle | null = null
+    render(<Harness onReady={value => (handle = value)} requestGateway={requestGateway} />)
+    await waitFor(() => expect(handle).not.toBeNull())
+
+    await act(async () => {
+      await handle!.startFreshSessionDraft({ preserveRoute: true, workspaceTarget: null })
+    })
+
+    expect($currentModel.get()).toBe('cline-pass/glm-5.3-flash')
+    expect($currentProvider.get()).toBe('clinepass')
+  })
+
   // v13 — slice seeding: o primeiro paint da pill lê o SLICE da tile; ele deve
   // nascer com o esforço real do create (nunca vazio → fallback medium → flash).
   it.each([
@@ -4313,6 +4361,7 @@ describe('openNewSessionTile workspace target', () => {
     expect(sliceB?.reasoningEffort).toBe('high')
   })
 })
+
 describe('selectSidebarItem', () => {
   it('fronts the workspace pane when navigating to a sidebar route (issue #72602)', async () => {
     const navigate = vi.fn()

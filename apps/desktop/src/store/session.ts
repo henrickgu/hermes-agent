@@ -36,6 +36,11 @@ const COMPOSER_PROVIDER_KEY = 'hermes.desktop.composer.provider'
 const COMPOSER_MODEL_SOURCE_KEY = 'hermes.desktop.composer.model-source'
 const COMPOSER_EFFORT_KEY = 'hermes.desktop.composer.reasoning-effort'
 const COMPOSER_FAST_KEY = 'hermes.desktop.composer.fast'
+// v14 sticky-universal: cross-scope memory of the LAST model/provider pair used
+// (any surface — session switch, draft pick). Feeds `computeLastUsedSelection()`
+// so a New Session opens on it resolved BEFORE the first paint.
+const LAST_MODEL_KEY = 'hermes.desktop.composer.last-model'
+const LAST_PROVIDER_KEY = 'hermes.desktop.composer.last-provider'
 // Last-known profile default (`agent.reasoning_effort`), mirrored to storage so
 // the composer's FIRST paint on boot matches what the gateway will conclude
 // instead of flashing the built-in medium before config arrives (same
@@ -1441,6 +1446,35 @@ export const computeFreshDraftEffort = (presetEffort?: string): string =>
     presetEffort,
     profileDefault: $defaultReasoningEffort.get()
   })
+
+/** v14 sticky-universal: record the (provider, model) pair IN REAL USE — a live
+ *  session's confirmed state or an explicit user pick. Deliberately NOT called
+ *  from setCurrentModel/setCurrentProvider: those also fire for provisional
+ *  reseeds (profile activation, display mirrors) that must never become the
+ *  New Session sticky. A New Session seeds its composer selection from this —
+ *  resolved synchronously BEFORE the first paint — instead of falling back to
+ *  the profile default just because the previous switch happened under another
+ *  gateway/connection scope. */
+export const noteModelSelectionInUse = (model: string, provider: string): void => {
+  if (!model.trim() || !provider.trim()) {
+    return
+  }
+
+  persistString(LAST_MODEL_KEY, model)
+  persistString(LAST_PROVIDER_KEY, provider)
+}
+
+/** v14 sticky-universal: the last (provider, model) pair actually used on any
+ *  surface, cross-scope. A New Session seeds its composer selection from this —
+ *  resolved synchronously BEFORE the first paint — instead of falling back to
+ *  the profile default just because the previous switch happened under another
+ *  gateway/connection scope. */
+export const computeLastUsedSelection = (): { model: string; provider: string } => {
+  const model = storedString(LAST_MODEL_KEY) ?? ''
+  const provider = storedString(LAST_PROVIDER_KEY) ?? ''
+
+  return model && provider ? { model, provider } : { model: '', provider: '' }
+}
 
 // The profile's `agent.reasoning_effort`, mirrored from config so surfaces that
 // need to render or apply "the default" resolve the user's configured level

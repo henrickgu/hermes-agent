@@ -72,6 +72,10 @@ import {
   resolveComposerSessionKey,
   sessionPinId,
   computeFreshDraftEffort,
+  computeLastUsedSelection,
+  setCurrentModel,
+  setCurrentModelSource,
+  setCurrentProvider,
   setCurrentReasoningEffort,
   setActiveSessionId,
   setActiveSessionStoredIdRotation,
@@ -523,6 +527,22 @@ export function useSessionActions({
       // re-seeds the next draft's starting level (the ownership rule).
       setCurrentServiceTier('')
       setYoloActive(false)
+      // v14 sticky-universal: the New Session opens on the LAST model/provider
+      // pair actually used (any surface, cross-scope), resolved synchronously
+      // before the first paint. A 'manual' source means the user picked THIS
+      // pair (or the resumed session confirmed it) — never re-stick it.
+      // 'default'/'' means the composer shows the profile default (possibly
+      // re-seeded by a connection rescope) — the last-used pair replaces it.
+      const lastUsed = computeLastUsedSelection()
+
+      if (lastUsed.model && lastUsed.provider) {
+        // Unconditional: whatever is on the composer here is a boot reseed or a
+        // resumed session's confirmed pair; the latter already wrote itself into
+        // the last-used mirror, so this is a visual no-op when they agree.
+        setCurrentModel(lastUsed.model)
+        setCurrentProvider(lastUsed.provider)
+        setCurrentModelSource('manual')
+      }
       // v12: ONE authority for the fresh draft — explicit preset → profile
       // default → built-in. Reads only draft-owned state.
       setCurrentReasoningEffort(

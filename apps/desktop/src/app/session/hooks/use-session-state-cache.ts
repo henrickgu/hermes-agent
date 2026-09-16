@@ -18,7 +18,8 @@ import {
   setCurrentProvider,
   setCurrentServiceTier,
   setTurnStartedAt,
-  setYoloActive
+  setYoloActive,
+  noteModelSelectionInUse
 } from '@/store/session'
 import { $sessionStates, $sessionTiles, publishSessionState, releaseSessionTranscript } from '@/store/session-states'
 
@@ -67,6 +68,12 @@ function rememberSessionEffort(storedSessionId: string, effort: string): void {
 function syncRuntimeMetadataToView(state: ClientSessionState) {
   setCurrentModel(state.model ?? '')
   setCurrentProvider(state.provider ?? '')
+  // v14 sticky-universal: the pair a live session is actually running at is the
+  // last-used selection for the next New Session (cross-scope). Provisional
+  // reseeds never reach here — this only fires on confirmed session state.
+  if (state.model && state.provider) {
+    noteModelSelectionInUse(state.model, state.provider)
+  }
   setCurrentServiceTier(state.serviceTier ?? '')
   setCurrentFastMode(state.fast ?? false)
   setYoloActive(state.yolo ?? false)
