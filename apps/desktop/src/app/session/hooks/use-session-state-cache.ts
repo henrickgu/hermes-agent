@@ -19,7 +19,8 @@ import {
   setCurrentServiceTier,
   setTurnStartedAt,
   setYoloActive,
-  noteModelSelectionInUse
+  noteModelSelectionInUse,
+  getCurrentComposerScope
 } from '@/store/session'
 import { $sessionStates, $sessionTiles, publishSessionState, releaseSessionTranscript } from '@/store/session-states'
 
@@ -72,7 +73,7 @@ function syncRuntimeMetadataToView(state: ClientSessionState) {
   // last-used selection for the next New Session (cross-scope). Provisional
   // reseeds never reach here — this only fires on confirmed session state.
   if (state.model && state.provider) {
-    noteModelSelectionInUse(state.model, state.provider)
+    noteModelSelectionInUse(state.model, state.provider, getCurrentComposerScope())
   }
   setCurrentServiceTier(state.serviceTier ?? '')
   setCurrentFastMode(state.fast ?? false)

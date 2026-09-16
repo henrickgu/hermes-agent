@@ -23,7 +23,9 @@ import {
   setCurrentModelSource,
   setCurrentProvider,
   setCurrentReasoningEffort,
-  noteModelSelectionInUse
+  noteModelSelectionInUse,
+  getCurrentComposerScope,
+  computeLastUsedSelection
 } from '@/store/session'
 import { $sessionStates, patchSessionSliceEffort, sessionTileDelegate } from '@/store/session-states'
 import type { ModelOptionsResponse } from '@/types/hermes'
@@ -101,6 +103,8 @@ export function useModelControls({
       if (!liveSessionId) {
         setCurrentProvider(provider)
         setCurrentModel(model)
+        // v14: an explicit Settings→Model pick is real use — feed the sticky.
+        noteModelSelectionInUse(model, provider, getCurrentComposerScope())
       }
 
       // A null session id is the profile-global model-options key. Never patch
@@ -164,6 +168,19 @@ export function useModelControls({
           getComposerSelectionGeneration() !== selectionGeneration ||
           keepManualPick()
         ) {
+          return
+        }
+
+        // v14 sticky-universal: the profile default is NOT a user choice — a
+        // New Session opens on the LAST pair actually used. Only seed the
+        // default when there is no last-used pair (first run / cleared).
+        const lastUsed = computeLastUsedSelection()
+
+        if (lastUsed.model && lastUsed.provider) {
+          setCurrentModel(lastUsed.model)
+          setCurrentProvider(lastUsed.provider)
+          setCurrentModelSource('manual')
+
           return
         }
 

@@ -73,6 +73,7 @@ import {
   sessionPinId,
   computeFreshDraftEffort,
   computeLastUsedSelection,
+  getCurrentComposerScope,
   setCurrentModel,
   setCurrentModelSource,
   setCurrentProvider,
@@ -535,7 +536,9 @@ export function useSessionActions({
       // re-seeded by a connection rescope) — the last-used pair replaces it.
       const lastUsed = computeLastUsedSelection()
 
-      if (lastUsed.model && lastUsed.provider) {
+      // v14b: the sticky wins only under the SAME gateway scope the pair was
+      // used in — a profile/gateway swap legitimately owns its own default.
+      if (lastUsed.model && lastUsed.provider && lastUsed.scope === getCurrentComposerScope()) {
         // Unconditional: whatever is on the composer here is a boot reseed or a
         // resumed session's confirmed pair; the latter already wrote itself into
         // the last-used mirror, so this is a visual no-op when they agree.

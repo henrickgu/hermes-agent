@@ -98,6 +98,11 @@ describe('useModelControls', () => {
     $modelPresets.set({})
     sessionUpdate.mockReset()
     SessionStates.$sessionStates.set({})
+    // v14: the cross-scope sticky lives in localStorage and would otherwise leak
+    // a previous test's pair into every refresh assertion in this file.
+    window.localStorage.removeItem('hermes.desktop.composer.last-model')
+    window.localStorage.removeItem('hermes.desktop.composer.last-provider')
+    window.localStorage.removeItem('hermes.desktop.composer.last-scope')
   })
 
   afterEach(() => {

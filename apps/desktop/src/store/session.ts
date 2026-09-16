@@ -41,6 +41,7 @@ const COMPOSER_FAST_KEY = 'hermes.desktop.composer.fast'
 // so a New Session opens on it resolved BEFORE the first paint.
 const LAST_MODEL_KEY = 'hermes.desktop.composer.last-model'
 const LAST_PROVIDER_KEY = 'hermes.desktop.composer.last-provider'
+const LAST_SCOPE_KEY = 'hermes.desktop.composer.last-scope'
 // Last-known profile default (`agent.reasoning_effort`), mirrored to storage so
 // the composer's FIRST paint on boot matches what the gateway will conclude
 // instead of flashing the built-in medium before config arrives (same
@@ -1455,25 +1456,33 @@ export const computeFreshDraftEffort = (presetEffort?: string): string =>
  *  resolved synchronously BEFORE the first paint — instead of falling back to
  *  the profile default just because the previous switch happened under another
  *  gateway/connection scope. */
-export const noteModelSelectionInUse = (model: string, provider: string): void => {
+export const noteModelSelectionInUse = (model: string, provider: string, scope?: string): void => {
   if (!model.trim() || !provider.trim()) {
     return
   }
 
   persistString(LAST_MODEL_KEY, model)
   persistString(LAST_PROVIDER_KEY, provider)
+  // v14b: the gateway scope the pair was used under. A forced reseed from a
+  // DIFFERENT gateway (profile/gateway swap) legitimately owns its own default;
+  // the sticky only wins when the New Session lands on the same scope.
+  persistString(LAST_SCOPE_KEY, scope ?? composerSelectionScope ?? '')
 }
 
-/** v14 sticky-universal: the last (provider, model) pair actually used on any
- *  surface, cross-scope. A New Session seeds its composer selection from this —
- *  resolved synchronously BEFORE the first paint — instead of falling back to
- *  the profile default just because the previous switch happened under another
- *  gateway/connection scope. */
-export const computeLastUsedSelection = (): { model: string; provider: string } => {
+/** The composer-selection scope currently in effect (for sticky comparisons). */
+export const getCurrentComposerScope = (): string => composerSelectionScope ?? ''
+
+/** v14 sticky-universal: the last (provider, model) pair actually used, with
+ *  the gateway scope it was used under. A New Session seeds its composer
+ *  selection from this — resolved synchronously BEFORE the first paint —
+ *  instead of falling back to the profile default. */
+export const computeLastUsedSelection = (): { model: string; provider: string; scope: string } => {
   const model = storedString(LAST_MODEL_KEY) ?? ''
   const provider = storedString(LAST_PROVIDER_KEY) ?? ''
 
-  return model && provider ? { model, provider } : { model: '', provider: '' }
+  const scope = storedString(LAST_SCOPE_KEY) ?? ''
+
+  return model && provider ? { model, provider, scope } : { model: '', provider: '', scope: '' }
 }
 
 // The profile's `agent.reasoning_effort`, mirrored from config so surfaces that
