@@ -28,7 +28,7 @@ import {
 import { notifyError } from '@/store/notifications'
 import { $poolLimits } from '@/store/pool-limits'
 import { notifyRemoteOverrideAuthFailure } from '@/store/profile-remote-override'
-import { $connection, clearComposerSelectionOwner, setComposerSelectionOwner, setConnection } from '@/store/session'
+import { $connection, clearComposerSelectionOwner, markExplicitContextSwitch, setComposerSelectionOwner, setConnection } from '@/store/session'
 import type { SessionOwnerRoute } from '@/store/session-request-router'
 import { resetStarmapGraph } from '@/store/starmap'
 import type { ProfileInfo } from '@/types/hermes'
@@ -867,6 +867,9 @@ export function selectProfile(name: string): void {
   captureNewChatSource(profilePickConnectionId(target))
 
   if (switching) {
+    // v14c: an explicit profile pick is the ONE path that replaces the model
+    // sticky with the new context's default.
+    markExplicitContextSwitch()
     requestFreshSession()
   }
 

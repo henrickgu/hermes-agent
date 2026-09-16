@@ -25,7 +25,8 @@ import {
   setCurrentReasoningEffort,
   noteModelSelectionInUse,
   getCurrentComposerScope,
-  computeLastUsedSelection
+  computeLastUsedSelection,
+  consumeExplicitContextSwitch
 } from '@/store/session'
 import { $sessionStates, patchSessionSliceEffort, sessionTileDelegate } from '@/store/session-states'
 import type { ModelOptionsResponse } from '@/types/hermes'
@@ -120,7 +121,10 @@ export function useModelControls({
   // $currentModel) survives the lifecycle refreshes that fire on boot / fresh
   // draft / session events. A live session owns the footer, so skip entirely.
   const refreshCurrentModel = useCallback(
-    async (force = false) => {
+    async (
+      force = false,
+      reason: 'boot-rescope' | 'profile-switch' | 'settings-change' | 'explicit-refresh' = 'boot-rescope'
+    ) => {
       // A forced profile swap opens a new intent epoch; an older in-flight
       // response for a previous profile must stand down when it resolves.
       if (force) {
@@ -171,12 +175,36 @@ export function useModelControls({
           return
         }
 
-        // v14 sticky-universal: the profile default is NOT a user choice — a
-        // New Session opens on the LAST pair actually used. Only seed the
-        // default when there is no last-used pair (first run / cleared).
+        // v14c authority: the sticky (last-used pair) survives every AUTOMATIC
+        // refresh ('boot-rescope') — reconnect blips and boot reseeds must not
+        // repaint a fresh draft that draft-init already resolved. Only an
+        // EXPLICIT context switch ('profile-switch') or a Settings→Model change
+        // ('settings-change') replaces it with the new context's default.
+        // Empty sticky (first run) still seeds from the profile default.
         const lastUsed = computeLastUsedSelection()
+        const stickyIsValid = Boolean(lastUsed.model && lastUsed.provider)
 
-        if (lastUsed.model && lastUsed.provider) {
+        const paintDefault = (model: string, provider: string) => {
+          // eslint-disable-next-line no-console
+          console.error(
+            `[model-selection-write] reason=${reason} force=${String(force)}` +
+              ` prev=${JSON.stringify({ model: $currentModel.get(), provider: $currentProvider.get() })}` +
+              ` next=${JSON.stringify({ model, provider })}` +
+              ` gateway=${JSON.stringify($activeGatewayProfile.get())} userAction=true`
+          )
+          setCurrentModel(model)
+          setCurrentProvider(provider)
+          setCurrentModelSource('default')
+        }
+
+        if (stickyIsValid && (reason === 'boot-rescope' || reason === 'explicit-refresh') && !consumeExplicitContextSwitch()) {
+          // eslint-disable-next-line no-console
+          console.error(
+            `[model-selection-write] reason=${reason} force=${String(force)}` +
+              ` prev=${JSON.stringify({ model: $currentModel.get(), provider: $currentProvider.get() })}` +
+              ` next=${JSON.stringify({ model: lastUsed.model, provider: lastUsed.provider })}` +
+              ` gateway=${JSON.stringify($activeGatewayProfile.get())} userAction=false`
+          )
           setCurrentModel(lastUsed.model)
           setCurrentProvider(lastUsed.provider)
           setCurrentModelSource('manual')
@@ -185,15 +213,9 @@ export function useModelControls({
         }
 
         if (typeof result.model === 'string') {
-          setCurrentModel(result.model)
-        }
-
-        if (typeof result.provider === 'string') {
+          paintDefault(result.model, typeof result.provider === 'string' ? result.provider : $currentProvider.get())
+        } else if (typeof result.provider === 'string') {
           setCurrentProvider(result.provider)
-        }
-
-        if (typeof result.model === 'string' || typeof result.provider === 'string') {
-          setCurrentModelSource('default')
         }
       } catch {
         // The delayed session.info event still updates this once the agent is ready.

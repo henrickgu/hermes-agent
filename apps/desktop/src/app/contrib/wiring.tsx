@@ -85,7 +85,7 @@ import {
   setAwaitingResponse,
   setBusy,
   setMessages
-} from '@/store/session'
+, consumeExplicitContextSwitch } from '@/store/session'
 import { $titlebarAppActionsSide, titlebarAppActionsClusterCounts } from '@/store/titlebar-app-actions'
 import { clearSessionTodos, setSessionTodos, todosForHydration } from '@/store/todos'
 import { armWakeWord, stopClientCapture } from '@/store/wake-word'
@@ -597,7 +597,11 @@ export function ContribWiring({ children }: { children: ReactNode }) {
     // selector even if the composer already shows values from the previous
     // backend. These refreshes carry intent tokens so an in-flight picker
     // click still wins.
-    void refreshCurrentModel(true)
+    // v14c: distinguish an EXPLICIT profile/gateway switch (the user picked a
+    // different context — its default legitimately replaces the sticky) from an
+    // automatic rescope (boot, reconnect blip — the sticky survives).
+    const reason = consumeExplicitContextSwitch() ? 'profile-switch' : 'boot-rescope'
+    void refreshCurrentModel(true, reason)
     void refreshHermesConfig(true)
     void refreshActiveProfile()
     resetProjectTreeState()
@@ -1277,7 +1281,7 @@ export function ContribWiring({ children }: { children: ReactNode }) {
           enabled={gatewayState === 'open'}
           onCompleted={() => {
             void refreshHermesConfig()
-            void refreshCurrentModel()
+            void refreshCurrentModel(false, 'settings-change')
             void queryClient.invalidateQueries({ queryKey: ['model-options'] })
           }}
           profile={activeGatewayProfile}
@@ -1321,12 +1325,12 @@ export function ContribWiring({ children }: { children: ReactNode }) {
             onClose={closeOverlayToPreviousRoute}
             onConfigSaved={() => {
               void refreshHermesConfig()
-              void refreshCurrentModel()
+              void refreshCurrentModel(false, 'settings-change')
               void queryClient.invalidateQueries({ queryKey: ['model-options'] })
             }}
             onMainModelChanged={(provider, model) => {
               applySavedMainModel(provider, model)
-              void refreshCurrentModel()
+              void refreshCurrentModel(false, 'settings-change')
               void queryClient.invalidateQueries({ queryKey: ['model-options'] })
             }}
           />

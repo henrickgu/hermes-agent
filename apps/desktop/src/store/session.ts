@@ -1472,6 +1472,28 @@ export const noteModelSelectionInUse = (model: string, provider: string, scope?:
 /** The composer-selection scope currently in effect (for sticky comparisons). */
 export const getCurrentComposerScope = (): string => composerSelectionScope ?? ''
 
+// v14c authority: an EXPLICIT context switch (user picks another profile in the
+// UI) legitimately replaces the model sticky with the new context's default.
+// Automatic rescopes (boot, reconnect blips, session-driven dials) do NOT —
+// refreshCurrentModel reasons on this instead of guessing from scope equality.
+let explicitContextSwitchEpoch = 0
+let lastConsumedExplicitContextSwitchEpoch = 0
+export const markExplicitContextSwitch = (): void => {
+  explicitContextSwitchEpoch += 1
+}
+export const getExplicitContextSwitchEpoch = (): number => explicitContextSwitchEpoch
+/** True once per explicit switch: the caller (refreshCurrentModel) consumes the
+ *  marker to justify painting the new context's default over the sticky. */
+export const consumeExplicitContextSwitch = (): boolean => {
+  if (explicitContextSwitchEpoch !== lastConsumedExplicitContextSwitchEpoch) {
+    lastConsumedExplicitContextSwitchEpoch = explicitContextSwitchEpoch
+
+    return true
+  }
+
+  return false
+}
+
 /** v14 sticky-universal: the last (provider, model) pair actually used, with
  *  the gateway scope it was used under. A New Session seeds its composer
  *  selection from this — resolved synchronously BEFORE the first paint —
