@@ -508,13 +508,18 @@ export function publishSessionState(runtimeId: string, state: ClientSessionState
     return
   }
 
-  // [pill-source-probe] mudança de reasoningEffort DIRETO no slice (não passa pelo
-  // átomo global) — a outra metade da troca de fonte da pill.
-  if (prev && prev.reasoningEffort !== state.reasoningEffort) {
+  // [pill-slice-probe] mudança de model/provider/reasoningEffort DIRETO no slice
+  // (não passa pelo átomo global) — prova direta do estado final da sessão.
+  const metaChanged =
+    prev && (prev.model !== state.model || prev.provider !== state.provider || prev.reasoningEffort !== state.reasoningEffort)
+
+  if (metaChanged) {
     // eslint-disable-next-line no-console
     console.error(
       `[pill-slice #${++__pillSliceProbeSeq}] runtime=${JSON.stringify(runtimeId)}` +
-        ` sliceEffort=${JSON.stringify(prev.reasoningEffort)} -> ${JSON.stringify(state.reasoningEffort)}` +
+        ` model=${JSON.stringify(prev.model)} -> ${JSON.stringify(state.model)}` +
+        ` provider=${JSON.stringify(prev.provider)} -> ${JSON.stringify(state.provider)}` +
+        ` effort=${JSON.stringify(prev.reasoningEffort)} -> ${JSON.stringify(state.reasoningEffort)}` +
         ` stored=${JSON.stringify(state.storedSessionId ?? null)}` +
         ` busy=${String(state.busy)}`
     )
