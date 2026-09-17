@@ -337,14 +337,27 @@ export function useModelControls({
         (liveSessionId ? ($sessionStates.get()[liveSessionId]?.reasoningEffort ?? '') : '') ||
         (touchesPrimary ? $draftReasoningEffort.get() : '')
 
-      const paintSelection = () => {
+      let __modelPickProbeSeq = 0
+
+const paintSelection = () => {
         if (touchesPrimary) {
+          // [model-pick-probe] prev atom → clicked → sticky after
+          const __prevModel = $currentModel.get()
+          const __prevProvider = $currentProvider.get()
           setCurrentModel(selection.model)
           setCurrentProvider(selection.provider)
           markComposerSelectionManual()
           // v14: an explicit user pick is a real-use selection — feed the
           // cross-scope New Session sticky.
           noteModelSelectionInUse(selection.model, selection.provider)
+          // eslint-disable-next-line no-console
+          console.error(
+            `[model-pick #${++__modelPickProbeSeq}] clicked=${JSON.stringify(selection.provider + '/' + selection.model)}` +
+              ` prevAtom=${JSON.stringify(__prevProvider + '/' + __prevModel)}` +
+              ` atomAfter=${JSON.stringify($currentProvider.get() + '/' + $currentModel.get())}` +
+              ` stickyAfter=${JSON.stringify((() => { const lu = computeLastUsedSelection(); return lu.provider + '/' + lu.model })())}` +
+              ` session=${JSON.stringify(liveSessionId)}`
+          )
         }
 
         if (liveSessionId) {
