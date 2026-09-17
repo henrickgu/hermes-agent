@@ -16,6 +16,10 @@ import {
   setCurrentModelSource,
   setCurrentProvider,
   setCurrentReasoningEffort
+,
+  computeLastUsedSelection
+,
+  noteModelSelectionInUse
 } from '@/store/session'
 import * as SessionStates from '@/store/session-states'
 
@@ -320,7 +324,11 @@ describe('useModelControls', () => {
     expect(requestGateway).not.toHaveBeenCalledWith('slash.exec', expect.anything())
   })
 
-  it('paints the active session slice before the gateway confirms the model switch', async () => {
+  it('does NOT touch the slice before the gateway confirms; paints slice+composer+sticky after', async () => {
+    // v15 contract: an early optimistic paint leaked the picked pair into the
+    // sticky even when the switch later failed, and a New Session opened in
+    // that window seeded from a model the session never ran. The slice,
+    // composer atoms and sticky now move only after the gateway confirms.
     $activeSessionId.set('session-1')
     setCurrentModel('qwen3.7-plus')
     setCurrentProvider('opencode-go')
@@ -332,18 +340,20 @@ describe('useModelControls', () => {
 
     const switchPromise = controls.selectModel({ model: 'glm-5.3', provider: 'opencode-go' })
 
-    expect(sessionUpdate).toHaveBeenCalledTimes(1)
-    expect(sessionUpdate).toHaveBeenCalledWith('session-1', expect.any(Function))
+    expect(sessionUpdate).not.toHaveBeenCalled()
+    expect($currentModel.get()).toBe('qwen3.7-plus')
 
-    const optimistic = sessionUpdate.mock.calls[0][1]({
+    pendingSwitch.resolve({})
+    await expect(switchPromise).resolves.toBe(true)
+
+    expect(sessionUpdate).toHaveBeenCalledWith('session-1', expect.any(Function))
+    const painted = sessionUpdate.mock.calls.at(-1)![1]({
       model: 'qwen3.7-plus',
       provider: 'opencode-go'
     } as ClientSessionState)
 
-    expect(optimistic).toMatchObject({ model: 'glm-5.3', provider: 'opencode-go' })
-
-    pendingSwitch.resolve({})
-    await expect(switchPromise).resolves.toBe(true)
+    expect(painted).toMatchObject({ model: 'glm-5.3', provider: 'opencode-go' })
+    expect($currentModel.get()).toBe('glm-5.3')
   })
 
   it('keeps a mid-turn pick painted and skips the refetch that would repaint the old model', async () => {
@@ -955,4 +965,79 @@ describe('useModelControls', () => {
     // Primary composer never moved.
     expect($currentModel.get()).toBe('')
   })
+  // v15 — o pick com sessão ativa atualiza composer + sticky QUANDO o switch
+  // confirma, sem esperar o session.info. Regressão do 'GLM 5.3 Flash → pick
+  // GLM 5.3 → New Session ainda mandava glm-5.3-flash'.
+  it('paints composer and sticky after a confirmed session switch, before any session.info', async () => {
+    const queryClient = new QueryClient()
+    $activeSessionId.set('session-1')
+    setCurrentModel('cline-pass/glm-5.3-flash')
+    setCurrentProvider('clinepass')
+    setCurrentModelSource('manual')
+    queryClient.setQueryData(modelOptionsQueryKey('default', 'session-1'), {
+      providers: [
+        {
+          capabilities: {
+            'glm-5.3': { fast: false, native_efforts: ['low', 'medium', 'high', 'max'], reasoning: true }
+          },
+          models: ['glm-5.3'],
+          name: 'ClinePass',
+          slug: 'clinepass'
+        }
+      ]
+    })
+
+    const requestGateway = vi.fn(async () => ({}) as never)
+    const { result } = renderHook(() => useModelControls({ queryClient, requestGateway }))
+
+    await expect(
+      result.current.selectModel({ model: 'cline-pass/glm-5.3', provider: 'clinepass', sessionId: 'session-1' })
+    ).resolves.toBe(true)
+
+    // Composer atoms updated IMMEDIATELY (no session.info needed)…
+    expect($currentModel.get()).toBe('cline-pass/glm-5.3')
+    expect($currentProvider.get()).toBe('clinepass')
+    // …and the cross-scope sticky for the next New Session likewise.
+    const lastUsed = computeLastUsedSelection()
+    expect(lastUsed.model).toBe('cline-pass/glm-5.3')
+    expect(lastUsed.provider).toBe('clinepass')
+  })
+
+  it('leaves composer and sticky untouched when the session switch fails', async () => {
+    const queryClient = new QueryClient()
+    $activeSessionId.set('session-1')
+    setCurrentModel('cline-pass/glm-5.3-flash')
+    setCurrentProvider('clinepass')
+    setCurrentModelSource('manual')
+    queryClient.setQueryData(modelOptionsQueryKey('default', 'session-1'), {
+      providers: [
+        {
+          capabilities: { 'glm-5.3': { fast: false, native_efforts: ['low', 'medium', 'high'], reasoning: true } },
+          models: ['glm-5.3'],
+          name: 'ClinePass',
+          slug: 'clinepass'
+        }
+      ]
+    })
+
+    // The sticky already points at the outgoing pair (the previous session's
+    // real use) — a failed switch must not rewrite it with the picked one.
+    noteModelSelectionInUse('cline-pass/glm-5.3-flash', 'clinepass')
+
+    const requestGateway = vi.fn(async () => {
+      throw new Error('gateway exploded')
+    })
+    const { result } = renderHook(() => useModelControls({ queryClient, requestGateway }))
+
+    await expect(
+      result.current.selectModel({ model: 'cline-pass/glm-5.3', provider: 'clinepass', sessionId: 'session-1' })
+    ).resolves.toBe(false)
+
+    expect($currentModel.get()).toBe('cline-pass/glm-5.3-flash')
+    expect($currentProvider.get()).toBe('clinepass')
+    const lastUsed = computeLastUsedSelection()
+    expect(lastUsed.model).toBe('cline-pass/glm-5.3-flash')
+    expect(lastUsed.provider).toBe('clinepass')
+  })
+
 })

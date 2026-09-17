@@ -400,12 +400,18 @@ const paintSelection = () => {
         cacheSelection(prevProvider, prevModel)
       }
 
-      paintSelection()
-      cacheSelection(selection.provider, selection.model)
-
-      // No live session yet: the pick is pure UI state. session.create reads
-      // $currentModel/$currentProvider and applies it as that session's override.
+      // v15: no unconditional optimistic paint here. The draft path paints
+      // right below (its create reads these atoms, and there is nothing to
+      // roll back); the LIVE-session path paints only after the gateway
+      // CONFIRMS the switch — an early paint leaked the picked pair into the
+      // sticky even when the switch later failed, and a New Session then
+      // seeded from a model the session never actually ran.
       if (!liveSessionId) {
+        paintSelection()
+        cacheSelection(selection.provider, selection.model)
+
+        // No live session yet: the pick is pure UI state. session.create reads
+        // $currentModel/$currentProvider and applies it as that session's override.
         return true
       }
 
@@ -496,6 +502,15 @@ const paintSelection = () => {
 
         finishSwitch(result)
         carryEffort()
+        // v15: the switch is CONFIRMED — now (and only now) paint the composer
+        // and feed the cross-scope sticky with the pair the user picked. This
+        // closes the clique→New Session gap: the previous design delegated the
+        // repaint to the gateway's later session.info, so a New Session opened
+        // before that round-trip seeded from the stale sticky (the
+        // 'glm-5.3-flash' instead of the picked 'glm-5.3'). Failure paths keep
+        // composer and sticky untouched (rollbackSelection already restored).
+        paintSelection()
+        cacheSelection(selection.provider, selection.model)
 
         return true
       } catch (err) {
@@ -507,7 +522,11 @@ const paintSelection = () => {
         if (isBusySessionModelSwitch(err)) {
           // The pick stays painted and runs at the next turn — the effort
           // pill must follow it now, or it would show the outgoing model's
-          // level against a model that no longer uses it.
+          // level against a model that no longer uses it. The switch WAS
+          // accepted (queued for next turn), so painting composer+slice here
+          // is a confirmed future state, not an optimistic guess.
+          paintSelection()
+          cacheSelection(selection.provider, selection.model)
           carryEffort()
 
           return true
