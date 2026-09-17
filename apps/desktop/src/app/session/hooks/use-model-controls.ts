@@ -311,8 +311,14 @@ export function useModelControls({
   // primary `$activeSessionId` is used (overlay / legacy callers). A tile
   // switch must not touch the primary globals — and must not be blocked by a
   // busy primary turn.
-  const selectModel = useCallback(
+  let __modelPickProbeSeq = 0
+
+const selectModel = useCallback(
     async (selection: ModelSelection): Promise<boolean> => {
+      // eslint-disable-next-line no-console
+      console.error(
+        `[model-select ${++__modelPickProbeSeq}] IN selection=${JSON.stringify((selection.provider ?? '') + '/' + (selection.model ?? ''))} sid=${JSON.stringify('sessionId' in selection ? selection.sessionId : null)}`
+      )
       const primaryRuntimeId = $activeSessionId.get()
       const liveSessionId = 'sessionId' in selection ? (selection.sessionId ?? null) : primaryRuntimeId
       const touchesPrimary = !liveSessionId || liveSessionId === primaryRuntimeId
@@ -337,8 +343,7 @@ export function useModelControls({
         (liveSessionId ? ($sessionStates.get()[liveSessionId]?.reasoningEffort ?? '') : '') ||
         (touchesPrimary ? $draftReasoningEffort.get() : '')
 
-      let __modelPickProbeSeq = 0
-
+      
 const paintSelection = () => {
         if (touchesPrimary) {
           // [model-pick-probe] prev atom → clicked → sticky after
@@ -527,3 +532,4 @@ const paintSelection = () => {
 
   return { applySavedMainModel, refreshCurrentModel, selectModel }
 }
+
