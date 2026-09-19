@@ -1476,23 +1476,6 @@ export type ReasoningEffortSource =
   | 'config-seed'
   | 'preset-apply'
 
-let __effortTraceSeq = 0
-
-function traceEffort(
-  kind: 'draft' | 'runtime',
-  source: ReasoningEffortSource,
-  prev: string,
-  now: string
-): void {
-   
-  console.error(
-    `[effort-trace #${++__effortTraceSeq}] ${kind}/${source}: ${JSON.stringify(prev)} -> ${JSON.stringify(now)}` +
-      ` | active=${JSON.stringify($activeSessionId.get())}` +
-      ` selected=${JSON.stringify($selectedStoredSessionId.get())}` +
-      ` model=${JSON.stringify($currentModel.get())}/${JSON.stringify($currentProvider.get())}`
-  )
-}
-
 /** DRAFT preference writer — the only path that owns `COMPOSER_EFFORT_KEY`.
  *  Manual picks, the profile-default seed and the new-chat draft-init resolve
  *  here. A value written here IS the next new chat's starting level. */
@@ -1500,8 +1483,6 @@ export const setCurrentReasoningEffort = (next: Updater<string>, source: Reasoni
   const prev = $draftReasoningEffort.get()
   updateAtom($draftReasoningEffort, next)
   const now = $draftReasoningEffort.get()
-
-  traceEffort('draft', source, prev, now)
 
   persistString(COMPOSER_EFFORT_KEY, now || null)
 }

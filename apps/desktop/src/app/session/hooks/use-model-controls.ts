@@ -194,26 +194,12 @@ export function useModelControls({
         const stickyIsValid = Boolean(lastUsed.model && lastUsed.provider)
 
         const paintDefault = (model: string, provider: string) => {
-
-          console.error(
-            `[model-selection-write] reason=${reason} force=${String(force)}` +
-              ` prev=${JSON.stringify({ model: $currentModel.get(), provider: $currentProvider.get() })}` +
-              ` next=${JSON.stringify({ model, provider })}` +
-              ` gateway=${JSON.stringify($activeGatewayProfile.get())} userAction=true`
-          )
           setCurrentModel(model)
           setCurrentProvider(provider)
           setCurrentModelSource('default')
         }
 
         if (stickyIsValid && (reason === 'boot-rescope' || reason === 'explicit-refresh') && !consumeExplicitContextSwitch()) {
-
-          console.error(
-            `[model-selection-write] reason=${reason} force=${String(force)}` +
-              ` prev=${JSON.stringify({ model: $currentModel.get(), provider: $currentProvider.get() })}` +
-              ` next=${JSON.stringify({ model: lastUsed.model, provider: lastUsed.provider })}` +
-              ` gateway=${JSON.stringify($activeGatewayProfile.get())} userAction=false`
-          )
           setCurrentModel(lastUsed.model)
           setCurrentProvider(lastUsed.provider)
           // v17: this is a RESTORE of the last-used pair, not a user pick —
@@ -322,14 +308,8 @@ export function useModelControls({
   // primary `$activeSessionId` is used (overlay / legacy callers). A tile
   // switch must not touch the primary globals — and must not be blocked by a
   // busy primary turn.
-  let __modelPickProbeSeq = 0
-
-const selectModel = useCallback(
+  const selectModel = useCallback(
     async (selection: ModelSelection): Promise<boolean> => {
-
-      console.error(
-        `[model-select ${++__modelPickProbeSeq}] IN selection=${JSON.stringify((selection.provider ?? '') + '/' + (selection.model ?? ''))} sid=${JSON.stringify('sessionId' in selection ? selection.sessionId : null)}`
-      )
       const primaryRuntimeId = $activeSessionId.get()
       const liveSessionId = 'sessionId' in selection ? (selection.sessionId ?? null) : primaryRuntimeId
       const touchesPrimary = !liveSessionId || liveSessionId === primaryRuntimeId
@@ -356,26 +336,13 @@ const selectModel = useCallback(
 
 
 const paintSelection = () => {
-        if (touchesPrimary) {
-          // [model-pick-probe] prev atom → clicked → sticky after
-          const __prevModel = $currentModel.get()
-          const __prevProvider = $currentProvider.get()
-          setCurrentModel(selection.model)
+  if (touchesPrimary) {
+    setCurrentModel(selection.model)
           setCurrentProvider(selection.provider)
           markComposerSelectionManual()
           // v14: an explicit user pick is a real-use selection — feed the
           // cross-scope New Session sticky.
           noteModelSelectionInUse(selection.model, selection.provider)
-
-          console.error(
-            `[model-pick #${++__modelPickProbeSeq}] clicked=${JSON.stringify(selection.provider + '/' + selection.model)}` +
-              ` prevAtom=${JSON.stringify(__prevProvider + '/' + __prevModel)}` +
-              ` atomAfter=${JSON.stringify($currentProvider.get() + '/' + $currentModel.get())}` +
-              ` stickyAfter=${JSON.stringify((() => { const lu = computeLastUsedSelection();
-
- return lu.provider + '/' + lu.model })())}` +
-              ` session=${JSON.stringify(liveSessionId)}`
-          )
         }
 
         if (liveSessionId) {

@@ -311,10 +311,6 @@ export function handleSessionInfoEvent(ctx: GatewayEventContext): boolean {
           }
 
           noteModelSelectionInUse(statePatch.model, statePatch.provider, getCurrentComposerScope())
-
-          console.error(
-            `[model-pick-reconcile #${pendingPick.seq}] confirmed model=${JSON.stringify(statePatch.model)} provider=${JSON.stringify(statePatch.provider)} repaintPrimary=${String(runtimeIsPrimary)}` + ` session=${JSON.stringify(sessionId)}`
-          )
         }
 
         // Divergent or stale: the pending dies either way — the sticky stays

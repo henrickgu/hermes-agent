@@ -387,8 +387,6 @@ export function getRecentlySettledSessionIds(now: number = Date.now()): string[]
   return live
 }
 
-let __pillSliceProbeSeq = 0
-
 // --- Transition detection (called automatically from publishSessionState) ---
 function handleTransition(previous: ClientSessionState | null, next: ClientSessionState, runtimeId: string) {
   // Compression id rotation: signal the route-follow effect with enough
@@ -506,23 +504,6 @@ export function publishSessionState(runtimeId: string, state: ClientSessionState
 
   if (prev === state) {
     return
-  }
-
-  // [pill-slice-probe] mudança de model/provider/reasoningEffort DIRETO no slice
-  // (não passa pelo átomo global) — prova direta do estado final da sessão.
-  const metaChanged =
-    prev && (prev.model !== state.model || prev.provider !== state.provider || prev.reasoningEffort !== state.reasoningEffort)
-
-  if (metaChanged) {
-    // eslint-disable-next-line no-console
-    console.error(
-      `[pill-slice #${++__pillSliceProbeSeq}] runtime=${JSON.stringify(runtimeId)}` +
-        ` model=${JSON.stringify(prev.model)} -> ${JSON.stringify(state.model)}` +
-        ` provider=${JSON.stringify(prev.provider)} -> ${JSON.stringify(state.provider)}` +
-        ` effort=${JSON.stringify(prev.reasoningEffort)} -> ${JSON.stringify(state.reasoningEffort)}` +
-        ` stored=${JSON.stringify(state.storedSessionId ?? null)}` +
-        ` busy=${String(state.busy)}`
-    )
   }
 
   if (prev && evictable(runtimeId, state)) {
