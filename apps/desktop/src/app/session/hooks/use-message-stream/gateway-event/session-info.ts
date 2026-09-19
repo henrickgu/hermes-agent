@@ -22,8 +22,19 @@ import {
   setSessions,
   setTerminalBackend,
   setWorkspaceCwdOwner,
-  setYoloActive
+  setYoloActive,
+  setCurrentModel,
+  setCurrentModelSource,
+  setCurrentProvider,
+  noteModelSelectionInUse,
+  getCurrentComposerScope
 } from '@/store/session'
+import {
+  consumePendingModelPick,
+  isPendingFresh,
+  isRuntimeActive,
+  resolvePendingModelPick
+} from '@/lib/model-pick-pending'
 import { reportInstallMethodWarning } from '@/store/updates'
 
 import { finalizeInterruptedMessages } from '../../use-prompt-actions/rewind'
@@ -262,6 +273,44 @@ export function handleSessionInfoEvent(ctx: GatewayEventContext): boolean {
     }
 
     if (sessionId && hasStatePatch) {
+      // v16: reconcile a PENDING model pick. A transport-lost model switch may
+      // still have been applied by the backend — the authoritative session.info
+      // is the judge. Same pair → commit composer + sticky (only repaint the
+      // visible pane when THAT runtime is still active); divergent pair or a
+      // stale entry → drop the pending, sticky untouched.
+      const pendingPick = consumePendingModelPick(sessionId)
+
+      if (
+        pendingPick &&
+        statePatch.model !== undefined &&
+        statePatch.provider !== undefined
+      ) {
+        const matchesPending =
+          statePatch.model === pendingPick.model && statePatch.provider === pendingPick.provider
+        const pendingFresh = isPendingFresh(pendingPick)
+
+        if (matchesPending && pendingFresh) {
+          const runtimeStillActive = isRuntimeActive(sessionId)
+          // The visible composer follows the ACTIVE runtime only — a late
+          // confirmation from session A must not repaint while the user sits
+          // on session B. The STICKY reconciles regardless: the pair was
+          // actually adopted by a real session either way.
+          if (runtimeStillActive) {
+            setCurrentModel(statePatch.model)
+            setCurrentProvider(statePatch.provider)
+            setCurrentModelSource('manual')
+          }
+          noteModelSelectionInUse(statePatch.model, statePatch.provider, getCurrentComposerScope())
+          // eslint-disable-next-line no-console
+          console.error(
+            `[model-pick-reconcile #${pendingPick.seq}] confirmed model=${JSON.stringify(statePatch.model)} provider=${JSON.stringify(statePatch.provider)} repaint=${String(runtimeStillActive)}`
+          )
+        }
+        // Divergent or stale: the pending dies either way — the sticky stays
+        // as-is and the composer keeps whatever the active session reports.
+        resolvePendingModelPick(sessionId)
+      }
+
       updateSessionState(
         sessionId,
         state => applySessionInfoStatePatch(state, statePatch),

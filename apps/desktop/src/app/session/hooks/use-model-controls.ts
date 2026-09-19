@@ -28,6 +28,13 @@ import {
   computeLastUsedSelection,
   consumeExplicitContextSwitch
 } from '@/store/session'
+import {
+  consumePendingModelPick,
+  isRuntimeActive,
+  isPendingFresh,
+  registerPendingModelPick,
+  resolvePendingModelPick
+} from '@/lib/model-pick-pending'
 import { $sessionStates, patchSessionSliceEffort, sessionTileDelegate } from '@/store/session-states'
 import type { ModelOptionsResponse } from '@/types/hermes'
 
@@ -461,6 +468,12 @@ const paintSelection = () => {
           { model: selection.model, provider: selection.provider }
         )
 
+      // v16: a pick whose RPC fails or hangs is PENDING, not failed — the
+      // backend may still apply the switch and the authoritative session.info
+      // reconciles it. Registered BEFORE the await so the hung-promise path
+      // (C) is covered too.
+      const pendingSeq = registerPendingModelPick(liveSessionId ?? '', selection.model, selection.provider)
+
       try {
         const result = await requestSwitch()
 
@@ -502,13 +515,11 @@ const paintSelection = () => {
 
         finishSwitch(result)
         carryEffort()
-        // v15: the switch is CONFIRMED — now (and only now) paint the composer
-        // and feed the cross-scope sticky with the pair the user picked. This
-        // closes the clique→New Session gap: the previous design delegated the
-        // repaint to the gateway's later session.info, so a New Session opened
-        // before that round-trip seeded from the stale sticky (the
-        // 'glm-5.3-flash' instead of the picked 'glm-5.3'). Failure paths keep
-        // composer and sticky untouched (rollbackSelection already restored).
+        // v16: the switch is CONFIRMED — consume the pending and paint composer
+        // + sticky with the pair the user picked. Failure paths keep composer
+        // and sticky untouched; the pending stays for session.info to reconcile
+        // (backend applied the switch even if the response was lost).
+        resolvePendingModelPick(liveSessionId ?? '')
         paintSelection()
         cacheSelection(selection.provider, selection.model)
 
@@ -532,6 +543,11 @@ const paintSelection = () => {
           return true
         }
 
+        // v16: a transport failure does NOT mean the switch failed — the
+        // backend may have applied it (the repro: response lost, session.info
+        // confirmed glm-5.3 seconds later). Keep the pending registered so the
+        // reconciling session.info commits composer + sticky. Roll back the
+        // OPTIMISTIC composer paint only: the pending is the durable intent.
         rollbackSelection()
         notifyError(err, copy.modelSwitchFailed)
 

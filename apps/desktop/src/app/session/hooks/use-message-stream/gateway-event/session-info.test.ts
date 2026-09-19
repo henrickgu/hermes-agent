@@ -12,6 +12,11 @@ import {
   releaseWorkspaceCwdOwner,
   setCurrentCwd,
   setCurrentFastMode,
+  setCurrentModel,
+  setCurrentModelSource,
+  setCurrentProvider,
+  $currentModel,
+  $currentProvider,
   setCurrentReasoningEffort,
   setCurrentServiceTier,
   setSelectedStoredSessionId
@@ -19,6 +24,12 @@ import {
 import { persistString } from '@/lib/storage'
 
 import { handleSessionInfoEvent } from './session-info'
+import {
+  registerPendingModelPick,
+  resetPendingModelPicksForTests,
+  setActiveRuntimeProvider,
+  consumePendingModelPick
+} from '@/lib/model-pick-pending'
 import type { GatewayEventContext } from './types'
 
 // `_session_info` stamps `stored_session_id: session_key or ""`, so every
@@ -30,7 +41,9 @@ function sessionInfoEvent({
   explicitSid = '',
   storedSessionId = '',
   reasoningEffort,
-  fast
+  fast,
+  model,
+  provider
 }: {
   activeSessionId: null | string
   cwd?: string
@@ -38,6 +51,8 @@ function sessionInfoEvent({
   storedSessionId?: string
   reasoningEffort?: string
   fast?: boolean
+  model?: string
+  provider?: string
 }): GatewayEventContext {
   const sessionId = explicitSid || activeSessionId
 
@@ -64,7 +79,9 @@ function sessionInfoEvent({
       cwd,
       stored_session_id: storedSessionId,
       ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
-      ...(fast !== undefined ? { fast } : {})
+      ...(fast !== undefined ? { fast } : {}),
+      ...(model !== undefined ? { model } : {}),
+      ...(provider !== undefined ? { provider } : {})
     },
     scheduleConfigRefresh: vi.fn(),
     sessionId
@@ -301,5 +318,79 @@ describe('draft: runtime events must not rewrite the draft effort', () => {
     expect($draftReasoningEffort.get()).toBe('medium')
     expect($currentFastMode.get()).toBe(false)
     expect(window.localStorage.getItem('hermes.desktop.composer.reasoning-effort')).toContain('medium')
+  })
+})
+
+// v16 — reconcile do pending model pick: transporte falhou mas o backend aplicou
+// o switch; o session.info confirmatório comita composer+sticky. Runtime inativo
+// só reconcilia o sticky (sem repaint). Par divergente expira sem tocar sticky.
+describe('v16 pendingModelPick reconcile', () => {
+  beforeEach(() => {
+    setCurrentModel('cline-pass/glm-5.3-flash')
+    setCurrentProvider('clinepass')
+    setCurrentModelSource('manual')
+    registerPendingModelPick('runtime-a', 'cline-pass/glm-5.3', 'clinepass')
+  })
+
+  afterEach(() => {
+    resetPendingModelPicksForTests()
+  })
+
+  it('confirma o pending: session.info com o par esperado → atom+sticky, e limpa', () => {
+    setActiveRuntimeProvider(() => 'runtime-a')
+
+    handleSessionInfoEvent(
+      sessionInfoEvent({
+        activeSessionId: 'runtime-a',
+        explicitSid: 'runtime-a',
+        storedSessionId: 'stored-a',
+        model: 'cline-pass/glm-5.3',
+        provider: 'clinepass'
+      })
+    )
+
+    expect($currentModel.get()).toBe('cline-pass/glm-5.3')
+    expect($currentProvider.get()).toBe('clinepass')
+    expect(consumePendingModelPick('runtime-a')).toBeUndefined()
+  })
+
+  it('runtime inativo: reconcilia o sticky SEM repaint do átomo do composer', () => {
+    setActiveRuntimeProvider(() => 'runtime-b') // usuário já está em B
+
+    setCurrentModel('z-ai/glm-5.3-flash') // composer de B
+    setCurrentProvider('commandcode')
+
+    handleSessionInfoEvent(
+      sessionInfoEvent({
+        activeSessionId: 'runtime-b',
+        explicitSid: 'runtime-a', // o info é da sessão A (de trás)
+        storedSessionId: 'stored-a',
+        model: 'cline-pass/glm-5.3',
+        provider: 'clinepass'
+      })
+    )
+
+    // Composer de B intacto…
+    expect($currentModel.get()).toBe('z-ai/glm-5.3-flash')
+    expect($currentProvider.get()).toBe('commandcode')
+    // …sticky reconciliado pro par confirmado…
+    expect(consumePendingModelPick('runtime-a')).toBeUndefined()
+  })
+
+  it('par divergente: pending descartado, sticky/composer intocados', () => {
+    setActiveRuntimeProvider(() => 'runtime-a')
+
+    handleSessionInfoEvent(
+      sessionInfoEvent({
+        activeSessionId: 'runtime-a',
+        explicitSid: 'runtime-a',
+        storedSessionId: 'stored-a',
+        model: 'z-ai/glm-5.3-flash',
+        provider: 'commandcode'
+      })
+    )
+
+    expect($currentModel.get()).toBe('cline-pass/glm-5.3-flash') // rollback natural
+    expect(consumePendingModelPick('runtime-a')).toBeUndefined()
   })
 })

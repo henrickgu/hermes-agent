@@ -84,8 +84,10 @@ import {
   sessionPinId,
   setAwaitingResponse,
   setBusy,
-  setMessages
-, consumeExplicitContextSwitch } from '@/store/session'
+  setMessages,
+  consumeExplicitContextSwitch
+} from '@/store/session'
+import { setActiveRuntimeProvider } from '@/lib/model-pick-pending'
 import { $titlebarAppActionsSide, titlebarAppActionsClusterCounts } from '@/store/titlebar-app-actions'
 import { clearSessionTodos, setSessionTodos, todosForHydration } from '@/store/todos'
 import { armWakeWord, stopClientCapture } from '@/store/wake-word'
@@ -392,6 +394,11 @@ export function ContribWiring({ children }: { children: ReactNode }) {
   })
 
   const { refreshHermesConfig, sttEnabled, voiceMaxRecordingSeconds } = useHermesConfig({ activeSessionIdRef })
+
+  // v16: the model-pick reconciler judges a late confirmation by the runtime
+  // that is CURRENTLY on screen — a session A confirmation must not repaint
+  // while the user sits on session B.
+  setActiveRuntimeProvider(() => $activeSessionId.get())
 
   const { applySavedMainModel, refreshCurrentModel, selectModel } = useModelControls({
     cacheOwnerConnectionId: activeConnectionId || undefined,
