@@ -8,7 +8,7 @@ import { modelOptionsQueryKey } from '@/lib/model-options'
 import {
   consumePendingModelPick,
   resetPendingModelPicksForTests,
-  setActiveRuntimeProvider
+  setPrimaryRuntimeProvider
 } from '@/lib/model-pick-pending'
 import { $modelPresets, getModelPreset, setModelPreset } from '@/store/model-presets'
 import { $activeGatewayProfile } from '@/store/profile'
@@ -172,7 +172,7 @@ describe('useModelControls', () => {
     cleanup()
     vi.restoreAllMocks()
     resetPendingModelPicksForTests()
-    setActiveRuntimeProvider(null)
+    setPrimaryRuntimeProvider(null)
     $activeGatewayProfile.set('default')
     $activeSessionId.set(null)
     setCurrentModel('')
@@ -569,7 +569,7 @@ describe('useModelControls', () => {
     // reconciler commits composer + sticky (this is exactly what the
     // session-info handler does on a matching explicitSid event).
     const live = $activeSessionId.get() ?? ''
-    setActiveRuntimeProvider(() => live)
+    setPrimaryRuntimeProvider(() => live)
     handleSessionInfoEvent(
       sessionInfoEventForModelConfirm({
         activeSessionId: live,

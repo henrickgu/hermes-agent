@@ -6,7 +6,7 @@ import {
   consumePendingModelPick,
   registerPendingModelPick,
   resetPendingModelPicksForTests,
-  setActiveRuntimeProvider
+  setPrimaryRuntimeProvider
 } from '@/lib/model-pick-pending'
 import { persistString } from '@/lib/storage'
 import {
@@ -19,6 +19,7 @@ import {
   $selectedStoredSessionId,
   $workspaceCwdOwner,
   computeLastUsedSelection,
+  getCurrentModelSource,
   noteModelSelectionInUse,
   releaseWorkspaceCwdOwner,
   setCurrentCwd,
@@ -37,6 +38,8 @@ import type { GatewayEventContext } from './types'
 // `_session_info` stamps `stored_session_id: session_key or ""`, so every
 // not-yet-persisted session on the gateway emits an UNNAMED session.info that
 // still carries a real cwd.
+let lastUpdateSessionStateMock = vi.fn()
+
 function sessionInfoEvent({
   activeSessionId,
   cwd = '',
@@ -69,7 +72,7 @@ function sessionInfoEvent({
       scheduleSessionsRefresh: vi.fn(),
       sessionInterrupted: () => false,
       sessionStateByRuntimeIdRef: { current: new Map() },
-      updateSessionState: vi.fn(state => state),
+      updateSessionState: (lastUpdateSessionStateMock = vi.fn(state => state)),
       upsertToolCall: vi.fn()
     },
     event: { profile: 'default', session_id: explicitSid, type: 'session.info' },
@@ -352,7 +355,7 @@ describe('v16 pendingModelPick reconcile', () => {
   })
 
   it('confirma o pending: session.info com o par esperado → atom+sticky, e limpa', () => {
-    setActiveRuntimeProvider(() => 'runtime-a')
+    setPrimaryRuntimeProvider(() => 'runtime-a')
 
     handleSessionInfoEvent(
       sessionInfoEvent({
@@ -375,7 +378,7 @@ describe('v16 pendingModelPick reconcile', () => {
   })
 
   it('runtime inativo: reconcilia o sticky SEM repaint do átomo do composer', () => {
-    setActiveRuntimeProvider(() => 'runtime-b') // usuário já está em B
+    setPrimaryRuntimeProvider(() => 'runtime-b') // usuário já está em B
 
     setCurrentModel('z-ai/glm-5.3-flash') // composer de B
     setCurrentProvider('commandcode')
@@ -401,7 +404,7 @@ describe('v16 pendingModelPick reconcile', () => {
   })
 
   it('par divergente: pending descartado, sticky/composer intocados', () => {
-    setActiveRuntimeProvider(() => 'runtime-a')
+    setPrimaryRuntimeProvider(() => 'runtime-a')
     // Pre-seed the sticky with the outgoing pair — "untouched" must be
     // provable, not assumed from a clean store.
     noteModelSelectionInUse('cline-pass/glm-5.3-flash', 'clinepass', 'scope-x')
@@ -430,7 +433,7 @@ describe('v16 pendingModelPick reconcile', () => {
     // via the fallback route; without the explicitSid gate it would judge the
     // active session's pending against ANOTHER runtime's pair and kill it
     // ("divergent") before the real confirmation arrived.
-    setActiveRuntimeProvider(() => 'runtime-a')
+    setPrimaryRuntimeProvider(() => 'runtime-a')
 
     handleSessionInfoEvent(
       sessionInfoEvent({
@@ -447,5 +450,39 @@ describe('v16 pendingModelPick reconcile', () => {
     // …and nothing about the divergent pair leaked into composer or sticky.
     expect($currentModel.get()).toBe('cline-pass/glm-5.3-flash')
     expect(computeLastUsedSelection().model).not.toBe('z-ai/glm-5.3-flash')
+  })
+
+  it('v16c: pick em TILE focada confirma sticky SEM tocar o composer primário (repro 19/09)', () => {
+    // The proved repro: the primary pane holds a fresh DRAFT (primary runtime
+    // null — promotion only happens at submit), the user picks on a FOCUSED
+    // TILE (runtime-tile). The confirmation session.info names the tile's
+    // runtime. Expected: the sticky (next New Session's seed via create
+    // params) commits the picked pair; the tile's slice updates; the PRIMARY
+    // composer atoms stay exactly as the boot-rescope left them.
+    setPrimaryRuntimeProvider(() => null) // primary pane is a draft
+    registerPendingModelPick('runtime-tile', 'glm-5.3-flash', 'zai')
+
+    handleSessionInfoEvent(
+      sessionInfoEvent({
+        activeSessionId: null, // primary has no runtime
+        explicitSid: 'runtime-tile', // the tile's own session.info
+        storedSessionId: 'stored-tile',
+        model: 'glm-5.3-flash',
+        provider: 'zai'
+      })
+    )
+
+    // Sticky (via noteModelSelectionInUse) — the create-params seed.
+    const sticky = computeLastUsedSelection()
+    expect(sticky.model).toBe('glm-5.3-flash')
+    expect(sticky.provider).toBe('zai')
+    // Pending consumed — the confirmation was judged once.
+    expect(consumePendingModelPick('runtime-tile')).toBeUndefined()
+    // Primary composer atoms UNTOUCHED (the pick was not a primary pick).
+    expect($currentModel.get()).toBe('cline-pass/glm-5.3-flash')
+    expect($currentProvider.get()).toBe('clinepass')
+    expect(getCurrentModelSource()).toBe('manual')
+    // The tile's slice received the state patch (updateSessionState ran).
+    expect(lastUpdateSessionStateMock).toHaveBeenCalled()
   })
 })

@@ -3,7 +3,7 @@ import { modelOptionsQueryKey } from '@/lib/model-options'
 import {
   consumePendingModelPick,
   isPendingFresh,
-  isRuntimeActive,
+  isPrimaryRuntime,
   resolvePendingModelPick
 } from '@/lib/model-pick-pending'
 import { reconcileApprovalModeForProfile } from '@/store/approval-mode'
@@ -294,13 +294,17 @@ export function handleSessionInfoEvent(ctx: GatewayEventContext): boolean {
         const pendingFresh = isPendingFresh(pendingPick)
 
         if (matchesPending && pendingFresh) {
-          const runtimeStillActive = isRuntimeActive(sessionId)
+          const runtimeIsPrimary = isPrimaryRuntime(sessionId)
 
-          // The visible composer follows the ACTIVE runtime only — a late
-          // confirmation from session A must not repaint while the user sits
-          // on session B. The STICKY reconciles regardless: the pair was
-          // actually adopted by a real session either way.
-          if (runtimeStillActive) {
+          // Only the PRIMARY pane's runtime may repaint the primary composer
+          // atoms. A TILE's confirmation (even a focused tile the user is
+          // typing in — the pick targeted `focusedRuntimeId ?? primary`) is
+          // NOT a primary pick: the tile's own slice was already updated by
+          // the state patch below, and the STICKY reconciles regardless (the
+          // pair was adopted by a real session, whichever surface owns it).
+          // The next New Session seeds from that sticky at create time, so
+          // the primary composer never needs to carry a tile's pick.
+          if (runtimeIsPrimary) {
             setCurrentModel(statePatch.model)
             setCurrentProvider(statePatch.provider)
             setCurrentModelSource('manual')
@@ -309,7 +313,7 @@ export function handleSessionInfoEvent(ctx: GatewayEventContext): boolean {
           noteModelSelectionInUse(statePatch.model, statePatch.provider, getCurrentComposerScope())
 
           console.error(
-            `[model-pick-reconcile #${pendingPick.seq}] confirmed model=${JSON.stringify(statePatch.model)} provider=${JSON.stringify(statePatch.provider)} repaint=${String(runtimeStillActive)}`
+            `[model-pick-reconcile #${pendingPick.seq}] confirmed model=${JSON.stringify(statePatch.model)} provider=${JSON.stringify(statePatch.provider)} repaintPrimary=${String(runtimeIsPrimary)}` + ` session=${JSON.stringify(sessionId)}`
           )
         }
 

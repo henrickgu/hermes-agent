@@ -25,7 +25,6 @@ import {
 import { isMissingRpcMethod } from '@/lib/gateway-rpc'
 import { recoverInFlightTurnJournal } from '@/lib/inflight-turn-journal'
 import { setSessionYolo } from '@/lib/yolo-session'
-import { getModelPreset } from '@/store/model-presets'
 import { $clarifyRequests } from '@/store/clarify'
 import { migrateSessionDraft } from '@/store/composer'
 import { clearQueuedPrompts, migrateQueuedPrompts } from '@/store/composer-queue'
@@ -37,6 +36,7 @@ import {
 } from '@/store/gateway'
 import { $gatewaySwitching } from '@/store/gateway-switch'
 import { $pinnedSessionIds } from '@/store/layout'
+import { getModelPreset } from '@/store/model-presets'
 import { clearNotifications, notify, notifyError } from '@/store/notifications'
 import {
   $activeGatewayProfile,
@@ -61,23 +61,18 @@ import {
   $currentModel,
   $currentProvider,
   $draftReasoningEffort,
-  $defaultReasoningEffort,
   $messages,
   $newChatWorkspaceTarget,
   $sessions,
   $yoloActive,
+  computeFreshDraftEffort,
+  computeLastUsedSelection,
+  getCurrentComposerScope,
   getCurrentModelSource,
   getSessionOwnerHint,
   type NewChatWorkspaceTarget,
   resolveComposerSessionKey,
   sessionPinId,
-  computeFreshDraftEffort,
-  computeLastUsedSelection,
-  getCurrentComposerScope,
-  setCurrentModel,
-  setCurrentModelSource,
-  setCurrentProvider,
-  setCurrentReasoningEffort,
   setActiveSessionId,
   setActiveSessionStoredIdRotation,
   setAwaitingResponse,
@@ -85,6 +80,10 @@ import {
   setCurrentBranch,
   setCurrentCwd,
   setCurrentCwdTransient,
+  setCurrentModel,
+  setCurrentModelSource,
+  setCurrentProvider,
+  setCurrentReasoningEffort,
   setCurrentServiceTier,
   setCurrentUsage,
   setFreshDraftReady,
@@ -298,7 +297,7 @@ function reconcileAuthoritativeMessages(
 // profile to None). Effort/fast still ride as per-session overrides. Model and
 // provider only ride when the composer source is 'manual' — a default-sourced
 // value is a mirror of Settings → Model and must not pin the new chat.
-async function desktopSessionCreateParams(
+export async function desktopSessionCreateParams(
   cwd: string,
   capturedRoute = resolveNewChatOwnerRoute()
 ): Promise<Record<string, unknown>> {
@@ -312,11 +311,31 @@ async function desktopSessionCreateParams(
   // model. Omit model/provider unless the source is 'manual'.
   const isManualSelection = getCurrentModelSource() === 'manual'
 
+  // v16c: with no manual pick on the composer, the last-used pair (the
+  // cross-scope sticky) still travels — it is the model the user ACTUALLY
+  // ran last (e.g. a confirmed pick on a focused tile, whose confirmation
+  // updates the sticky but deliberately never repaints the primary
+  // composer). Scope-matched only: a sticky minted under another gateway
+  // legitimately loses to that context's own default (v14b rule).
+  // Precedence: manual composer > scope-matched sticky > backend default.
+  const sticky = computeLastUsedSelection()
+
+  const stickyUsable =
+    !isManualSelection && Boolean(sticky.model && sticky.provider) && sticky.scope === getCurrentComposerScope()
+
   const selection = {
     effort: $draftReasoningEffort.get().trim(),
     fast: $currentFastMode.get(),
-    model: isManualSelection ? $currentModel.get().trim() : '',
-    provider: isManualSelection ? $currentProvider.get().trim() : ''
+    model: isManualSelection
+      ? $currentModel.get().trim()
+      : stickyUsable
+        ? sticky.model
+        : '',
+    provider: isManualSelection
+      ? $currentProvider.get().trim()
+      : stickyUsable
+        ? sticky.provider
+        : ''
   }
 
   const profile = capturedRoute?.profile || $newChatProfile.get() || normalizeProfileKey($activeGatewayProfile.get())
@@ -546,6 +565,7 @@ export function useSessionActions({
         setCurrentProvider(lastUsed.provider)
         setCurrentModelSource('manual')
       }
+
       // v12: ONE authority for the fresh draft — explicit preset → profile
       // default → built-in. Reads only draft-owned state.
       setCurrentReasoningEffort(

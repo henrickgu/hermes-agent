@@ -25,17 +25,20 @@ export interface PendingModelPick {
 const pending = new Map<string, PendingModelPick>()
 let seqCounter = 0
 
-/** A late `session.info` may only repaint the composer if the runtime it
- *  names is STILL the one on screen (a confirmation from session A must not
- *  repaint while the user sits on session B). */
-let activeRuntimeProvider: null | (() => null | string) = null
+/** The PRIMARY pane's runtime id — the ONLY authority that may repaint the
+ * primary composer atoms. A late `session.info` naming the primary's runtime
+ * may repaint them; a TILE's confirmation (even a focused tile the user is
+ * typing in) may not — the tile's own slice and the cross-scope sticky are
+ * updated unconditionally by the reconciler, and the primary composer is
+ * deliberately left alone (the pick on a tile is not a primary pick). */
+let primaryRuntimeProvider: null | (() => null | string) = null
 
-export function setActiveRuntimeProvider(fn: null | (() => null | string)): void {
-  activeRuntimeProvider = fn
+export function setPrimaryRuntimeProvider(fn: null | (() => null | string)): void {
+  primaryRuntimeProvider = fn
 }
 
-export function isRuntimeActive(runtimeId: string): boolean {
-  return activeRuntimeProvider?.() === runtimeId
+export function isPrimaryRuntime(runtimeId: string): boolean {
+  return primaryRuntimeProvider?.() === runtimeId
 }
 
 export function registerPendingModelPick(runtimeId: string, model: string, provider: string): number {
@@ -112,5 +115,5 @@ export function isPendingFresh(entry: PendingModelPick, now = Date.now()): boole
 export function resetPendingModelPicksForTests(): void {
   pending.clear()
   seqCounter = 0
-  activeRuntimeProvider = null
+  primaryRuntimeProvider = null
 }

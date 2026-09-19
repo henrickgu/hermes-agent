@@ -1,33 +1,38 @@
-# HANDOFF — Picker (sticky de modelo) · 19/09/2026 00:45
+# HANDOFF — Picker (sticky de modelo) · 19/09/2026 02:00
 
-## Bug
-Nova sessão abre no par antigo (glm-5.3-flash) mesmo após pick manual confirmar glm-5.3. Fluxo repro: pick manual → "oi" → aguardar responder → New Session.
+## Bug original
+Nova sessão abre no par antigo mesmo após pick manual confirmar outro. Duas causas provadas e corrigidas em sequência.
+
+## Causa 2 (prova completa nos logs de 19/09 ~00:54)
+Pick em **tile focada** com painel primário em draft: confirmação via session.info
+fazia `repaint=false` (guard consultava `$activeSessionId`=null) → composer primário
+ficava no par velho → New Session nascia do par velho → retroalimentava o sticky.
+NÃO era normalização do backend (state.db registrou `glm-5.3-flash` verbatim em tudo).
+
+## v16c (este commit)
+1. `isPrimaryRuntime` (ex-`isRuntimeActive`): repaint do composer primário só quando
+   a confirmação nomeia o runtime do PRIMÁRIO. Pick de tile não repinta primário —
+   slice da tile + sticky já cobrem.
+2. `desktopSessionCreateParams`: precedência `manual composer > sticky escopo-casante
+   > default do backend`, lida no ponto de linearização pré-await. É o fix principal:
+   New Session (primária ou tile) nasce do sticky ATUAL, não do composer resolvido no boot.
+
+## Repro manual pós-aplicação (dono: Henrick)
+A) GLM 5.3 → New Session tile → pick Flash → "oi" → responder → New Session → **nasce Flash**.
+B) inverso: Flash → pick GLM 5.3 → "oi" → New Session → **nasce GLM 5.3**.
+Probes ativos: `[model-select]`, `[model-pick]`, `[model-pick-reconcile]` (agora com
+`repaintPrimary=` + `session=`), `[model-selection-write]`, `[pill-slice]`, `[effort-trace]`
+→ logs/desktop.log. Saem TODOS antes de upstream.
+
+## Testes
+- Direcionados 54/54 (session-info 15, model-controls 34, create-params 5 — arquivo novo).
+- Amplia session+store: 185 arquivos / 2363 testes verdes (01:53→02:06).
+
+## Gaps conhecidos (aceitos, não corrigir junto)
+- New Session aberta ANTES da confirmação (janela TTL 45s) ainda nasce no par velho.
+- Runtime rebuild mid-turn com novo session_id não reconcilia (pending morre por TTL).
+- Probes no código (ver acima) — remover antes de encerrar/upstream.
 
 ## Estado
-- Worktree `picker-rapido` LIMPO. HEAD = `ae1dfb430b` (v16b, sobre v16 `0a36ed6f63`).
-- **v16b AUTORIZADO pelo Henrick (19/09 00:38): "congelar esse diff e aplicar exatamente essa versão para o teste manual".** Robô tray-robot armado para aplicar no idle.
-- Instalação principal no v15 `98fa4fbf17` (build 17/09 16:23) até o robô agir.
-- 3 arquivos NÃO commitados na instalação (probes Python: `methods_session.py`, `server.py`, `methods_config_set.py`) NÃO colidem com o v16b (só `apps/desktop/src`).
-
-## v16b (o que é — em cima do v16)
-1. **Catch guard por seq**: rollback do paint otimista só se o pending daquele seq ainda vive. Confirmação já consumida pelo session.info = estado autoritativo; timeout tardio do RPC não desfaz. Pending SOBREVIVE ao transport-failure (peek, não delete).
-2. **Reconcile exige `explicitSid`**: broadcast/fan-out sem id não julga pending de outro runtime.
-3. **TTL derivado**: `PENDING_MODEL_PICK_TTL_MS = DEFAULT_GATEWAY_REQUEST_TIMEOUT_MS + 15s` (45s > 30s do RPC — janela pós-catch deixa de ter largura zero).
-4. **Sticky assertado**: `computeLastUsedSelection()` direto nos 3 testes v16 + 4 testes novos (fan-out, corrida confirmação-vs-timeout, falha real, objetivo central pick→last-used).
-- Success path também seq-guarda o consumo (pick novo não morre por sucesso tardio de pick antigo).
-- 3 imports mortos do v16 removidos.
-
-## Testes (tudo verde)
-- Direcionados: 48/48 (2 arquivos).
-- Suíte session+store: 184 arquivos / 2357 testes (19/09 00:42).
-- Lint: 0 erros nos 6 arquivos tocados.
-
-## Gap conhecido (registrado, NÃO tratado — decisão do Henrick)
-- Runtime rebuild com novo `session_id` na confirmação (switch mid-turn) — pending keyed pelo id antigo morre por TTL. Não afeta o repro de pick em sessão idle.
-
-## Pendências
-- Probes `console.error` (`[model-pick*]`, `[model-select]`, `[model-selection-write]`, `[model-pick-reconcile]`) SEGUEM no build para o teste manual; saem antes de upstream/encerramento.
-- Probes Python da instalação principal (3 arquivos) revertidos só depois do teste manual.
-
-## Repro manual (depois de aplicado)
-Pick manual GLM 5.3 → "oi" → aguardar responder → New Session → nova sessão deve nascer em glm-5.3 (ver `[model-pick-reconcile]` no desktop.log e `billing_provider`/model no state.db).
+- Worktree `picker-rapido`: HEAD = este commit (v16c). Instalação principal: aplicar via robô.
+- Aplicação: robô tray (FF merge + build + ExpectStamp). Nada de extra junto.
