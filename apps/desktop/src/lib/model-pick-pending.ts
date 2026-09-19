@@ -12,12 +12,15 @@
  * entry dies and the sticky keeps the previous value.
  */
 
+import { DEFAULT_GATEWAY_REQUEST_TIMEOUT_MS } from '@/api/client'
+
 export interface PendingModelPick {
   model: string
   provider: string
   seq: number
   at: number
 }
+
 
 const pending = new Map<string, PendingModelPick>()
 let seqCounter = 0
@@ -38,6 +41,7 @@ export function isRuntimeActive(runtimeId: string): boolean {
 export function registerPendingModelPick(runtimeId: string, model: string, provider: string): number {
   const seq = ++seqCounter
   pending.set(runtimeId, { model, provider, seq, at: Date.now() })
+
   return seq
 }
 
@@ -48,6 +52,7 @@ export function consumePendingModelPick(runtimeId: string): PendingModelPick | u
 export function resolvePendingModelPick(runtimeId: string): PendingModelPick | undefined {
   const entry = pending.get(runtimeId)
   pending.delete(runtimeId)
+
   return entry
 }
 
@@ -55,10 +60,50 @@ export function clearPendingModelPick(runtimeId: string): void {
   pending.delete(runtimeId)
 }
 
+/**
+ * v16b catch-guard: check whether the pending is still the SAME pick (seq
+ * match) WITHOUT consuming it. The catch path must not delete the pending —
+ * a transport failure does not mean the switch failed, and the reconciling
+ * session.info still needs the entry to commit composer + sticky. This only
+ * answers whether a late RPC failure is allowed to roll the optimistic paint
+ * back: false means a newer pick replaced this one, or the reconciler already
+ * consumed it (session.info confirmed) — the confirmed state wins.
+ */
+export function pendingModelPickSeqMatches(runtimeId: string, seq: number): boolean {
+  const entry = pending.get(runtimeId)
+
+  return Boolean(entry && entry.seq === seq)
+}
+
+/**
+ * v16b success-guard: remove the pending ONLY if it is still the SAME pick
+ * (seq match). Returns true when the entry existed and was removed. A false
+ * return means a newer pick replaced this one — a late success must not
+ * delete the NEWER pick's reconciliation window.
+ */
+export function clearPendingModelPickIfSeqMatches(runtimeId: string, seq: number): boolean {
+  const entry = pending.get(runtimeId)
+
+  if (!entry || entry.seq !== seq) {
+    return false
+  }
+
+  pending.delete(runtimeId)
+
+  return true
+}
+
 /** The reconciler decides with this: a pending older than the window died
  *  without ever being confirmed (backend refused / no session.info ever
  *  arrived) — drop it, keep the sticky as-is. */
-export const PENDING_MODEL_PICK_TTL_MS = 30_000
+/**
+ * v16b: derived from the RPC timeout, not hand-picked. The reconciler's window
+ * must OUTLIVE the `config.set` request: a pick whose RPC times out at T+30s
+ * enters the catch with the pending still fresh, so a `session.info` arriving
+ * right after the failure still reconciles. Equal values (30s == 30s) left a
+ * zero-width post-catch window.
+ */
+export const PENDING_MODEL_PICK_TTL_MS = DEFAULT_GATEWAY_REQUEST_TIMEOUT_MS + 15_000
 
 export function isPendingFresh(entry: PendingModelPick, now = Date.now()): boolean {
   return now - entry.at < PENDING_MODEL_PICK_TTL_MS

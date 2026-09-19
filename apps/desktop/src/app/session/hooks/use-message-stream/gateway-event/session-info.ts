@@ -1,5 +1,11 @@
 import { normalizePersonalityValue } from '@/lib/chat-runtime'
 import { modelOptionsQueryKey } from '@/lib/model-options'
+import {
+  consumePendingModelPick,
+  isPendingFresh,
+  isRuntimeActive,
+  resolvePendingModelPick
+} from '@/lib/model-pick-pending'
 import { reconcileApprovalModeForProfile } from '@/store/approval-mode'
 import { reconcileSessionCompacting } from '@/store/compaction'
 import { requestDesktopOnboardingForCredentialWarning } from '@/store/onboarding'
@@ -11,30 +17,24 @@ import {
   $currentProvider,
   $selectedStoredSessionId,
   $sessions,
+  getCurrentComposerScope,
+  noteModelSelectionInUse,
   sessionMatchesStoredId,
   setActiveSessionId,
   setCurrentBranch,
   setCurrentCwdTransient,
   setCurrentFastMode,
+  setCurrentModel,
+  setCurrentModelSource,
   setCurrentPersonality,
+  setCurrentProvider,
   setCurrentServiceTier,
   setCurrentUsage,
   setSessions,
   setTerminalBackend,
   setWorkspaceCwdOwner,
-  setYoloActive,
-  setCurrentModel,
-  setCurrentModelSource,
-  setCurrentProvider,
-  noteModelSelectionInUse,
-  getCurrentComposerScope
+  setYoloActive
 } from '@/store/session'
-import {
-  consumePendingModelPick,
-  isPendingFresh,
-  isRuntimeActive,
-  resolvePendingModelPick
-} from '@/lib/model-pick-pending'
 import { reportInstallMethodWarning } from '@/store/updates'
 
 import { finalizeInterruptedMessages } from '../../use-prompt-actions/rewind'
@@ -273,12 +273,15 @@ export function handleSessionInfoEvent(ctx: GatewayEventContext): boolean {
     }
 
     if (sessionId && hasStatePatch) {
-      // v16: reconcile a PENDING model pick. A transport-lost model switch may
-      // still have been applied by the backend — the authoritative session.info
-      // is the judge. Same pair → commit composer + sticky (only repaint the
-      // visible pane when THAT runtime is still active); divergent pair or a
-      // stale entry → drop the pending, sticky untouched.
-      const pendingPick = consumePendingModelPick(sessionId)
+      // v16b: reconcile a PENDING model pick — ONLY on an event that EXPLICITLY
+      // names the runtime. The gateway's broadcast/fan-out re-emits session.info
+      // for every live session, often without a pane-scoped id; such an event
+      // resolves to the ACTIVE session via the fallback route and would
+      // consume the active session's pending with ANOTHER runtime's pair
+      // ("divergent" → drop) before the real confirmation ever arrives. The
+      // backend always stamps session_id on the confirmation we care about,
+      // so requiring it costs nothing on the happy path.
+      const pendingPick = explicitSid ? consumePendingModelPick(sessionId) : undefined
 
       if (
         pendingPick &&
@@ -287,10 +290,12 @@ export function handleSessionInfoEvent(ctx: GatewayEventContext): boolean {
       ) {
         const matchesPending =
           statePatch.model === pendingPick.model && statePatch.provider === pendingPick.provider
+
         const pendingFresh = isPendingFresh(pendingPick)
 
         if (matchesPending && pendingFresh) {
           const runtimeStillActive = isRuntimeActive(sessionId)
+
           // The visible composer follows the ACTIVE runtime only — a late
           // confirmation from session A must not repaint while the user sits
           // on session B. The STICKY reconciles regardless: the pair was
@@ -300,12 +305,14 @@ export function handleSessionInfoEvent(ctx: GatewayEventContext): boolean {
             setCurrentProvider(statePatch.provider)
             setCurrentModelSource('manual')
           }
+
           noteModelSelectionInUse(statePatch.model, statePatch.provider, getCurrentComposerScope())
-          // eslint-disable-next-line no-console
+
           console.error(
             `[model-pick-reconcile #${pendingPick.seq}] confirmed model=${JSON.stringify(statePatch.model)} provider=${JSON.stringify(statePatch.provider)} repaint=${String(runtimeStillActive)}`
           )
         }
+
         // Divergent or stale: the pending dies either way — the sticky stays
         // as-is and the composer keeps whatever the active session reports.
         resolvePendingModelPick(sessionId)

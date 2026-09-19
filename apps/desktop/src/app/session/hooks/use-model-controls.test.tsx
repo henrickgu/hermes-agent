@@ -5,27 +5,80 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ClientSessionState } from '@/app/types'
 import { getGlobalModelInfo } from '@/hermes'
 import { modelOptionsQueryKey } from '@/lib/model-options'
+import {
+  consumePendingModelPick,
+  resetPendingModelPicksForTests,
+  setActiveRuntimeProvider
+} from '@/lib/model-pick-pending'
 import { $modelPresets, getModelPreset, setModelPreset } from '@/store/model-presets'
 import { $activeGatewayProfile } from '@/store/profile'
 import {
   $activeSessionId,
   $currentModel,
   $currentProvider,
+  computeLastUsedSelection,
   getCurrentModelSource,
+  noteModelSelectionInUse,
   setCurrentModel,
-  setCurrentModelSource,
-  setCurrentProvider,
+  setCurrentModelSource
+,
+  setCurrentProvider
+,
   setCurrentReasoningEffort
-,
-  computeLastUsedSelection
-,
-  noteModelSelectionInUse
 } from '@/store/session'
 import * as SessionStates from '@/store/session-states'
 
 import { deferred } from '../../../test/deferred'
+import { handleSessionInfoEvent } from './use-message-stream/gateway-event/session-info'
+import type { GatewayEventContext } from './use-message-stream/gateway-event/types'
 
 import { useModelControls } from './use-model-controls'
+
+/**
+ * v16b tests: a minimal `session.info` context for the reconciler — the same
+ * shape the gateway-event test file builds, trimmed to what
+ * handleSessionInfoEvent reads on the model-confirm path.
+ */
+function sessionInfoEventForModelConfirm({
+  activeSessionId,
+  explicitSid,
+  model,
+  provider
+}: {
+  activeSessionId: string
+  explicitSid: string
+  model: string
+  provider: string
+}): GatewayEventContext {
+  return {
+    deps: {
+      activeGatewayProfile: 'default',
+      activeSessionIdRef: { current: activeSessionId },
+      hydrateFromStoredSession: vi.fn(),
+      lastCwdInfoSessionRef: { current: null },
+      queryClient: { invalidateQueries: vi.fn() },
+      refreshHermesConfig: vi.fn(),
+      scheduleSessionsRefresh: vi.fn(),
+      sessionInterrupted: () => false,
+      sessionStateByRuntimeIdRef: { current: new Map() },
+      updateSessionState: vi.fn((_: string, updater: (state: ClientSessionState) => ClientSessionState) => updater),
+      upsertToolCall: vi.fn()
+    },
+    event: { profile: 'default', session_id: explicitSid, type: 'session.info' },
+    explicitSid,
+    fromActiveSource: () => true,
+    isActiveEvent: explicitSid === activeSessionId,
+    occurredAt: Date.now() / 1000,
+    payload: {
+      cwd: '',
+      stored_session_id: 'stored-1',
+      model,
+      provider
+    },
+    scheduleConfigRefresh: vi.fn(),
+    sessionId: explicitSid || activeSessionId
+  } as unknown as GatewayEventContext
+}
 
 const setGlobalModel = vi.fn()
 const notify = vi.fn()
@@ -49,6 +102,9 @@ vi.mock('@/store/session-states', async importOriginal => {
 })
 
 vi.mock('@/i18n', () => ({
+  // session-info.ts's import chain reaches desktop-slash-commands, which
+  // resolves /new's description via translateNow at module load.
+  translateNow: (key: string) => key,
   useI18n: () => ({
     t: {
       common: {
@@ -107,11 +163,16 @@ describe('useModelControls', () => {
     window.localStorage.removeItem('hermes.desktop.composer.last-model')
     window.localStorage.removeItem('hermes.desktop.composer.last-provider')
     window.localStorage.removeItem('hermes.desktop.composer.last-scope')
+    // v16: selectModel registers pendings on a module-global map — reset it so
+    // one test's pick never reconciles on behalf of another.
+    resetPendingModelPicksForTests()
   })
 
   afterEach(() => {
     cleanup()
     vi.restoreAllMocks()
+    resetPendingModelPicksForTests()
+    setActiveRuntimeProvider(null)
     $activeGatewayProfile.set('default')
     $activeSessionId.set(null)
     setCurrentModel('')
@@ -347,6 +408,7 @@ describe('useModelControls', () => {
     await expect(switchPromise).resolves.toBe(true)
 
     expect(sessionUpdate).toHaveBeenCalledWith('session-1', expect.any(Function))
+
     const painted = sessionUpdate.mock.calls.at(-1)![1]({
       model: 'qwen3.7-plus',
       provider: 'opencode-go'
@@ -479,6 +541,104 @@ describe('useModelControls', () => {
     expect($currentModel.get()).toBe('fable-5')
     expect($currentProvider.get()).toBe('nous')
     expect(notifyError).toHaveBeenCalled()
+  })
+
+  it('v16b: a LATE RPC failure does not roll back a pick the session.info already confirmed', async () => {
+    // The core v16b race: the RPC hangs, the backend applies the switch and
+    // session.info confirms (consuming the pending) WHILE the request is still
+    // in flight; the RPC then times out. The catch must see the pending is
+    // GONE (seq mismatch) and leave the confirmed composer+sticky alone —
+    // no rollback, no error toast.
+    $activeSessionId.set('session-1')
+    setCurrentModel('glm-5.3-flash')
+    setCurrentProvider('commandcode')
+
+    const pendingSwitch = deferred<Record<string, unknown>>()
+    const requestGateway = vi.fn(() => pendingSwitch.promise as never)
+    let controls!: Controls
+
+    render(<Harness onReady={value => (controls = value)} requestGateway={requestGateway} />)
+
+    // The file's afterEach (vi.restoreAllMocks) does not reset module-level
+    // vi.fn() history — an earlier test's notifyError call would leak here.
+    notifyError.mockClear()
+
+    const switchPromise = controls.selectModel({ model: 'glm-5.3', provider: 'commandcode' })
+
+    // While the RPC hangs, the authoritative confirmation arrives and the
+    // reconciler commits composer + sticky (this is exactly what the
+    // session-info handler does on a matching explicitSid event).
+    const live = $activeSessionId.get() ?? ''
+    setActiveRuntimeProvider(() => live)
+    handleSessionInfoEvent(
+      sessionInfoEventForModelConfirm({
+        activeSessionId: live,
+        explicitSid: live,
+        model: 'glm-5.3',
+        provider: 'commandcode'
+      })
+    )
+    expect($currentModel.get()).toBe('glm-5.3') // confirmed while hanging
+
+    // The RPC finally fails (timeout) — the confirmed state must survive.
+    pendingSwitch.reject(new Error('RPC timeout'))
+    await expect(switchPromise).resolves.toBe(false)
+
+    expect($currentModel.get()).toBe('glm-5.3')
+    expect($currentProvider.get()).toBe('commandcode')
+    expect(computeLastUsedSelection().model).toBe('glm-5.3')
+    expect(notifyError).not.toHaveBeenCalled()
+  })
+
+  it('v16b: a REAL transport failure (nothing confirmed) still rolls back and keeps the pending', async () => {
+    // The rollback path stays intact: when NO confirmation consumed the
+    // pending, the catch rolls the optimistic paint back and reports the
+    // error — the pending stays registered for a possible late session.info.
+    $activeSessionId.set('session-1')
+    setCurrentModel('glm-5.3-flash')
+    setCurrentProvider('commandcode')
+
+    const requestGateway = vi.fn(async () => {
+      throw new Error('ECONNRESET')
+    })
+
+    let controls!: Controls
+
+    render(<Harness onReady={value => (controls = value)} requestGateway={requestGateway} />)
+
+    await expect(controls.selectModel({ model: 'glm-5.3', provider: 'commandcode' })).resolves.toBe(false)
+
+    expect($currentModel.get()).toBe('glm-5.3-flash')
+    expect($currentProvider.get()).toBe('commandcode')
+    expect(notifyError).toHaveBeenCalled()
+    // The pending survived the rollback — it is the durable intent for the
+    // reconciler (backend may have applied the switch anyway).
+    const live = $activeSessionId.get() ?? ''
+    expect(consumePendingModelPick(live)).toMatchObject({
+      model: 'glm-5.3',
+      provider: 'commandcode'
+    })
+  })
+
+  it('v16b: confirmed switch feeds the sticky — manual pick glm-5.3 → last-used glm-5.3', async () => {
+    // The central goal of the patch, asserted end-to-end through the hook:
+    // pick → gateway confirms → paintSelection feeds the cross-scope sticky
+    // the next New Session seeds from.
+    $activeSessionId.set('session-1')
+    setCurrentModel('glm-5.3-flash')
+    setCurrentProvider('commandcode')
+
+    const requestGateway = vi.fn(async () => ({ key: 'model', value: 'glm-5.3' }) as never)
+    let controls!: Controls
+
+    render(<Harness onReady={value => (controls = value)} requestGateway={requestGateway} />)
+
+    await expect(controls.selectModel({ model: 'glm-5.3', provider: 'commandcode' })).resolves.toBe(true)
+
+    expect($currentModel.get()).toBe('glm-5.3')
+    const sticky = computeLastUsedSelection()
+    expect(sticky.model).toBe('glm-5.3')
+    expect(sticky.provider).toBe('commandcode')
   })
 
   it('session-scopes MoA preset selections so they cannot persist as the global gateway default', async () => {
@@ -1027,6 +1187,7 @@ describe('useModelControls', () => {
     const requestGateway = vi.fn(async () => {
       throw new Error('gateway exploded')
     })
+
     const { result } = renderHook(() => useModelControls({ queryClient, requestGateway }))
 
     await expect(

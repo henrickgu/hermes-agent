@@ -3,33 +3,35 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ClientSessionState } from '@/app/types'
 import { createClientSessionState } from '@/lib/chat-runtime'
 import {
+  consumePendingModelPick,
+  registerPendingModelPick,
+  resetPendingModelPicksForTests,
+  setActiveRuntimeProvider
+} from '@/lib/model-pick-pending'
+import { persistString } from '@/lib/storage'
+import {
   $currentCwd,
   $currentFastMode,
-  $draftReasoningEffort,
+  $currentModel,
+  $currentProvider,
   $currentServiceTier,
+  $draftReasoningEffort,
   $selectedStoredSessionId,
   $workspaceCwdOwner,
+  computeLastUsedSelection,
+  noteModelSelectionInUse,
   releaseWorkspaceCwdOwner,
   setCurrentCwd,
   setCurrentFastMode,
   setCurrentModel,
   setCurrentModelSource,
   setCurrentProvider,
-  $currentModel,
-  $currentProvider,
   setCurrentReasoningEffort,
   setCurrentServiceTier,
   setSelectedStoredSessionId
 } from '@/store/session'
-import { persistString } from '@/lib/storage'
 
 import { handleSessionInfoEvent } from './session-info'
-import {
-  registerPendingModelPick,
-  resetPendingModelPicksForTests,
-  setActiveRuntimeProvider,
-  consumePendingModelPick
-} from '@/lib/model-pick-pending'
 import type { GatewayEventContext } from './types'
 
 // `_session_info` stamps `stored_session_id: session_key or ""`, so every
@@ -145,11 +147,13 @@ describe('handleSessionInfoEvent workspace ownership', () => {
   // the slice while the session is active, and the draft atom is untouched.
   it('applies effort from the pane own active runtime session.info to the slice only', () => {
     const state = { ...createClientSessionState('stored-1'), reasoningEffort: 'medium' }
+
     const ctx = sessionInfoEvent({
       activeSessionId: 'runtime-1',
       explicitSid: 'runtime-1',
       reasoningEffort: 'high'
     })
+
     ctx.deps.sessionStateByRuntimeIdRef.current.set('runtime-1', state)
     // Apply the updater like the real updateSessionState does — the handler must
     // route the session fact into the slice, and only there.
@@ -263,6 +267,7 @@ describe('draft: runtime events must not rewrite the draft effort', () => {
 
   it('a named session.info that does not belong to the active pane cannot rewrite the composer', () => {
     setCurrentReasoningEffort('medium', 'draft-init')
+
     // O draft TEM runtime (usuário já digitou e session.create rodou) mas o evento
     // chegou da sessão A — sid diferente do ativo.
     const ctx = sessionInfoEvent({
@@ -287,6 +292,7 @@ describe('draft: runtime events must not rewrite the draft effort', () => {
       storedSessionId: 'stored-A',
       reasoningEffort: 'ultra'
     })
+
     handleSessionInfoEvent(ctx)
 
     expect(window.localStorage.getItem('hermes.desktop.composer.reasoning-effort')).toContain('medium')
@@ -324,8 +330,14 @@ describe('draft: runtime events must not rewrite the draft effort', () => {
 // v16 — reconcile do pending model pick: transporte falhou mas o backend aplicou
 // o switch; o session.info confirmatório comita composer+sticky. Runtime inativo
 // só reconcilia o sticky (sem repaint). Par divergente expira sem tocar sticky.
+// v16b — sticky (last-used) é assertado DIRETAMENTE: é o objetivo central do
+// patch (manual pick glm-5.3 → last-used = glm-5.3); e eventos de broadcast sem
+// explicitSid não podem consumir o pending de outro runtime.
 describe('v16 pendingModelPick reconcile', () => {
   beforeEach(() => {
+    window.localStorage.removeItem('hermes.desktop.composer.last-model')
+    window.localStorage.removeItem('hermes.desktop.composer.last-provider')
+    window.localStorage.removeItem('hermes.desktop.composer.last-scope')
     setCurrentModel('cline-pass/glm-5.3-flash')
     setCurrentProvider('clinepass')
     setCurrentModelSource('manual')
@@ -334,6 +346,9 @@ describe('v16 pendingModelPick reconcile', () => {
 
   afterEach(() => {
     resetPendingModelPicksForTests()
+    window.localStorage.removeItem('hermes.desktop.composer.last-model')
+    window.localStorage.removeItem('hermes.desktop.composer.last-provider')
+    window.localStorage.removeItem('hermes.desktop.composer.last-scope')
   })
 
   it('confirma o pending: session.info com o par esperado → atom+sticky, e limpa', () => {
@@ -352,6 +367,11 @@ describe('v16 pendingModelPick reconcile', () => {
     expect($currentModel.get()).toBe('cline-pass/glm-5.3')
     expect($currentProvider.get()).toBe('clinepass')
     expect(consumePendingModelPick('runtime-a')).toBeUndefined()
+    // v16b: the STICKY (goal of the patch) — manual pick glm-5.3 → last-used
+    // glm-5.3, so the next New Session seeds from the confirmed pair.
+    const sticky = computeLastUsedSelection()
+    expect(sticky.model).toBe('cline-pass/glm-5.3')
+    expect(sticky.provider).toBe('clinepass')
   })
 
   it('runtime inativo: reconcilia o sticky SEM repaint do átomo do composer', () => {
@@ -375,10 +395,16 @@ describe('v16 pendingModelPick reconcile', () => {
     expect($currentProvider.get()).toBe('commandcode')
     // …sticky reconciliado pro par confirmado…
     expect(consumePendingModelPick('runtime-a')).toBeUndefined()
+    const sticky = computeLastUsedSelection()
+    expect(sticky.model).toBe('cline-pass/glm-5.3')
+    expect(sticky.provider).toBe('clinepass')
   })
 
   it('par divergente: pending descartado, sticky/composer intocados', () => {
     setActiveRuntimeProvider(() => 'runtime-a')
+    // Pre-seed the sticky with the outgoing pair — "untouched" must be
+    // provable, not assumed from a clean store.
+    noteModelSelectionInUse('cline-pass/glm-5.3-flash', 'clinepass', 'scope-x')
 
     handleSessionInfoEvent(
       sessionInfoEvent({
@@ -392,5 +418,34 @@ describe('v16 pendingModelPick reconcile', () => {
 
     expect($currentModel.get()).toBe('cline-pass/glm-5.3-flash') // rollback natural
     expect(consumePendingModelPick('runtime-a')).toBeUndefined()
+    // Sticky keeps the PRE-EXISTING pair — the divergent info changed nothing.
+    const sticky = computeLastUsedSelection()
+    expect(sticky.model).toBe('cline-pass/glm-5.3-flash')
+    expect(sticky.provider).toBe('clinepass')
+  })
+
+  it('v16b: broadcast session.info SEM explicitSid não consume o pending', () => {
+    // The gateway fan-out re-emits session.info for every live session, often
+    // WITHOUT a pane-scoped id. Such an event resolves to the ACTIVE runtime
+    // via the fallback route; without the explicitSid gate it would judge the
+    // active session's pending against ANOTHER runtime's pair and kill it
+    // ("divergent") before the real confirmation arrived.
+    setActiveRuntimeProvider(() => 'runtime-a')
+
+    handleSessionInfoEvent(
+      sessionInfoEvent({
+        activeSessionId: 'runtime-a',
+        explicitSid: '', // unnamed broadcast
+        storedSessionId: 'stored-b',
+        model: 'z-ai/glm-5.3-flash', // session B's pair
+        provider: 'commandcode'
+      })
+    )
+
+    // The pending SURVIVES for the real (named) confirmation…
+    expect(consumePendingModelPick('runtime-a')).toBeDefined()
+    // …and nothing about the divergent pair leaked into composer or sticky.
+    expect($currentModel.get()).toBe('cline-pass/glm-5.3-flash')
+    expect(computeLastUsedSelection().model).not.toBe('z-ai/glm-5.3-flash')
   })
 })

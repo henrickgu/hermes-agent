@@ -7,8 +7,13 @@ import { useI18n } from '@/i18n'
 import { isBusySessionModelSwitch } from '@/lib/gateway-rpc'
 import { surfaceModelSwitchConfirm } from '@/lib/guarded-model-switch'
 import { manualPickRemoved, modelOptionsQueryKey } from '@/lib/model-options'
+import {
+  clearPendingModelPickIfSeqMatches,
+  pendingModelPickSeqMatches,
+  registerPendingModelPick
+} from '@/lib/model-pick-pending'
 import { carryReasoningEffort } from '@/lib/reasoning-effort'
-import { getModelPreset, setModelPreset } from '@/store/model-presets'
+import { getModelPreset } from '@/store/model-presets'
 import { notifyError } from '@/store/notifications'
 import { $activeGatewayProfile } from '@/store/profile'
 import {
@@ -16,25 +21,18 @@ import {
   $currentModel,
   $currentProvider,
   $draftReasoningEffort,
+  computeLastUsedSelection,
+  consumeExplicitContextSwitch,
   getComposerSelectionGeneration,
+  getCurrentComposerScope,
   getCurrentModelSource,
   markComposerSelectionManual,
+  noteModelSelectionInUse,
   setCurrentModel,
   setCurrentModelSource,
   setCurrentProvider,
-  setCurrentReasoningEffort,
-  noteModelSelectionInUse,
-  getCurrentComposerScope,
-  computeLastUsedSelection,
-  consumeExplicitContextSwitch
+  setCurrentReasoningEffort
 } from '@/store/session'
-import {
-  consumePendingModelPick,
-  isRuntimeActive,
-  isPendingFresh,
-  registerPendingModelPick,
-  resolvePendingModelPick
-} from '@/lib/model-pick-pending'
 import { $sessionStates, patchSessionSliceEffort, sessionTileDelegate } from '@/store/session-states'
 import type { ModelOptionsResponse } from '@/types/hermes'
 
@@ -192,7 +190,7 @@ export function useModelControls({
         const stickyIsValid = Boolean(lastUsed.model && lastUsed.provider)
 
         const paintDefault = (model: string, provider: string) => {
-          // eslint-disable-next-line no-console
+
           console.error(
             `[model-selection-write] reason=${reason} force=${String(force)}` +
               ` prev=${JSON.stringify({ model: $currentModel.get(), provider: $currentProvider.get() })}` +
@@ -205,7 +203,7 @@ export function useModelControls({
         }
 
         if (stickyIsValid && (reason === 'boot-rescope' || reason === 'explicit-refresh') && !consumeExplicitContextSwitch()) {
-          // eslint-disable-next-line no-console
+
           console.error(
             `[model-selection-write] reason=${reason} force=${String(force)}` +
               ` prev=${JSON.stringify({ model: $currentModel.get(), provider: $currentProvider.get() })}` +
@@ -322,7 +320,7 @@ export function useModelControls({
 
 const selectModel = useCallback(
     async (selection: ModelSelection): Promise<boolean> => {
-      // eslint-disable-next-line no-console
+
       console.error(
         `[model-select ${++__modelPickProbeSeq}] IN selection=${JSON.stringify((selection.provider ?? '') + '/' + (selection.model ?? ''))} sid=${JSON.stringify('sessionId' in selection ? selection.sessionId : null)}`
       )
@@ -350,7 +348,7 @@ const selectModel = useCallback(
         (liveSessionId ? ($sessionStates.get()[liveSessionId]?.reasoningEffort ?? '') : '') ||
         (touchesPrimary ? $draftReasoningEffort.get() : '')
 
-      
+
 const paintSelection = () => {
         if (touchesPrimary) {
           // [model-pick-probe] prev atom → clicked → sticky after
@@ -362,7 +360,7 @@ const paintSelection = () => {
           // v14: an explicit user pick is a real-use selection — feed the
           // cross-scope New Session sticky.
           noteModelSelectionInUse(selection.model, selection.provider)
-          // eslint-disable-next-line no-console
+
           console.error(
             `[model-pick #${++__modelPickProbeSeq}] clicked=${JSON.stringify(selection.provider + '/' + selection.model)}` +
               ` prevAtom=${JSON.stringify(__prevProvider + '/' + __prevModel)}` +
@@ -519,7 +517,10 @@ const paintSelection = () => {
         // + sticky with the pair the user picked. Failure paths keep composer
         // and sticky untouched; the pending stays for session.info to reconcile
         // (backend applied the switch even if the response was lost).
-        resolvePendingModelPick(liveSessionId ?? '')
+        // v16b: seq-guard the consumption — if the user already picked AGAIN
+        // (newer seq replaced this entry), a late success must not delete the
+        // NEWER pick's reconciliation window.
+        clearPendingModelPickIfSeqMatches(liveSessionId ?? '', pendingSeq)
         paintSelection()
         cacheSelection(selection.provider, selection.model)
 
@@ -543,13 +544,23 @@ const paintSelection = () => {
           return true
         }
 
-        // v16: a transport failure does NOT mean the switch failed — the
+        // v16b: a transport failure does NOT mean the switch failed — the
         // backend may have applied it (the repro: response lost, session.info
         // confirmed glm-5.3 seconds later). Keep the pending registered so the
         // reconciling session.info commits composer + sticky. Roll back the
         // OPTIMISTIC composer paint only: the pending is the durable intent.
-        rollbackSelection()
-        notifyError(err, copy.modelSwitchFailed)
+        //
+        // v16b race guard: if the session.info confirmation ALREADY consumed
+        // this pick (seq mismatch) while the RPC was hanging, the confirmed
+        // state is authoritative — a late timeout may NOT roll it back. Only
+        // a pick whose pending is still live (nobody confirmed or replaced
+        // it) rolls back. The pending itself SURVIVES the rollback: a lost
+        // response does not mean the switch failed, and the reconciler may
+        // still confirm it later.
+        if (pendingModelPickSeqMatches(liveSessionId ?? '', pendingSeq)) {
+          rollbackSelection()
+          notifyError(err, copy.modelSwitchFailed)
+        }
 
         return false
       }
