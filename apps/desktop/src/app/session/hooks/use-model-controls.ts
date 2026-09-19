@@ -26,6 +26,7 @@ import {
   getComposerSelectionGeneration,
   getCurrentComposerScope,
   getCurrentModelSource,
+  isRefreshProtectedModel,
   markComposerSelectionManual,
   noteModelSelectionInUse,
   setCurrentModel,
@@ -150,7 +151,10 @@ export function useModelControls({
         // Reads the model-options cache the composer already populated; an
         // unknown/not-yet-loaded catalog conservatively preserves the pick.
         const keepManualPick = () => {
-          if (force || !$currentModel.get() || getCurrentModelSource() !== 'manual') {
+          // v17: BOTH provenances survive an automatic refresh — an explicit
+          // pick and a sticky-restored seed (the `force` paths of an explicit
+          // profile switch still reseed; `force` bails here as before).
+          if (force || !$currentModel.get() || !isRefreshProtectedModel()) {
             return false
           }
 
@@ -212,7 +216,9 @@ export function useModelControls({
           )
           setCurrentModel(lastUsed.model)
           setCurrentProvider(lastUsed.provider)
-          setCurrentModelSource('manual')
+          // v17: this is a RESTORE of the last-used pair, not a user pick —
+          // provenance must say so or session.create treats it as manual.
+          setCurrentModelSource('sticky_seed')
 
           return
         }
@@ -365,7 +371,9 @@ const paintSelection = () => {
             `[model-pick #${++__modelPickProbeSeq}] clicked=${JSON.stringify(selection.provider + '/' + selection.model)}` +
               ` prevAtom=${JSON.stringify(__prevProvider + '/' + __prevModel)}` +
               ` atomAfter=${JSON.stringify($currentProvider.get() + '/' + $currentModel.get())}` +
-              ` stickyAfter=${JSON.stringify((() => { const lu = computeLastUsedSelection(); return lu.provider + '/' + lu.model })())}` +
+              ` stickyAfter=${JSON.stringify((() => { const lu = computeLastUsedSelection();
+
+ return lu.provider + '/' + lu.model })())}` +
               ` session=${JSON.stringify(liveSessionId)}`
           )
         }

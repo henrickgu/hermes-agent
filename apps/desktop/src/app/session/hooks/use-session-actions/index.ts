@@ -68,8 +68,8 @@ import {
   computeFreshDraftEffort,
   computeLastUsedSelection,
   getCurrentComposerScope,
-  getCurrentModelSource,
   getSessionOwnerHint,
+  isUserPickedModel,
   type NewChatWorkspaceTarget,
   resolveComposerSessionKey,
   sessionPinId,
@@ -309,7 +309,11 @@ export async function desktopSessionCreateParams(
   // the live agent (applySavedMainModel) and only flips the source to 'default'.
   // Shipping that stale value as an override pins every new chat to the old
   // model. Omit model/provider unless the source is 'manual'.
-  const isManualSelection = getCurrentModelSource() === 'manual'
+  // v17: ONLY an explicit user pick is a create override. A sticky_seed
+  // composer (restored from the last-used at boot/draft-init) is exactly
+  // the stale seed the fresher sticky must replace — same precedence as
+  // 'default'/'' : fall through to the scope-matched sticky below.
+  const isManualSelection = isUserPickedModel()
 
   // v16c: with no manual pick on the composer, the last-used pair (the
   // cross-scope sticky) still travels — it is the model the user ACTUALLY
@@ -563,7 +567,10 @@ export function useSessionActions({
         // the last-used mirror, so this is a visual no-op when they agree.
         setCurrentModel(lastUsed.model)
         setCurrentProvider(lastUsed.provider)
-        setCurrentModelSource('manual')
+        // v17: restored from the sticky — a seed, NOT a user pick. Provenance
+        // must say so, or the next session.create treats this pair as manual
+        // and a fresher sticky (e.g. a confirmed tile pick) loses to it.
+        setCurrentModelSource('sticky_seed')
       }
 
       // v12: ONE authority for the fresh draft — explicit preset → profile

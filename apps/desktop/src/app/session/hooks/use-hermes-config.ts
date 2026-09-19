@@ -5,12 +5,13 @@ import { getHermesConfig, getHermesConfigDefaults } from '@/hermes'
 import { BUILTIN_PERSONALITIES, normalizePersonalityValue, personalityNamesFromConfig } from '@/lib/chat-runtime'
 import { normalize } from '@/lib/text'
 import { setDisplayTimestampsFromConfig } from '@/store/display-timestamps'
+import { getModelPreset } from '@/store/model-presets'
 import {
   $currentModel,
   $currentProvider,
   computeFreshDraftEffort,
   getComposerSelectionGeneration,
-  getCurrentModelSource,
+  isRefreshProtectedModel,
   setAvailablePersonalities,
   setCurrentFastMode,
   setCurrentPersonality,
@@ -19,7 +20,6 @@ import {
   setDefaultReasoningEffort,
   setIntroPersonality
 } from '@/store/session'
-import { getModelPreset } from '@/store/model-presets'
 import { refreshVoiceLiveStatus } from '@/store/voice-live'
 import {
   applyAutoSpeakFromConfig,
@@ -114,7 +114,10 @@ export function useHermesConfig({ activeSessionIdRef }: HermesConfigOptions) {
         const shouldSeedComposer =
           !activeSessionIdRef.current &&
           getComposerSelectionGeneration() === selectionGeneration &&
-          (force || getCurrentModelSource() !== 'manual')
+          // v17: neither an explicit pick NOR a sticky-restored seed may be
+          // overwritten by an automatic config refresh (only `force` — an
+          // explicit profile/context switch — reseeds).
+          (force || !isRefreshProtectedModel())
 
         if (shouldSeedComposer) {
           if (!canPublish()) {
