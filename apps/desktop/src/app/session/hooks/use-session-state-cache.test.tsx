@@ -2,16 +2,45 @@ import { act, cleanup, render } from '@testing-library/react'
 import { type MutableRefObject, useLayoutEffect } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import type * as ProfileModule from '@/store/profile'
+import type * as SessionStates from '@/store/session-states'
+
+// v18 tests: control $focusedRuntimeId directly — the real computed derives
+// from the layout tree, which a unit harness doesn't build. Everything else
+// from session-states stays real.
+const focusedRuntimeIdMock = vi.hoisted(() => {
+  const { atom } = require('nanostores') as { atom: <T>(value: T) => { get(): T; set(value: T): void } }
+
+  return atom<string | null>(null)
+})
+
+vi.mock('@/store/session-states', async importOriginal => {
+  const actual = await importOriginal<typeof SessionStates>()
+
+  return {
+    ...actual,
+    $focusedRuntimeId: focusedRuntimeIdMock
+  }
+})
+
+/** Point the v18 focus authority at a runtime for the current test. */
+function mockFocusedRuntimeId(runtimeId: null | string): void {
+  focusedRuntimeIdMock.set(runtimeId)
+}
+
 import type { ChatMessage } from '@/lib/chat-messages'
 import {
   $activeSessionStoredIdRotation,
   $currentFastMode,
   $currentModel,
   $currentProvider,
-  $draftReasoningEffort,
   $currentServiceTier,
+  $draftReasoningEffort,
   $messages,
   $turnStartedAt,
+  computeLastUsedSelection,
+  getCurrentComposerScope,
+  noteModelSelectionInUse,
   setActiveSessionId,
   setActiveSessionStoredIdRotation,
   setCurrentFastMode,
@@ -29,6 +58,19 @@ import {
   setSessionTileDelegate
 } from '@/store/session-states'
 
+// The create-params builder touches store/profile helpers that dial the
+// gateway registry — irrelevant to the focus-authority under test.
+vi.mock('@/store/profile', async importOriginal => {
+  const actual = await importOriginal<typeof ProfileModule>()
+
+  return {
+    ...actual,
+    ensureGatewayProfile: vi.fn(async () => undefined),
+    resolveNewChatOwnerRoute: vi.fn(() => null)
+  }
+})
+
+import { desktopSessionCreateParams } from './use-session-actions'
 import { useSessionStateCache } from './use-session-state-cache'
 
 type Cache = ReturnType<typeof useSessionStateCache>
@@ -695,5 +737,117 @@ describe('useSessionStateCache — reconnect busy reconcile (#93059)', () => {
     expect(cache.sessionStateByRuntimeIdRef.current.get('runtime-1')?.busy).toBe(false)
     expect(cache.sessionStateByRuntimeIdRef.current.get('runtime-1')?.awaitingResponse).toBe(false)
     expect($sessionStates.get()['runtime-1']?.busy).toBe(false)
+  })
+})
+
+// v18 — focus authority for the sticky: a PASSIVE session.info write may only
+// update the global last-used sticky when its runtime is the one the user is
+// FOCUSED on. A non-focused runtime (the old primary heartbeating while the
+// user works on a focused tile) keeps its slice/cache updates but loses the
+// sticky. These two tests are the exact proven repro and its inverse.
+describe('useSessionStateCache — v18 sticky focus authority', () => {
+  beforeEach(() => {
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb: FrameRequestCallback) => {
+      cb(0)
+
+      return null as unknown as number
+    })
+    window.localStorage.removeItem('hermes.desktop.composer.last-model')
+    window.localStorage.removeItem('hermes.desktop.composer.last-provider')
+    window.localStorage.removeItem('hermes.desktop.composer.last-scope')
+    setTurnStartedAt(null)
+    setCurrentModel('')
+    setCurrentProvider('')
+    setCurrentFastMode(false)
+  })
+
+  afterEach(() => {
+    cleanup()
+    clearAllSessionStates()
+    setActiveSessionId(null)
+    window.localStorage.removeItem('hermes.desktop.composer.last-model')
+    window.localStorage.removeItem('hermes.desktop.composer.last-provider')
+    window.localStorage.removeItem('hermes.desktop.composer.last-scope')
+  })
+
+  it('T1 (repro): pick Flash na tile focada → heartbeat da primária NÃO reverte o sticky → create nasce Flash', async () => {
+    // Focused tile runtime; the primary holds an OLD conversation on glm-5.3.
+    mockFocusedRuntimeId('runtime-tile')
+    setActiveSessionId('runtime-primary')
+
+    let cache!: Cache
+
+    render(
+      <Harness activeSessionId="runtime-primary" onReady={value => (cache = value)} selectedStoredSessionId="stored-primary" />
+    )
+
+    // The tile's confirmed pick wrote the sticky (explicit writer — unconditional).
+    noteModelSelectionInUse('glm-5.3-flash', 'zai', getCurrentComposerScope())
+    expect(computeLastUsedSelection().model).toBe('glm-5.3-flash')
+
+    // The PRIMARY (NOT focused) heartbeats its glm-5.3 session.info through the
+    // passive path: view-sync runs for the active primary, but the sticky must
+    // NOT follow it.
+    act(() => {
+      cache.updateSessionState(
+        'runtime-primary',
+        state => ({ ...state, model: 'glm-5.3', provider: 'zai' }),
+        'stored-primary'
+      )
+    })
+
+    const primaryState = cache.sessionStateByRuntimeIdRef.current.get('runtime-primary')
+    expect(primaryState?.model).toBe('glm-5.3') // slice/cache updated normally
+
+    act(() => {
+      cache.syncSessionStateToView('runtime-primary', primaryState!)
+    })
+
+    // The sticky SURVIVES the non-focused heartbeat.
+    expect(computeLastUsedSelection().model).toBe('glm-5.3-flash')
+    expect(computeLastUsedSelection().provider).toBe('zai')
+
+    // And the next New Session's create reads the sticky → Flash.
+    const params = await desktopSessionCreateParams('')
+    expect(params.model).toBe('glm-5.3-flash')
+    expect(params.provider).toBe('zai')
+  })
+
+  it('T2 (inverse): foco volta pra primária → session.info dela TORNA o sticky glm-5.3 → create nasce glm-5.3', async () => {
+    // The tile pick left the sticky on Flash...
+    noteModelSelectionInUse('glm-5.3-flash', 'zai', getCurrentComposerScope())
+    expect(computeLastUsedSelection().model).toBe('glm-5.3-flash')
+
+    // ...the user focuses the primary (a tile homing or pane switch makes the
+    // focused runtime the primary again — $focusedRuntimeId mirrors it).
+    mockFocusedRuntimeId('runtime-primary')
+    setActiveSessionId('runtime-primary')
+
+    let cache!: Cache
+
+    render(
+      <Harness activeSessionId="runtime-primary" onReady={value => (cache = value)} selectedStoredSessionId="stored-primary" />
+    )
+
+    act(() => {
+      cache.updateSessionState(
+        'runtime-primary',
+        state => ({ ...state, model: 'glm-5.3', provider: 'zai' }),
+        'stored-primary'
+      )
+    })
+
+    const primaryState = cache.sessionStateByRuntimeIdRef.current.get('runtime-primary')
+
+    act(() => {
+      cache.syncSessionStateToView('runtime-primary', primaryState!)
+    })
+
+    // The FOCUSED primary's session.info legitimately owns the sticky again.
+    expect(computeLastUsedSelection().model).toBe('glm-5.3')
+    expect(computeLastUsedSelection().provider).toBe('zai')
+
+    const params = await desktopSessionCreateParams('')
+    expect(params.model).toBe('glm-5.3')
   })
 })

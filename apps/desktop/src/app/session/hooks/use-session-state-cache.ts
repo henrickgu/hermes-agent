@@ -5,12 +5,14 @@ import { PRIMARY_SESSION_VIEW } from '@/app/chat/session-view'
 import type { ChatMessage } from '@/lib/chat-messages'
 import { preserveLocalAssistantErrors } from '@/lib/chat-messages'
 import { createClientSessionState } from '@/lib/chat-runtime'
-import { readJson, writeJson } from '@/lib/storage'
 import { persistInFlightTurnState } from '@/lib/inflight-turn-journal'
 import { setMutableRef } from '@/lib/mutable-ref'
+import { readJson, writeJson } from '@/lib/storage'
 import {
   $activeSessionId,
   $messages,
+  getCurrentComposerScope,
+  noteModelSelectionInUse,
   setActiveSessionStoredIdRotation,
   setCurrentFastMode,
   setCurrentModel,
@@ -18,11 +20,9 @@ import {
   setCurrentProvider,
   setCurrentServiceTier,
   setTurnStartedAt,
-  setYoloActive,
-  noteModelSelectionInUse,
-  getCurrentComposerScope
+  setYoloActive
 } from '@/store/session'
-import { $sessionStates, $sessionTiles, publishSessionState, releaseSessionTranscript } from '@/store/session-states'
+import { $focusedRuntimeId, $sessionStates, $sessionTiles, publishSessionState, releaseSessionTranscript } from '@/store/session-states'
 
 import type { ClientSessionState } from '../../types'
 import { SessionStateCache } from '../session-state-cache'
@@ -66,15 +66,28 @@ function rememberSessionEffort(storedSessionId: string, effort: string): void {
   writeJson(SESSION_EFFORT_CACHE_KEY, { ...cache, [storedSessionId]: effort })
 }
 
-function syncRuntimeMetadataToView(state: ClientSessionState) {
+function syncRuntimeMetadataToView(state: ClientSessionState, sessionId: string) {
   setCurrentModel(state.model ?? '')
   setCurrentProvider(state.provider ?? '')
-  // v14 sticky-universal: the pair a live session is actually running at is the
-  // last-used selection for the next New Session (cross-scope). Provisional
-  // reseeds never reach here — this only fires on confirmed session state.
-  if (state.model && state.provider) {
+
+  // v18 focus authority: the pair a live session is actually running at is the
+  // last-used selection for the next New Session — but ONLY when that session
+  // is the one the user is focused on ($focusedRuntimeId mirrors the PRIMARY
+  // when no tile is focused, so the pre-tile behavior is unchanged). A
+  // NON-focused session (e.g. the old primary's heartbeats while the user
+  // works on a focused tile) may still update its own slice/cache/view — it
+  // just loses the authority to rewrite the global sticky. Proven repro this
+  // closes: tile pick confirmed Flash → primary heartbeat glm-5.3 rolled the
+  // sticky back before the next session.create. Explicit writers (a confirmed
+  // manual pick, Settings→Model, the pending reconciler) stay unconditional.
+  if (
+    state.model &&
+    state.provider &&
+    sessionId === $focusedRuntimeId.get()
+  ) {
     noteModelSelectionInUse(state.model, state.provider, getCurrentComposerScope())
   }
+
   setCurrentServiceTier(state.serviceTier ?? '')
   setCurrentFastMode(state.fast ?? false)
   setYoloActive(state.yolo ?? false)
@@ -296,7 +309,7 @@ export function useSessionStateCache({
 
     viewSessionIdRef.current = pending.sessionId
 
-    syncRuntimeMetadataToView(pending.state)
+    syncRuntimeMetadataToView(pending.state, pending.sessionId)
     setBusy(pending.state.busy)
     setMutableRef(busyRef, pending.state.busy)
     setAwaitingResponse(pending.state.awaitingResponse)
@@ -327,7 +340,7 @@ export function useSessionStateCache({
         rememberSessionEffort(viewState.storedSessionId, viewState.reasoningEffort ?? '')
       }
 
-      syncRuntimeMetadataToView(viewState)
+      syncRuntimeMetadataToView(viewState, sessionId)
       pendingViewStateRef.current = { sessionId, state: viewState }
 
       // Terminal / attention transitions (turn finished, error, or the agent is
