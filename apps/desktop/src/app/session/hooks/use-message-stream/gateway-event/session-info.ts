@@ -310,7 +310,15 @@ export function handleSessionInfoEvent(ctx: GatewayEventContext): boolean {
             setCurrentModelSource('manual')
           }
 
-          noteModelSelectionInUse(statePatch.model, statePatch.provider, getCurrentComposerScope())
+          // v20: the effort travels with the pair — same provenance. The state
+          // patch is the runtime's confirmed level for the adopted pair; when
+          // the info event did not carry it, keep the previously stored level.
+          noteModelSelectionInUse(
+            statePatch.model,
+            statePatch.provider,
+            getCurrentComposerScope(),
+            statePatch.reasoningEffort
+          )
         }
 
         // Divergent or stale: the pending dies either way — the sticky stays

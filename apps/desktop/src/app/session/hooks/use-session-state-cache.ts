@@ -85,7 +85,9 @@ function syncRuntimeMetadataToView(state: ClientSessionState, sessionId: string)
     state.provider &&
     sessionId === $focusedRuntimeId.get()
   ) {
-    noteModelSelectionInUse(state.model, state.provider, getCurrentComposerScope())
+    // v20: the focused runtime's confirmed effort travels with the pair —
+    // the New Session seeds its pill from the same sticky.
+    noteModelSelectionInUse(state.model, state.provider, getCurrentComposerScope(), state.reasoningEffort)
   }
 
   setCurrentServiceTier(state.serviceTier ?? '')

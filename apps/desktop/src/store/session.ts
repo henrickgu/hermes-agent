@@ -66,6 +66,7 @@ const COMPOSER_FAST_KEY = 'hermes.desktop.composer.fast'
 const LAST_MODEL_KEY = 'hermes.desktop.composer.last-model'
 const LAST_PROVIDER_KEY = 'hermes.desktop.composer.last-provider'
 const LAST_SCOPE_KEY = 'hermes.desktop.composer.last-scope'
+const LAST_EFFORT_KEY = 'hermes.desktop.composer.last-effort'
 // Last-known profile default (`agent.reasoning_effort`), mirrored to storage so
 // the composer's FIRST paint on boot matches what the gateway will conclude
 // instead of flashing the built-in medium before config arrives (same
@@ -1505,7 +1506,7 @@ export const computeFreshDraftEffort = (presetEffort?: string): string =>
  *  resolved synchronously BEFORE the first paint — instead of falling back to
  *  the profile default just because the previous switch happened under another
  *  gateway/connection scope. */
-export const noteModelSelectionInUse = (model: string, provider: string, scope?: string): void => {
+export const noteModelSelectionInUse = (model: string, provider: string, scope?: string, effort?: string): void => {
   if (!model.trim() || !provider.trim()) {
     return
   }
@@ -1516,6 +1517,13 @@ export const noteModelSelectionInUse = (model: string, provider: string, scope?:
   // DIFFERENT gateway (profile/gateway swap) legitimately owns its own default;
   // the sticky only wins when the New Session lands on the same scope.
   persistString(LAST_SCOPE_KEY, scope ?? composerSelectionScope ?? '')
+  // v20: the effort the pair was used WITH travels with the sticky — the New
+  // Session seeds its pill from it (same provenance as the pair). Undefined
+  // keeps whatever was last stored (callers that don't know the level — e.g.
+  // the pick reconciler before session.info reports it — must not erase it).
+  if (typeof effort === 'string' && effort.trim()) {
+    persistString(LAST_EFFORT_KEY, effort.trim())
+  }
 }
 
 /** The composer-selection scope currently in effect (for sticky comparisons). */
@@ -1550,13 +1558,20 @@ export const consumeExplicitContextSwitch = (): boolean => {
  *  the gateway scope it was used under. A New Session seeds its composer
  *  selection from this — resolved synchronously BEFORE the first paint —
  *  instead of falling back to the profile default. */
-export const computeLastUsedSelection = (): { model: string; provider: string; scope: string } => {
+export const computeLastUsedSelection = (): {
+  model: string
+  provider: string
+  scope: string
+  effort: string
+} => {
   const model = storedString(LAST_MODEL_KEY) ?? ''
   const provider = storedString(LAST_PROVIDER_KEY) ?? ''
 
   const scope = storedString(LAST_SCOPE_KEY) ?? ''
+  // v20: the effort the pair was used WITH — same provenance, travels together.
+  const effort = storedString(LAST_EFFORT_KEY) ?? ''
 
-  return model && provider ? { model, provider, scope } : { model: '', provider: '', scope: '' }
+  return model && provider ? { model, provider, scope, effort } : { model: '', provider: '', scope: '', effort: '' }
 }
 
 // The profile's `agent.reasoning_effort`, mirrored from config so surfaces that

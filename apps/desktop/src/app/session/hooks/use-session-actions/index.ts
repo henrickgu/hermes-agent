@@ -561,6 +561,7 @@ export function useSessionActions({
 
       // v14b: the sticky wins only under the SAME gateway scope the pair was
       // used in — a profile/gateway swap legitimately owns its own default.
+      let stickySeeded = false
       if (lastUsed.model && lastUsed.provider && lastUsed.scope === getCurrentComposerScope()) {
         // Unconditional: whatever is on the composer here is a boot reseed or a
         // resumed session's confirmed pair; the latter already wrote itself into
@@ -571,12 +572,20 @@ export function useSessionActions({
         // must say so, or the next session.create treats this pair as manual
         // and a fresher sticky (e.g. a confirmed tile pick) loses to it.
         setCurrentModelSource('sticky_seed')
+        stickySeeded = true
       }
 
       // v12: ONE authority for the fresh draft — explicit preset → profile
       // default → built-in. Reads only draft-owned state.
+      // v20: when the MODEL came from the sticky, the sticky's EFFORT seeds the
+      // pill first (the pair travels together: "last used" = model + level).
+      // Explicit per-model presets still win — they are the user's pin for that
+      // exact model; the sticky effort only fills the unpinned case.
       setCurrentReasoningEffort(
-        computeFreshDraftEffort(getModelPreset($currentProvider.get(), $currentModel.get()).effort),
+        computeFreshDraftEffort(
+          (stickySeeded ? lastUsed.effort : '') ||
+            getModelPreset($currentProvider.get(), $currentModel.get()).effort
+        ),
         'draft-init'
       )
       setNewChatWorkspaceTarget(hasWorkspaceTarget ? workspaceTarget : undefined)

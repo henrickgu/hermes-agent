@@ -205,6 +205,12 @@ export function useModelControls({
           // v17: this is a RESTORE of the last-used pair, not a user pick —
           // provenance must say so or session.create treats it as manual.
           setCurrentModelSource('sticky_seed')
+          // v20: the sticky's effort seeds the pill when the level was recorded
+          // with the pair ("last used" = model + level). Presets keep winning —
+          // this only fills the unpinned case, matching draft-init's order.
+          if (lastUsed.effort) {
+            setCurrentReasoningEffort(lastUsed.effort, 'config-seed')
+          }
 
           return
         }
@@ -357,7 +363,14 @@ const paintSelection = () => {
         // pick die with the consumed pending: the sticky kept the OLD pair and
         // the next New Session seeded from it ("pick GLM-5.3, next chat opens
         // flash"). Explicit writers stay unconditional (v18 contract).
-        noteModelSelectionInUse(selection.model, selection.provider)
+        // v20: the pill's level travels with the pair — the next New Session
+        // seeds its effort from the same sticky.
+        noteModelSelectionInUse(
+          selection.model,
+          selection.provider,
+          getCurrentComposerScope(),
+          touchesPrimary ? $draftReasoningEffort.get() : ($sessionStates.get()[liveSessionId!]?.reasoningEffort ?? '')
+        )
 
         if (liveSessionId) {
           // Every live surface renders from its per-session slice, including
