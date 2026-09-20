@@ -22,7 +22,7 @@ import {
   setTurnStartedAt,
   setYoloActive
 } from '@/store/session'
-import { $focusedRuntimeId, $sessionStates, $sessionTiles, publishSessionState, releaseSessionTranscript } from '@/store/session-states'
+import { $focusedRuntimeId, $openStoredSessionIds, $sessionStates, $sessionTiles, publishSessionState, releaseSessionTranscript } from '@/store/session-states'
 
 import type { ClientSessionState } from '../../types'
 import { SessionStateCache } from '../session-state-cache'
@@ -66,7 +66,11 @@ function rememberSessionEffort(storedSessionId: string, effort: string): void {
   writeJson(SESSION_EFFORT_CACHE_KEY, { ...cache, [storedSessionId]: effort })
 }
 
-function syncRuntimeMetadataToView(state: ClientSessionState, sessionId: string) {
+function syncRuntimeMetadataToView(
+  state: ClientSessionState,
+  sessionId: string,
+  openStoredSessionIds: ReadonlySet<string>
+) {
   setCurrentModel(state.model ?? '')
   setCurrentProvider(state.provider ?? '')
 
@@ -80,9 +84,18 @@ function syncRuntimeMetadataToView(state: ClientSessionState, sessionId: string)
   // closes: tile pick confirmed Flash → primary heartbeat glm-5.3 rolled the
   // sticky back before the next session.create. Explicit writers (a confirmed
   // manual pick, Settings→Model, the pending reconciler) stay unconditional.
+  // v22: only a runtime that belongs to a session OPEN IN THE UI may write the
+  // sticky. Cron/subagent/messaging runtimes report through the same gateway
+  // broadcast and can resolve to the active session via the null-sid fallback;
+  // without this gate their config-default pair (e.g. glm-5.3/zai/medium from
+  // the Vigia cron) overwrites the user's pick within seconds (proven repro:
+  // pick low → cron fire → sticky=medium → New Session seeds medium).
+  const ownsOpenSession =
+    !!state.storedSessionId && openStoredSessionIds.has(state.storedSessionId)
   if (
     state.model &&
     state.provider &&
+    ownsOpenSession &&
     sessionId === $focusedRuntimeId.get()
   ) {
     // v20: the focused runtime's confirmed effort travels with the pair —
@@ -107,6 +120,11 @@ export function useSessionStateCache({
   const busy = useStore(PRIMARY_SESSION_VIEW.$busy)
   const sessionTiles = useStore($sessionTiles)
   const activeSessionIdRef = useRef<string | null>(activeSessionId)
+  // v22: mirror of $openStoredSessionIds for sync-time gating (read inside
+  // syncRuntimeMetadataToView without subscribing the callback to the atom).
+  const openStoredSessionIdsRef = useRef<Set<string>>(new Set())
+  const openStoredSessionIds = useStore($openStoredSessionIds)
+  openStoredSessionIdsRef.current = openStoredSessionIds
   const selectedStoredSessionIdRef = useRef<string | null>(selectedStoredSessionId)
 
   // Mirror the latest prop into its ref synchronously during render — not via
@@ -311,7 +329,7 @@ export function useSessionStateCache({
 
     viewSessionIdRef.current = pending.sessionId
 
-    syncRuntimeMetadataToView(pending.state, pending.sessionId)
+    syncRuntimeMetadataToView(pending.state, pending.sessionId, openStoredSessionIdsRef.current)
     setBusy(pending.state.busy)
     setMutableRef(busyRef, pending.state.busy)
     setAwaitingResponse(pending.state.awaitingResponse)
@@ -342,7 +360,7 @@ export function useSessionStateCache({
         rememberSessionEffort(viewState.storedSessionId, viewState.reasoningEffort ?? '')
       }
 
-      syncRuntimeMetadataToView(viewState, sessionId)
+      syncRuntimeMetadataToView(viewState, sessionId, openStoredSessionIdsRef.current)
       pendingViewStateRef.current = { sessionId, state: viewState }
 
       // Terminal / attention transitions (turn finished, error, or the agent is

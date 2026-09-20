@@ -14,14 +14,26 @@ const focusedRuntimeIdMock = vi.hoisted(() => {
   return atom<string | null>(null)
 })
 
+const openStoredSessionIdsMock = vi.hoisted(() => {
+  const { atom } = require('nanostores') as { atom: <T>(value: T) => { get(): T; set(value: T): void } }
+
+  return atom<Set<string>>(new Set())
+})
+
 vi.mock('@/store/session-states', async importOriginal => {
   const actual = await importOriginal<typeof SessionStates>()
 
   return {
     ...actual,
-    $focusedRuntimeId: focusedRuntimeIdMock
+    $focusedRuntimeId: focusedRuntimeIdMock,
+    $openStoredSessionIds: openStoredSessionIdsMock
   }
 })
+
+/** Register a stored session id as OPEN IN THE UI (v22 sticky gate). */
+function mockOpenStoredSessionIds(ids: string[]): void {
+  openStoredSessionIdsMock.set(new Set(ids))
+}
 
 /** Point the v18 focus authority at a runtime for the current test. */
 function mockFocusedRuntimeId(runtimeId: null | string): void {
@@ -821,6 +833,7 @@ describe('useSessionStateCache — v18 sticky focus authority', () => {
     // ...the user focuses the primary (a tile homing or pane switch makes the
     // focused runtime the primary again — $focusedRuntimeId mirrors it).
     mockFocusedRuntimeId('runtime-primary')
+    mockOpenStoredSessionIds(['stored-primary'])
     setActiveSessionId('runtime-primary')
 
     let cache!: Cache
