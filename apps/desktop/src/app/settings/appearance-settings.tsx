@@ -397,7 +397,12 @@ function GlassRow({ children, label }: GlassRowProps) {
   )
 }
 
-export function AppearanceSettings() {
+interface AppearanceSettingsProps {
+  /** Deep-link subpage (upstream nav). Our build keeps a single page. */
+  subpage?: string
+}
+
+export function AppearanceSettings(_: AppearanceSettingsProps = {}) {
   const { t, isSavingLocale } = useI18n()
   const { themeName, mode, resolvedMode, availableThemes, setTheme, setMode } = useTheme()
   const toolViewMode = useStore($toolViewMode)

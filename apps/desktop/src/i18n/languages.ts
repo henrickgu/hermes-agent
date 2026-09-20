@@ -1,3 +1,5 @@
+import { LOCALE_ENDONYMS } from '@hermes/shared/i18n'
+
 import { normalize } from '@/lib/text'
 
 import type { Locale } from './types'
@@ -7,31 +9,31 @@ export const DEFAULT_LOCALE: Locale = 'en'
 export const LOCALE_OPTIONS = [
   {
     id: 'en',
-    name: 'English',
+    name: LOCALE_ENDONYMS.en,
     englishName: 'English',
     configValue: 'en'
   },
   {
     id: 'zh',
-    name: '简体中文',
+    name: LOCALE_ENDONYMS.zh,
     englishName: 'Simplified Chinese',
     configValue: 'zh'
   },
   {
     id: 'zh-hant',
-    name: '繁體中文',
+    name: LOCALE_ENDONYMS['zh-hant'],
     englishName: 'Traditional Chinese',
     configValue: 'zh-hant'
   },
   {
     id: 'ja',
-    name: '日本語',
+    name: LOCALE_ENDONYMS.ja,
     englishName: 'Japanese',
     configValue: 'ja'
   },
   {
     id: 'ar',
-    name: 'العربية',
+    name: LOCALE_ENDONYMS.ar,
     englishName: 'Arabic',
     configValue: 'ar'
   },
@@ -43,7 +45,7 @@ export const LOCALE_OPTIONS = [
   },
   {
     id: 'ru',
-    name: 'Русский',
+    name: LOCALE_ENDONYMS.ru,
     englishName: 'Russian',
     configValue: 'ru'
   }

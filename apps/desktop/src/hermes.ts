@@ -65,7 +65,6 @@ export type {
   ElevenLabsVoice,
   ElevenLabsVoicesResponse,
   EnvVarInfo,
-  GatewayReadyPayload,
   HermesConfig,
   HermesConfigRecord,
   LogsResponse,
@@ -87,8 +86,6 @@ export type {
   ModelAssignmentRequest,
   ModelAssignmentResponse,
   ModelInfoResponse,
-  ModelOptionProvider,
-  ModelOptionsResponse,
   PaginatedSessions,
   PairingResponse,
   PairingUser,
@@ -101,12 +98,11 @@ export type {
   ProjectFolder,
   ProjectInfo,
   ProjectsPayload,
-  RpcEvent,
   SessionCreateResponse,
   SessionInfo,
   SessionMessage,
   SessionMessagesResponse,
-  SessionResumeResponse,
+  SessionResumeResult,
   SessionRuntimeInfo,
   SessionSearchResponse,
   SessionSearchResult,
@@ -134,3 +130,6 @@ export type {
   WebhookRoute,
   WebhooksResponse
 } from '@/types/hermes'
+
+/** Compat: a leva upstream chamava o resume de `SessionResumeResponse`. */
+export type SessionResumeResponse = import('@/types/hermes').SessionResumeResult

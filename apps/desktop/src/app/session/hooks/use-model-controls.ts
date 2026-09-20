@@ -3,7 +3,7 @@ import { useCallback, useRef } from 'react'
 
 import type { ModelSelection } from '@/app/shell/model-menu-panel'
 import { getGlobalModelInfo } from '@/hermes'
-import { useI18n } from '@/i18n'
+import { translateNow, useI18n } from '@/i18n'
 import { isBusySessionModelSwitch } from '@/lib/gateway-rpc'
 import { surfaceModelSwitchConfirm } from '@/lib/guarded-model-switch'
 import { manualPickRemoved, modelOptionsQueryKey } from '@/lib/model-options'
@@ -150,20 +150,10 @@ export function useModelControls({
         // 404 every new chat — fall through to reseed from the profile default.
         // Reads the model-options cache the composer already populated; an
         // unknown/not-yet-loaded catalog conservatively preserves the pick.
-        const keepManualPick = () => {
-          // v17: BOTH provenances survive an automatic refresh — an explicit
-          // pick and a sticky-restored seed (the `force` paths of an explicit
-          // profile switch still reseed; `force` bails here as before).
-          if (force || !$currentModel.get() || !isRefreshProtectedModel()) {
-            return false
-          }
-
-          const options = queryClient.getQueryData<ModelOptionsResponse>(
-            modelOptionsQueryKey(cacheProfile || $activeGatewayProfile.get(), null, cacheOwnerConnectionId)
-          )
-
-          return !manualPickRemoved(options?.providers, $currentProvider.get(), $currentModel.get())
-        }
+        // leva 9: alinhado ao upstream — o pick manual e STICKY PURO. Nunca
+        // e diffado contra o catalogo (rows sao dicas; o gateway valida o id
+        // no switch). Um id que a row nao lista ainda e a escolha do usuario.
+        const keepManualPick = () => !force && Boolean($currentModel.get()) && isRefreshProtectedModel()
 
         if (keepManualPick()) {
           return
@@ -298,12 +288,12 @@ export function useModelControls({
       if (liveSessionId) {
         void requestGateway('config.set', { key: 'reasoning', session_id: liveSessionId, value: carried }).catch(
           err => {
-            notifyError(err, t.shell.modelOptions.updateFailed)
+            notifyError(err, translateNow('shell.modelOptions.updateFailed'))
           }
         )
       }
     },
-    [cacheOwnerConnectionId, cacheProfile, queryClient, requestGateway, t.shell.modelOptions.updateFailed]
+    [cacheOwnerConnectionId, cacheProfile, queryClient, requestGateway]
   )
 
   // Returns whether the switch was applied so callers can await it before
@@ -483,8 +473,8 @@ const paintSelection = () => {
           // confirm flow the Bots editor routes through — never fork this
           // logic per surface.
           surfaceModelSwitchConfirm({
-            confirmLabel: t.common.confirm,
             confirmMessage: result.confirm_message,
+            model: selection.model,
             failureMessage: copy.modelSwitchFailed,
             finish: result => {
               finishSwitch(result)
@@ -573,7 +563,6 @@ const paintSelection = () => {
       copy.modelSwitchFailed,
       queryClient,
       requestGateway,
-      t.common.confirm,
       updateModelOptionsCache
     ]
   )

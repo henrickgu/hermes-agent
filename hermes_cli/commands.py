@@ -106,9 +106,11 @@ COMMAND_REGISTRY: list[CommandDef] = [
     CommandDef("journey", "Linha do tempo de aprendizado",
                "Session", aliases=("learning", "memory-graph"), cli_only=True,
                args_hint="[list|delete <id>|edit <id>]", subcommands=("list", "delete", "edit")),
-    CommandDef("queue", "Enfileira prompt p/ próximo turno", "Session",
-               aliases=("q",), args_hint="<prompt>", busy_policy="dispatch", busy_handler="queue"),
-    CommandDef("steer", "Injeta msg após próxima ferramenta", "Session",
+    CommandDef("queue", "Enfileira prompt p/ próximo turno (ou lista/edita/remove/move/limpa)", "Session",
+               aliases=("q",), args_hint="[<prompt>|list|edit N <prompt>|rm N|move A B|clear]",
+               subcommands=("list", "edit", "rm", "move", "clear", "add"),
+               busy_policy="dispatch", busy_handler="queue"),
+    CommandDef("steer", "Injeta msg após a próxima ferramenta sem interromper", "Session",
                args_hint="<prompt>", busy_policy="dispatch", busy_handler="steer"),
     CommandDef("goal", "Define objetivo permanente do Hermes", "Session",
                args_hint="[text | draft <text> | show | gate add <cmd> | pause | resume | clear | status | wait <pid> | unwait]",
@@ -151,7 +153,7 @@ COMMAND_REGISTRY: list[CommandDef] = [
     CommandDef("config", "Mostra a configuração atual", "Configuration",
                cli_only=True, desktop="terminal"),
     CommandDef("model", "Troca de modelo (--global persiste)", "Configuration",
-               args_hint="[model] [--provider name] [--global|--session] [--refresh]",
+               args_hint="[model] [--provider name] [--reasoning level] [--global|--session] [--refresh]",
                busy_policy="reject", busy_handler="model", desktop="hidden"),
     CommandDef("codex-runtime", "Runtime codex app-server (OpenAI)",
                "Configuration", aliases=("codex_runtime",), args_hint="[auto|codex_app_server]",
@@ -323,6 +325,22 @@ def infer_argument_mode(cmd: CommandDef) -> str | None:
 def command_desktop_meta(cmd: CommandDef) -> dict[str, str | None]:
     """Wire shape for ``commands.catalog`` — reads the CommandDef, nothing else."""
     return {"argument_mode": infer_argument_mode(cmd), "desktop": cmd.desktop}
+
+
+def desktop_surface_registry() -> dict[str, str]:
+    """``/name`` (and every alias) -> ``desktop`` disposition, for each command that has one.
+
+    The desktop app reads this live from ``commands.catalog``; the copy committed at
+    ``apps/desktop/src/lib/desktop-slash-registry.json`` (``scripts/dump_desktop_slash_registry.py``)
+    is its offline fallback before the catalog answers, so the registry stays the ONLY place a
+    command's desktop disposition is authored. A test on each side fails when the two drift.
+    """
+    return {
+        f"/{key}": cmd.desktop
+        for cmd in COMMAND_REGISTRY
+        if cmd.desktop
+        for key in (cmd.name, *cmd.aliases)
+    }
 
 
 # Every name and alias -> its CommandDef.

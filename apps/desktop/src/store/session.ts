@@ -1124,6 +1124,8 @@ export function getSessionOwnerHint(
 // clears it and resets the retry counter. Null whenever the active route has a
 // healthy, in-flight, or still-auto-retrying resume.
 export const $resumeExhaustedSessionId = atom<string | null>(null)
+export const $unlistedSessionOwnerRows = atom<SessionInfo[]>([])
+
 export const $currentModel = atom(storedComposerString(COMPOSER_MODEL_KEY) ?? '')
 export const $currentProvider = atom(storedComposerString(COMPOSER_PROVIDER_KEY) ?? '')
 // DRAFT preference — the ONLY meaning this atom carries. A live session's
@@ -1131,6 +1133,11 @@ export const $currentProvider = atom(storedComposerString(COMPOSER_PROVIDER_KEY)
 // chat starts from (persisted) and what manual picks write. Runtime
 // reporters must never write here (v11/v12 ownership split).
 export const $draftReasoningEffort = atom(storedString(COMPOSER_EFFORT_KEY) ?? '')
+
+/** Upstream leva9: gateway-reported effort level the route ACTUALLY sends for
+ *  the current pick (clamped, e.g. ultra->max). Empty = unknown/verbatim.
+ *  Cosmetic truth only: never feeds switching logic (our draft/slice rules own that). */
+export const $currentReasoningEffortWire = atom<string>('')
 export const $currentServiceTier = atom('')
 export const $currentFastMode = atom(storedBoolean(COMPOSER_FAST_KEY, false))
 // Effective approval-bypass state mirrored from the gateway (session.info).
@@ -1232,6 +1239,7 @@ export const setConnection = (next: Updater<HermesConnection | null>) => {
 
 export const setGatewayState = (next: Updater<ConnectionState>) => updateAtom($gatewayState, next)
 export const setSessions = (next: Updater<SessionInfo[]>) => updateAtom($sessions, next)
+export const setUnlistedSessionOwnerRows = (next: Updater<SessionInfo[]>) => updateAtom($unlistedSessionOwnerRows, next)
 export const setCronSessions = (next: Updater<SessionInfo[]>) => updateAtom($cronSessions, next)
 export const setMessagingSessions = (next: Updater<SessionInfo[]>) => updateAtom($messagingSessions, next)
 export const setMessagingPlatformTotals = (next: Updater<Record<string, number>>) =>
@@ -1477,16 +1485,64 @@ export type ReasoningEffortSource =
   | 'config-seed'
   | 'preset-apply'
 
+/** Wire level upstream (cosmetic): set from session.info.reasoning_effort_wire. */
+export const setCurrentReasoningEffortWire = (wire: string): void => {
+  $currentReasoningEffortWire.set(wire ?? '')
+}
+
 /** DRAFT preference writer — the only path that owns `COMPOSER_EFFORT_KEY`.
  *  Manual picks, the profile-default seed and the new-chat draft-init resolve
  *  here. A value written here IS the next new chat's starting level. */
-export const setCurrentReasoningEffort = (next: Updater<string>, source: ReasoningEffortSource) => {
+export const setCurrentReasoningEffort = (next: Updater<string>, source: ReasoningEffortSource = 'preset-apply') => {
   const prev = $draftReasoningEffort.get()
   updateAtom($draftReasoningEffort, next)
   const now = $draftReasoningEffort.get()
 
   persistString(COMPOSER_EFFORT_KEY, now || null)
 }
+
+/** A renamed profile keeps its sessions, so the remembered session / route and
+ *  every owner hint pointing at the old name move to the new one instead of
+ *  routing the next open at a backend that no longer exists (#111868). */
+export function migrateRememberedNavigationForProfile(oldProfile: string, newProfile: string): void {
+  discardLegacyRememberedNavigation()
+
+  for (const base of [LAST_SESSION_KEY, LAST_ROUTE_KEY]) {
+    const value = storedString(profileNavigationKey(base, oldProfile))
+
+    if (value !== null) {
+      persistString(profileNavigationKey(base, newProfile), value)
+      persistString(profileNavigationKey(base, oldProfile), null)
+    }
+  }
+}
+
+export function migrateSessionOwnerHintsForProfile(oldProfile: string, newProfile: string): void {
+  const from = oldProfile.trim() || 'default'
+  const to = newProfile.trim() || 'default'
+  let changed = false
+
+  for (const [key, entry] of [...sessionOwnerHints]) {
+    const { route } = entry
+
+    if (route.profile !== from && route.targetProfile !== from) {
+      continue
+    }
+
+    sessionOwnerHints.delete(key)
+    rememberSessionOwnerHint(entry.id, {
+      ...route,
+      profile: route.profile === from ? to : route.profile,
+      ...(route.targetProfile === from ? { targetProfile: to } : {})
+    })
+    changed = true
+  }
+
+  if (changed) {
+    persistSessionOwnerHints()
+  }
+}
+
 
 /** THE fresh-draft authority (v12). Every fresh-runtime creation path (draft
  *  submit, new-session tile) MUST seed from this — never from the display

@@ -4,7 +4,8 @@ import {
   DropdownMenuSubContent
 } from '@/components/ui/dropdown-menu'
 import { useI18n } from '@/i18n'
-import type { ModelPickerMetadata, ModelPricing } from '@/types/hermes'
+import type { ModelPricing } from '@hermes/shared'
+import type { ModelPickerMetadata } from '@/types/hermes'
 
 export function compactTokens(value?: number): string | null {
   if (!value || value <= 0) {

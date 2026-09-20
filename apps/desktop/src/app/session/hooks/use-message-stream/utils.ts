@@ -15,6 +15,7 @@ type SessionRuntimeStatePatch = Partial<
       'personality' |
       'provider' |
       'reasoningEffort' |
+      'reasoningEffortWire' |
       'serviceTier' |
       'yolo'
   >
@@ -49,6 +50,10 @@ export function sessionInfoStatePatch(payload: GatewayEventPayload | undefined):
 
   if (typeof payload?.reasoning_effort === 'string') {
     patch.reasoningEffort = payload.reasoning_effort
+  }
+
+  if (typeof payload?.reasoning_effort_wire === 'string') {
+    patch.reasoningEffortWire = payload.reasoning_effort_wire
   }
 
   if (typeof payload?.service_tier === 'string') {

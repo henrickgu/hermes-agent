@@ -1,9 +1,8 @@
 import { resolveSessionRpcOwner } from '@/app/contrib/wiring-routing'
 import { textWithoutReferenceLines } from '@/components/assistant-ui/reference-kinds'
 import { getSession } from '@/hermes'
-import { assistantTextPart, type ChatMessage, chatMessageText, textPart } from '@/lib/chat-messages'
+import { assistantTextPart, type ChatMessage, chatMessageText, textPart, toChatMessages } from '@/lib/chat-messages'
 import { normalizePersonalityValue } from '@/lib/chat-runtime'
-import { readSessionEffortCache } from '@/app/session/hooks/use-session-state-cache'
 import { embeddedImageUrls, textWithoutEmbeddedImages } from '@/lib/embedded-images'
 import { parseErrorSurface } from '@/lib/error-surface'
 import { isMessagingSource, normalizeSessionSource } from '@/lib/session-source'
@@ -29,23 +28,26 @@ import {
   setCurrentModel,
   setCurrentPersonality,
   setCurrentProvider,
+  setCurrentReasoningEffort,
+  setCurrentReasoningEffortWire,
   setCurrentServiceTier,
   setCurrentUsage,
   setMessagingSessions,
   setSessionOwnerHint,
   setSessions,
+  setUnlistedSessionOwnerRows,
   setWorkspaceCwdOwner,
   setYoloActive
 } from '@/store/session'
 import type { SessionProfileRoute } from '@/store/session-request-router'
-import { sessionTileOwnerRoute } from '@/store/session-states'
+import { runtimeSessionOwner, sessionTileOwnerRoute } from '@/store/session-states'
 
 // Re-exported for the many session-actions/tile call sites that already import
 // it from here; the canonical definition lives in @/store/session.
 export { sessionMatchesStoredId }
 import { sessionOwnerRouteFromRow, type SessionOwnerScope } from '@/store/session-request-router'
 import { reportBackendContract, reportInstallMethodWarning } from '@/store/updates'
-import type { SessionCreateResponse, SessionInfo, SessionResumeResponse, SessionRuntimeInfo } from '@/types/hermes'
+import type { SessionCreateResponse, SessionInfo, SessionResumeResult, SessionRuntimeInfo } from '@/types/hermes'
 
 import type { ClientSessionState } from '../../../types'
 
@@ -156,6 +158,7 @@ const _chatMessageFieldsExhaustive: {
 
 const COMPARED_FIELDS = [
   'asyncResult',
+  'asyncResultKind',
   'id',
   'role',
   'pending',
@@ -364,7 +367,12 @@ export function reconcileResumeMessages(nextMessages: ChatMessage[], previousMes
       return withAuthoritativeTurnState(previous, message)
     }
 
-    const sameText = nextText === previousVisibleText || nextText === previousText.trim()
+    // Empty prose carries no identity: an empty-text cached assistant and an
+    // empty/tool-only hydrated row can share a role ordinal while being
+    // different turns, and plain `'' === ''` would pair them (#114543),
+    // grafting the cached reasoning/tool parts onto the unrelated row.
+    const sameText =
+      nextText.length > 0 && (nextText === previousVisibleText || nextText === previousText.trim())
 
     // Mid-turn, the authoritative text has advanced past the cached copy by one
     // or more deltas. That is still the same turn, and the cached row holds the
@@ -381,12 +389,15 @@ export function reconcileResumeMessages(nextMessages: ChatMessage[], previousMes
     // inherit its reasoning/tool parts (#76444 review / salvage).
     const sameTurn =
       sameText ||
-      (nextText.length > 0 && previousTrimmed.length > 0 && isStrictAnswerTextExtension(nextText, previousTrimmed)) ||
+      (nextText.length > 0 &&
+        previousTrimmed.length > 0 &&
+        isStrictAnswerTextExtension(nextText, previousTrimmed)) ||
       (message.role === 'assistant' &&
         previous.role === 'assistant' &&
         hasStructuralParts(previous) &&
         !hasStructuralParts(message) &&
-        isLiveTailRow(previous))
+        isLiveTailRow(previous) &&
+        isLiveTailRow(message))
 
     if (sameTurn) {
       preserved = preserveStructuralParts(preserved, previous)
@@ -746,11 +757,11 @@ export function preserveLocalPendingTurnMessages(
  */
 const safelyPersistedInflightUser = Symbol('safelyPersistedInflightUser')
 
-type LiveSessionProjection = Pick<SessionResumeResponse, 'inflight' | 'queued' | 'session_id'> & {
+type LiveSessionProjection = Pick<SessionResumeResult, 'inflight' | 'queued' | 'session_id'> & {
   [safelyPersistedInflightUser]?: true
 }
 
-type ReconciledSessionResumeResponse = SessionResumeResponse & {
+type ReconciledSessionResumeResult = SessionResumeResult & {
   [safelyPersistedInflightUser]?: true
 }
 
@@ -835,11 +846,33 @@ export function appendLiveSessionProjection(messages: ChatMessage[], projection:
     projection[safelyPersistedInflightUser] === true || (Boolean(inflightUser) && persistedInLatestRun(inflightUser))
 
   if (inflightUser && !inflightUserAlreadyPersisted) {
-    projected.push({
-      id: `user-inflight-${sessionId}`,
-      role: 'user',
-      parts: [textPart(inflightUser)]
-    })
+    // A synthetic starting prompt (process_complete, hidden, …) carries the
+    // display typing its persisted row will get: render it through the same
+    // timeline projection history uses instead of as a user bubble (#112144).
+    // `toChatMessages` yields nothing for `hidden`, so the prompt is omitted.
+    const displayKind = projection.inflight?.display_kind
+    const typed = displayKind
+      ? toChatMessages([
+          {
+            role: 'user',
+            content: inflightUser,
+            display_kind: displayKind,
+            ...(projection.inflight?.display_metadata !== undefined
+              ? { display_metadata: projection.inflight.display_metadata }
+              : {})
+          }
+        ])
+      : null
+
+    if (typed) {
+      projected.push(...typed.map(message => ({ ...message, id: `user-inflight-${sessionId}` })))
+    } else {
+      projected.push({
+        id: `user-inflight-${sessionId}`,
+        role: 'user',
+        parts: [textPart(inflightUser)]
+      })
+    }
   }
 
   // Keep a pending assistant boundary even before the first delta when a
@@ -1004,8 +1037,8 @@ function transcriptAnchorMatches(a: ChatMessage, b: ChatMessage): boolean {
 export function dedupeInflightUserAgainstTranscript(
   persistedMessages: ChatMessage[],
   runtimeMessages: ChatMessage[],
-  projection: SessionResumeResponse
-): ReconciledSessionResumeResponse {
+  projection: SessionResumeResult
+): ReconciledSessionResumeResult {
   const inflightUser = projection.inflight?.user?.replace(/\s+/g, ' ').trim() ?? ''
 
   if (!inflightUser) {
@@ -1053,7 +1086,7 @@ export function dedupeInflightUserAgainstTranscript(
  */
 export function removeRepresentedLocalLiveProjection(
   previousMessages: ChatMessage[],
-  projection: Pick<SessionResumeResponse, 'inflight' | 'queued'>
+  projection: Pick<SessionResumeResult, 'inflight' | 'queued'>
 ): ChatMessage[] {
   const inflightUser = projection.inflight?.user?.replace(/\s+/g, ' ').trim() ?? ''
   const inflightAssistant = projection.inflight?.assistant?.replace(/\s+/g, ' ').trim() ?? ''
@@ -1275,6 +1308,53 @@ export function upsertOptimisticSession(
   lastActive?: number,
   owner?: null | SessionProfileRoute
 ) {
+  const session = buildOptimisticSession(created, id, title, preview, parentSessionId, lastActive, owner)
+
+  if (owner) {
+    setSessionOwnerHint(id, owner)
+  }
+
+  // A real row supersedes any unlisted-draft stub for the same id (first send
+  // on a ⌘T tab lists it); drop the stub so the atom stays bounded. The
+  // lookup shadow-filter covers any path that lists without passing here.
+  setUnlistedSessionOwnerRows(prev => (prev.some(s => s.id === id) ? prev.filter(s => s.id !== id) : prev))
+
+  setSessions(prev => [session, ...prev.filter(s => s.id !== id)])
+}
+
+/**
+ * Record the owner of an UNLISTED draft tile without touching the visible
+ * sidebar list (see `openNewSessionTile` with `listed: false`, #102792). The
+ * stub carries the same stamps an optimistic row would — ambient profile for
+ * an unrouted create, exact connection tag for a routed one — and rides only
+ * the owner-lookup path, never the sidebar render path. A later real row for
+ * the same id shadows it; the first send replaces it outright.
+ */
+export function upsertUnlistedSessionOwner(
+  created: SessionCreateResponse,
+  id: string,
+  owner?: null | SessionProfileRoute
+) {
+  const stub = buildOptimisticSession(created, id, null, null, null, undefined, owner)
+  setSessionOwnerHintForStub(id, owner)
+  setUnlistedSessionOwnerRows(prev => [stub, ...prev.filter(s => s.id !== id)])
+}
+
+function setSessionOwnerHintForStub(id: string, owner?: null | SessionProfileRoute): void {
+  if (owner) {
+    setSessionOwnerHint(id, owner)
+  }
+}
+
+function buildOptimisticSession(
+  created: SessionCreateResponse,
+  id: string,
+  title: string | null = null,
+  preview: string | null = null,
+  parentSessionId: string | null = null,
+  lastActive?: number,
+  owner?: null | SessionProfileRoute
+): SessionInfo {
   const now = lastActive ?? Date.now() / 1000
   // Stamp the profile the session was just created on so the scoped sidebar
   // shows the new row immediately instead of filtering it out as "default"
@@ -1313,11 +1393,7 @@ export function upsertOptimisticSession(
     ...(connectionId ? { connection_id: connectionId } : {})
   }
 
-  if (owner) {
-    setSessionOwnerHint(id, owner)
-  }
-
-  setSessions(prev => [session, ...prev.filter(s => s.id !== id)])
+  return session
 }
 
 export function patchSessionWorkspace(sessionId: string, cwd: string | undefined) {
@@ -1365,16 +1441,19 @@ export function dropListedSession(storedSessionId: string): void {
   setSessions(prev => prev.filter(keep))
   setMessagingSessions(prev => prev.filter(keep))
   setCronSessions(prev => prev.filter(keep))
+  setUnlistedSessionOwnerRows(prev => prev.filter(keep))
+}
+
+export function listedSliceTarget(session: SessionInfo): ListedSessionSlice {
+  return isMessagingSource(session.source)
+    ? 'messaging'
+    : normalizeSessionSource(session.source) === 'cron'
+      ? 'cron'
+      : 'sessions'
 }
 
 export function restoreListedSession(session: SessionInfo, slice?: ListedSessionSlice): void {
-  const target: ListedSessionSlice =
-    slice ??
-    (isMessagingSource(session.source)
-      ? 'messaging'
-      : normalizeSessionSource(session.source) === 'cron'
-        ? 'cron'
-        : 'sessions')
+  const target: ListedSessionSlice = slice ?? listedSliceTarget(session)
 
   const prepend = (prev: SessionInfo[]) => [
     session,
@@ -1399,7 +1478,7 @@ export function restoreListedSession(session: SessionInfo, slice?: ListedSession
 function upsertResolvedSession(session: SessionInfo, storedSessionId: string) {
   const lineage = session._lineage_root_id ?? session.id
 
-  setSessions(prev => [
+  const prepend = (prev: SessionInfo[]) => [
     session,
     ...prev.filter(existing => {
       if (sessionMatchesStoredId(existing, storedSessionId)) {
@@ -1408,7 +1487,23 @@ function upsertResolvedSession(session: SessionInfo, storedSessionId: string) {
 
       return (existing._lineage_root_id ?? existing.id) !== lineage
     })
-  ])
+  ]
+
+  // A resolve can observe a source move (cross-room /resume rewrites the row to
+  // source='matrix', #113827): the row belongs to its current slice, and the
+  // stale copy in every other slice must go or the session shows twice.
+  // Identity-stable when nothing matched — every sidebar memo keys on these
+  // arrays, and a resolve runs on each row open.
+  const evict = (prev: SessionInfo[]) =>
+    prev.some(existing => sessionMatchesStoredId(existing, storedSessionId))
+      ? prev.filter(existing => !sessionMatchesStoredId(existing, storedSessionId))
+      : prev
+
+  const target = listedSliceTarget(session)
+
+  setSessions(target === 'sessions' ? prepend : evict)
+  setMessagingSessions(target === 'messaging' ? prepend : evict)
+  setCronSessions(target === 'cron' ? prepend : evict)
 }
 
 // Every session row reachable through the profile-scoped project tree —
@@ -1579,7 +1674,8 @@ export async function resolveSessionOwner(storedSessionId: null | string): Promi
     routingSessionId: storedSessionId,
     tileOwnerRoute: sessionTileOwnerRoute,
     sessionOwnerHint: getSessionOwnerHint,
-    sessionRowOwner: id => knownSessionOwner(ownerLookupSessionRows(), id)
+    sessionRowOwner: id => knownSessionOwner(ownerLookupSessionRows(), id),
+    eventOwner: runtimeSessionOwner
   })
 
   if (owner) {
@@ -1594,16 +1690,16 @@ export async function resolveSessionOwner(storedSessionId: null | string): Promi
 type SessionRuntimeStatePatch = Partial<
   Pick<
     ClientSessionState,
-    'branch' |
-      'cwd' |
-      'fast' |
-      'model' |
-      'modelSwitchPending' |
-      'personality' |
-      'provider' |
-      'reasoningEffort' |
-      'serviceTier' |
-      'yolo'
+    | 'branch'
+    | 'cwd'
+    | 'fast'
+    | 'model'
+    | 'personality'
+    | 'provider'
+    | 'reasoningEffort'
+    | 'reasoningEffortWire'
+    | 'serviceTier'
+    | 'yolo'
   >
 >
 
@@ -1655,7 +1751,13 @@ function publishRuntimeToComposer(state: SessionRuntimeStatePatch): void {
     setCurrentPersonality(state.personality)
   }
 
+  if (state.reasoningEffort !== undefined) {
+    setCurrentReasoningEffort(state.reasoningEffort)
+  }
 
+  if (state.reasoningEffortWire !== undefined) {
+    setCurrentReasoningEffortWire(state.reasoningEffortWire)
+  }
 
   if (state.serviceTier !== undefined) {
     setCurrentServiceTier(state.serviceTier)
@@ -1700,10 +1802,6 @@ export function applyRuntimeInfo(
     sessionState.provider = info.provider
   }
 
-  if (typeof info.model_switch_pending === 'boolean') {
-    sessionState.modelSwitchPending = info.model_switch_pending
-  }
-
   // Empty string is authoritative, not "no opinion": a detached/bare session
   // reports `cwd: ''`, and the truthy-only test left `$currentCwd` — and so the
   // Files pane — pinned to the PREVIOUS project for the rest of the session
@@ -1723,6 +1821,10 @@ export function applyRuntimeInfo(
 
   if (typeof info.reasoning_effort === 'string') {
     sessionState.reasoningEffort = info.reasoning_effort
+  }
+
+  if (typeof info.reasoning_effort_wire === 'string') {
+    sessionState.reasoningEffortWire = info.reasoning_effort_wire
   }
 
   if (typeof info.service_tier === 'string') {
@@ -1754,18 +1856,7 @@ export function applyStoredSessionPreviewRuntimeInfo(
 ) {
   setCurrentModel(stored?.model || '')
   setCurrentProvider('')
-  // Seed the pill with the effort this conversation LAST reported (persisted
-  // on every session.info) instead of blanking it: the blank fell through to
-  // the pill's medium fallback for the whole `session.resume` round-trip and
-  // then flipped to the real level — the "med → Ultra" flash on every resume
-  // of a non-default conversation. The runtime info from the resume response
-  // (and any later session.info) still overwrites this moments later, so a
-  // stale seed can only ever be replaced by fresher truth.
-  // v9: the resumed conversation's first paint comes from the persisted per-session
-  // cache — but as a RUNTIME display value, not the draft preference (v11): the
-  // cold resume must not re-seed what the next new chat starts at.
-  // v12: no atom write — the resumed session's slice is seeded (v9 path via
-  // updateSessionState) and the pill reads the slice while the session is active.
+  setCurrentReasoningEffort('')
   setCurrentServiceTier('')
   setCurrentFastMode(false)
   setYoloActive(false)

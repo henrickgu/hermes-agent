@@ -11,6 +11,7 @@ import {
   $currentFastMode,
   $currentModel,
   $currentProvider,
+  $currentReasoningEffortWire,
   $draftReasoningEffort,
   $messages,
   $selectedStoredSessionId,
@@ -59,6 +60,7 @@ export interface SessionView {
   $provider: ReadableAtom<string>
   $fast: ReadableAtom<boolean>
   $reasoningEffort: ReadableAtom<string>
+  $reasoningEffortWire: ReadableAtom<string>
 }
 
 /** The active session's own slice, or `undefined` while it's a draft. */
@@ -139,6 +141,7 @@ export const PRIMARY_SESSION_VIEW: SessionView = {
   $modelSwitchPending: primaryField<boolean>(state => state.modelSwitchPending ?? false, atom(false)),
   $provider: primaryField<string>(state => state.provider, $currentProvider),
   $reasoningEffort: primaryField<string>(state => state.reasoningEffort, $draftReasoningEffort),
+  $reasoningEffortWire: primaryField<string>(state => state.reasoningEffortWire ?? '', $currentReasoningEffortWire),
   $runtimeId: $activeSessionId,
   $storedId: $selectedStoredSessionId,
   $turnStartedAt: primaryField<number | null>(state => state.turnStartedAt, $turnStartedAt)

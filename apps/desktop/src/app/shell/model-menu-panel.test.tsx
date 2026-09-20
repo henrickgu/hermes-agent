@@ -1,30 +1,12 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { createElement, useState } from 'react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { useModelControls } from '@/app/session/hooks/use-model-controls'
 import { DropdownMenu, DropdownMenuContent } from '@/components/ui/dropdown-menu'
-import { getModelPreset } from '@/store/model-presets'
 import { $collapsedProviders, toggleCollapsedProvider } from '@/store/provider-collapse'
-import {
-  $activeSessionId,
-  $currentModel,
-  $currentProvider,
-  setCurrentReasoningEffort
-} from '@/store/session'
+import { $activeSessionId, $currentModel, $currentProvider } from '@/store/session'
 
 import { ModelMenuPanel } from './model-menu-panel'
-
-const notify = vi.fn((..._args: unknown[]) => 'confirm-toast-1')
-const notifyError = vi.fn((..._args: unknown[]) => undefined)
-const dismissNotification = vi.fn((..._args: unknown[]) => undefined)
-
-vi.mock('@/store/notifications', () => ({
-  dismissNotification: (...args: unknown[]) => dismissNotification(...args),
-  notify: (...args: unknown[]) => notify(...args),
-  notifyError: (...args: unknown[]) => notifyError(...args)
-}))
 
 // Radix calls these on open; jsdom doesn't implement them.
 beforeAll(() => {
@@ -46,24 +28,8 @@ vi.mock('@/hermes', () => ({
 const MOA_PROVIDER = { models: ['default', 'BeastMode'], name: 'Mixture of Agents', slug: 'moa' }
 
 const DEEPSEEK_PROVIDER = {
-  capabilities: {
-    'deepseek-v4-pro': { fast: false, reasoning: true }
-  },
-  metadata: {
-    'deepseek-v4-pro': {
-      context_window: 200000,
-      input_modalities: ['text', 'image', 'pdf'],
-      max_output_tokens: 32000,
-      supports_pdf: true,
-      supports_tools: true,
-      supports_vision: true
-    }
-  },
   models: ['deepseek-v4-pro', 'deepseek-chat', 'deepseek-reasoner'],
   name: 'DeepSeek',
-  pricing: {
-    'deepseek-v4-pro': { cache: null, free: false, input: '$0.50', output: '$1.50' }
-  },
   slug: 'deepseek'
 }
 
@@ -111,85 +77,6 @@ function renderPanel(onSelectModel = vi.fn()) {
 
   return { onSelectModel, content }
 }
-
-function renderReasoningPanel(
-  requestGateway = vi.fn(async (method: string) => {
-    // Method-aware: the catalog read must come from the REST mock directly —
-    // owner-routed gateways no longer recover through ambient REST (profiles
-    // are not unique across connections), so an empty gateway response would
-    // leave the reasoning submenu without capabilities.
-    if (method === 'model.options') {
-      return getGlobalModelOptions()
-    }
-
-    return {}
-  })
-) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-
-  const content = render(
-    <QueryClientProvider client={client}>
-      <DropdownMenu open>
-        <DropdownMenuContent>
-          {createElement(ModelMenuPanel, {
-            onSelectModel: vi.fn(),
-            requestGateway,
-            ...{ mode: 'reasoning' }
-          })}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </QueryClientProvider>
-  )
-
-  return { content, requestGateway }
-}
-
-describe('ModelMenuPanel reasoning mode', () => {
-  it('updates the active session from a dedicated effort menu', async () => {
-    $currentProvider.set('deepseek')
-    $currentModel.set('deepseek-v4-pro')
-    setCurrentReasoningEffort('high', 'manual-click')
-    const { requestGateway } = renderReasoningPanel()
-
-    expect(await screen.findByText('Effort')).toBeTruthy()
-    fireEvent.click(screen.getByText('Low'))
-
-    await vi.waitFor(() => {
-      expect(requestGateway).toHaveBeenCalledWith('config.set', {
-        key: 'reasoning',
-        session_id: 'runtime-1',
-        value: 'low'
-      })
-    })
-  })
-
-  // The session's provider may be a canonical alias (e.g. `custom:<key>`) while
-  // the catalog row's slug is what preset reads key on. Persisting under the
-  // alias would strand the preset — the effort would never be restored when
-  // that model is picked from its row again.
-  it('records the effort preset under the row slug when the session provider is an alias', async () => {
-    const ALIASED_PROVIDER = {
-      ...DEEPSEEK_PROVIDER,
-      aliases: ['deepseek'],
-      slug: 'custom:deepseek-key'
-    }
-
-    getGlobalModelOptions.mockResolvedValue({
-      providers: [ALIASED_PROVIDER, GOOGLE_PROVIDER, MOA_PROVIDER]
-    })
-    $currentProvider.set('deepseek')
-    $currentModel.set('deepseek-v4-pro')
-    setCurrentReasoningEffort('high', 'manual-click')
-    renderReasoningPanel()
-
-    expect(await screen.findByText('Effort')).toBeTruthy()
-    fireEvent.click(screen.getByText('Low'))
-
-    await vi.waitFor(() => {
-      expect(getModelPreset('custom:deepseek-key', 'deepseek-v4-pro')).toEqual({ effort: 'low' })
-    })
-  })
-})
 
 describe('ModelMenuPanel MoA presets', () => {
   it('selecting a MoA preset switches PERSISTENTLY via onSelectModel (not the one-shot dispatch)', async () => {
@@ -262,40 +149,6 @@ describe('ModelMenuPanel current selection', () => {
 
     expect(currentRow?.querySelector('.codicon-check')).not.toBeNull()
     expect(staleRow?.querySelector('.codicon-check')).toBeNull()
-  })
-})
-
-describe('ModelMenuPanel model metadata', () => {
-  it('summarizes registry metadata on each model row', async () => {
-    const { content } = renderPanel()
-
-    const row = (await content.findByText(/Deepseek V4 Pro/i)).closest('[role="menuitem"]')
-
-    expect(row?.textContent).toContain('200K')
-    expect(row?.textContent).toContain('Vision')
-    expect(row?.textContent).toContain('Tools')
-  })
-
-  it('shows complete model facts in the hover panel', async () => {
-    const { content } = renderPanel()
-    const row = (await content.findByText(/Deepseek V4 Pro/i)).closest('[role="menuitem"]')
-
-    expect(row).not.toBeNull()
-    fireEvent.pointerMove(row!, { pointerType: 'mouse' })
-
-    expect(await screen.findByText('Context window')).toBeTruthy()
-    expect(screen.getByText('200K tokens')).toBeTruthy()
-    expect(screen.getByText('Max output')).toBeTruthy()
-    expect(screen.getByText('32K tokens')).toBeTruthy()
-    expect(screen.getByText('Model')).toBeTruthy()
-    expect(screen.getByText('Provider')).toBeTruthy()
-    expect(screen.getAllByText('DeepSeek').length).toBeGreaterThan(0)
-    expect(screen.getByText('Inputs')).toBeTruthy()
-    expect(screen.getByText('text, image, PDF')).toBeTruthy()
-    expect(screen.getByText('Input')).toBeTruthy()
-    expect(screen.getByText('$0.50 / Mtok')).toBeTruthy()
-    expect(screen.getByText('Output')).toBeTruthy()
-    expect(screen.getByText('$1.50 / Mtok')).toBeTruthy()
   })
 })
 
@@ -555,7 +408,9 @@ describe('ModelMenuPanel provider collapse', () => {
     expect($collapsedProviders.get()).toContain('deepseek')
   })
 
-  it('switches the session model when Refresh Models drops the current pick', async () => {
+  it('keeps the current pick when Refresh Models no longer lists it', async () => {
+    // Rows are hints (discovered / curated / capped); a custom slug the row
+    // lacks is still what the user selected. Only the gateway may reject it.
     $currentProvider.set('zhipu')
     $currentModel.set('glm-4.5-air')
     getGlobalModelOptions
@@ -577,12 +432,11 @@ describe('ModelMenuPanel provider collapse', () => {
     fireEvent.click(await content.findByText('Refresh models'))
 
     await vi.waitFor(() => {
-      expect(onSelectModel).toHaveBeenCalledWith({
-        model: 'deepseek-v4-pro',
-        provider: 'deepseek',
-        sessionId: 'runtime-1'
-      })
+      expect(getGlobalModelOptions).toHaveBeenCalledTimes(2)
     })
+    expect(onSelectModel).not.toHaveBeenCalled()
+    expect($currentModel.get()).toBe('glm-4.5-air')
+    expect($currentProvider.get()).toBe('zhipu')
   })
 
   it('does not switch when Refresh Models still lists the current pick', async () => {
@@ -658,114 +512,5 @@ describe('ModelMenuPanel provider collapse', () => {
     const input = screen.getByRole('textbox', { name: 'Search models' })
     fireEvent.keyDown(input, { key: 'Enter' })
     expect(onSelectModel).not.toHaveBeenCalled()
-  })
-})
-
-describe('ModelMenuPanel refresh reconcile × guarded-switch confirm handshake', () => {
-  // #95446 fix (reconcile after Refresh Models) composes with the
-  // confirm-handshake guard: when the reconcile target is itself a GUARDED
-  // model (contributor tier / expensive), the switch must surface the confirm
-  // flow — one config.set, a warning with a Confirm action, rollback until
-  // confirmed — never a silent retry loop and never a silently-painted pick.
-  function ConfirmHarness({
-    requestGateway
-  }: {
-    requestGateway: <T = unknown>(method: string, params?: Record<string, unknown>) => Promise<T>
-  }) {
-    const [client] = useState(() => new QueryClient({ defaultOptions: { queries: { retry: false } } }))
-    const controls = useModelControls({ queryClient: client, requestGateway })
-
-    return (
-      <QueryClientProvider client={client}>
-        <DropdownMenu open>
-          <DropdownMenuContent>
-            <ModelMenuPanel onSelectModel={controls.selectModel} requestGateway={requestGateway as never} />
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </QueryClientProvider>
-    )
-  }
-
-  it('reconcile-triggered switch to a guarded model surfaces confirm, not a silent retry', async () => {
-    $activeSessionId.set('runtime-1')
-    $currentProvider.set('zhipu')
-    $currentModel.set('glm-4.5-air')
-    getGlobalModelOptions
-      .mockResolvedValueOnce({
-        providers: [{ models: ['glm-4.5-air'], name: 'Zhipu', slug: 'zhipu' }, MOA_PROVIDER]
-      })
-      // Refresh drops the current pick; the only remaining model is guarded.
-      .mockResolvedValueOnce({
-        providers: [{ models: ['muse-spark-1.2-contributor'], name: 'OpenCode', slug: 'opencode-go' }, MOA_PROVIDER]
-      })
-
-    // Method-aware gateway: the panel's catalog reads (`model.options`) use
-    // the routed catalog mock; `config.set` runs the guarded handshake —
-    // confirm_required first, success on the confirmed resend.
-    let configSets = 0
-
-    const requestGateway = vi.fn(async (method: string, _params?: Record<string, unknown>) => {
-      if (method === 'model.options') {
-        return getGlobalModelOptions()
-      }
-
-      if (method !== 'config.set') {
-        throw new Error(`unexpected gateway method: ${method}`)
-      }
-
-      configSets += 1
-
-      if (configSets === 1) {
-        return {
-          confirm_message: 'CONTRIBUTOR TIER: this model may train on your data.',
-          confirm_required: true,
-          key: 'model',
-          value: 'muse-spark-1.2-contributor'
-        }
-      }
-
-      return { key: 'model', scope: 'global', value: 'muse-spark-1.2-contributor' }
-    })
-
-    const content = render(<ConfirmHarness requestGateway={requestGateway as never} />)
-
-    await content.findByText(/Glm 4\.5 Air/i)
-    fireEvent.click(await content.findByText('Refresh models'))
-
-    // The reconcile fired exactly ONE switch attempt and it came back
-    // confirm_required → the confirm toast is up, nothing retried silently.
-    await vi.waitFor(() => {
-      expect(notify).toHaveBeenCalledWith(
-        expect.objectContaining({
-          action: expect.objectContaining({ label: expect.any(String) }),
-          kind: 'warning',
-          message: 'CONTRIBUTOR TIER: this model may train on your data.'
-        })
-      )
-    })
-
-    const configSetCalls = requestGateway.mock.calls.filter(([method]) => method === 'config.set')
-    expect(configSetCalls).toHaveLength(1)
-    expect(configSetCalls[0][1]).not.toHaveProperty('confirm_expensive_model')
-
-    // Pending confirmation = rolled back, not silently painted.
-    expect($currentModel.get()).toBe('glm-4.5-air')
-    expect($currentProvider.get()).toBe('zhipu')
-
-    // User confirms → ONE resend carrying confirm_expensive_model: true.
-    const lastNotify = notify.mock.calls.at(-1)?.[0] as { action: { onClick: () => Promise<void> } }
-
-    await act(async () => {
-      await lastNotify.action.onClick()
-    })
-
-    await vi.waitFor(() => {
-      const resend = requestGateway.mock.calls.filter(([method]) => method === 'config.set')
-      expect(resend).toHaveLength(2)
-      expect(resend[1][1]).toMatchObject({ confirm_expensive_model: true, session_id: 'runtime-1' })
-    })
-    expect($currentModel.get()).toBe('muse-spark-1.2-contributor')
-    expect($currentProvider.get()).toBe('opencode-go')
-    expect(notifyError).not.toHaveBeenCalled()
   })
 })

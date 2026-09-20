@@ -141,6 +141,7 @@ describe('ModelPill pending-switch badge', () => {
       $model: atom('gpt-5.6-sol'),
       $modelSwitchPending: atom(true),
       $provider: atom('openai-codex'),
+      $reasoningEffortWire: atom(''),
       $reasoningEffort: atom('high'),
       $runtimeId: atom('discord-runtime'),
       $storedId: atom('discord-stored'),
@@ -177,6 +178,7 @@ describe('ModelPill per-surface model label', () => {
       $modelSwitchPending: atom(false),
       $provider: atom('anthropic'),
       $reasoningEffort: atom('high'),
+      $reasoningEffortWire: atom(''),
       $runtimeId: atom('tile-runtime'),
       $storedId: atom('stored-tile'),
       $turnStartedAt: atom<number | null>(null)
@@ -192,7 +194,6 @@ describe('ModelPill per-surface model label', () => {
     )
 
     expect(screen.getByText('Sonnet')).toBeTruthy()
-    expect(screen.queryByText(/High/)).toBeNull()
     expect(screen.queryByText(/primary/i)).toBeNull()
   })
 })

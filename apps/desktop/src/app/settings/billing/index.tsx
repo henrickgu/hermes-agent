@@ -45,8 +45,8 @@ import { useStepUpFlow } from './use-step-up'
 
 // `bview` mirrors the settings pview/kview sub-view pattern (deep-linkable, replace
 // navigation). `overview` is the default landing; `plans` is the in-app catalog.
-const BILLING_VIEWS = ['overview', 'plans'] as const
-type BillingSubView = (typeof BILLING_VIEWS)[number]
+export const BILLING_VIEWS = ['overview', 'plans'] as const
+export type BillingSubView = (typeof BILLING_VIEWS)[number]
 
 const FEATURE_BILLING_INVOICES = false
 

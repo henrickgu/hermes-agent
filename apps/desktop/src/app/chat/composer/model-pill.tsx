@@ -12,7 +12,7 @@ import { releaseTypingFocus } from '@/components/ui/keyboard-first'
 import { Tip } from '@/components/ui/tooltip'
 import { useI18n } from '@/i18n'
 import { ChevronDown } from '@/lib/icons'
-import { modelBaseId, modelDisplayParts } from '@/lib/model-status-label'
+import { formatModelPillLabel, modelBaseId } from '@/lib/model-status-label'
 import { cn } from '@/lib/utils'
 import { $currentModelSource, setModelPickerOpen } from '@/store/session'
 
@@ -57,9 +57,9 @@ export function ModelPill({
   const viewProvider = useStore(view.$provider)
   const currentModel = model.model || viewModel
   const currentProvider = model.provider || viewProvider
+  const fastMode = useStore(view.$fast)
   const modelSource = useStore($currentModelSource)
   const runtimeId = useStore(view.$runtimeId)
-  const fastMode = useStore(view.$fast)
   const [open, setOpen] = useState(false)
   const restoreSelection = useRef<(() => void) | null>(null)
   const scope = useComposerScope()
@@ -138,10 +138,7 @@ export function ModelPill({
   ) : (
     <>
       {currentModel.trim() ? (
-        <span className="truncate">
-          {modelDisplayParts(currentModel).name}
-          {fastActive ? <span className="text-(--ui-text-tertiary)"> Fast</span> : null}
-        </span>
+        <span className="truncate">{formatModelPillLabel(currentModel, { fastMode })}</span>
       ) : (
         <GlyphSpinner className="opacity-50" spinner="braille" />
       )}

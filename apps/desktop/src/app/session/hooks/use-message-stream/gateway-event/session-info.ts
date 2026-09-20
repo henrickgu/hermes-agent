@@ -28,6 +28,7 @@ import {
   setCurrentModelSource,
   setCurrentPersonality,
   setCurrentProvider,
+  setCurrentReasoningEffortWire,
   setCurrentServiceTier,
   setCurrentUsage,
   setSessions,
@@ -258,6 +259,10 @@ export function handleSessionInfoEvent(ctx: GatewayEventContext): boolean {
       }
 
 
+
+      if (typeof payload?.reasoning_effort_wire === 'string') {
+        setCurrentReasoningEffortWire(payload.reasoning_effort_wire)
+      }
 
       if (typeof payload?.service_tier === 'string') {
         setCurrentServiceTier(payload.service_tier)

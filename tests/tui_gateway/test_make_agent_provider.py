@@ -109,12 +109,7 @@ def test_apply_model_switch_does_not_leak_process_env():
         "HERMES_INFERENCE_PROVIDER",
     )
 
-    sess_b = {
-        "agent": _FakeAgent(),
-        "session_key": "k-B",
-        "model_override": None,
-        "pending_model_switch": {"raw": "old-model"},
-    }
+    sess_b = {"agent": _FakeAgent(), "session_key": "k-B", "model_override": None}
     sess_a = {"agent": _FakeAgent(), "session_key": "k-A", "model_override": None}
 
     with (
@@ -126,11 +121,7 @@ def test_apply_model_switch_does_not_leak_process_env():
         patch("tui_gateway.server._emit"),
         patch("tui_gateway.server._restart_slash_worker"),
         patch("tui_gateway.server._session_info", return_value={}),
-        patch("tui_gateway.server._persist_model_switch") as mock_persist,
-        patch("tui_gateway.server._persist_gateway_model_intent"),
-        patch(
-            "tui_gateway.server._clear_persisted_pending_model_switch"
-        ) as mock_clear_pending,
+        patch("hermes_cli.model_switch.persist_model_selection") as mock_persist,
     ):
         before = {k: os.environ.get(k) for k in env_keys}
         result = server._apply_model_switch("sidB", sess_b, "glm-5.1")
@@ -146,8 +137,31 @@ def test_apply_model_switch_does_not_leak_process_env():
     assert sess_b["model_override"]["provider"] == "zai"
     # The switched agent mutated in place.
     assert sess_b["agent"].model == "zai/glm-5.1"
-    assert "pending_model_switch" not in sess_b
-    mock_clear_pending.assert_called_once_with(sess_b)
     # Sibling session is completely untouched.
     assert sess_a["model_override"] is None
     assert sess_a["agent"].model == "minimax/m3"
+
+
+def test_resumed_row_cannot_pin_stale_wire_onto_per_model_provider():
+    """#96066: a persisted opencode-go row written while the session ran an anthropic_messages model must not
+    route deepseek-v4-flash-vision-exp through the Anthropic wire or the other family's relay URL on resume;
+    the route is re-derived from the target model. Fixed-wire providers keep honoring their row."""
+    from tui_gateway import server
+
+    def fake_resolve(**kwargs):
+        provider = kwargs["requested"]
+        fresh = {"opencode-go": ("chat_completions", "https://opencode.ai/zen/go/v1"),
+                 "anthropic": ("anthropic_messages", "https://api.anthropic.com")}[provider]
+        return {"provider": provider, "requested_provider": provider, "api_mode": fresh[0], "base_url": fresh[1],
+                "api_key": "k", "source": "config"}
+
+    with patch("hermes_cli.runtime_provider.resolve_runtime_provider", side_effect=fake_resolve):
+        for stale_url in ("https://opencode.ai/zen/go", "https://opencode.ai/zen/v1"):
+            _, runtime = server._resolve_agent_model_runtime(
+                {"model": "deepseek-v4-flash-vision-exp", "provider": "opencode-go",
+                 "base_url": stale_url, "api_mode": "anthropic_messages"}, None)
+            assert (runtime["api_mode"], runtime["base_url"]) == ("chat_completions", "https://opencode.ai/zen/go/v1")
+        _, runtime = server._resolve_agent_model_runtime(
+            {"model": "claude-opus-4-6", "provider": "anthropic",
+             "base_url": "https://my-proxy.example", "api_mode": "anthropic_messages"}, None)
+        assert (runtime["api_mode"], runtime["base_url"]) == ("anthropic_messages", "https://my-proxy.example")

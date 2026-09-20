@@ -55,7 +55,7 @@ import { $toolRowDismissed, dismissToolRow } from '@/store/tool-dismiss'
 import { $toolEditsCollapsedByDefault } from '@/store/tool-edits-collapsed'
 import { $anyToolDisclosureOpen, $toolDisclosureOpen, $toolViewMode, setToolDisclosureOpen } from '@/store/tool-view'
 
-import { APPROVAL_TOOLS, PendingToolApproval } from './approval'
+import { APPROVAL_TOOLS, PendingToolApproval } from './approval-inline-v18'
 import {
   buildToolView,
   clampForDisplay,
