@@ -238,6 +238,15 @@ export function useModelControls({
       previous: { effort: string; model: string; provider: string },
       target: { model: string; provider: string }
     ) => {
+      // v19b: the level VISIBLE on the pill at carry time is the authority --
+      // not the pre-switch snapshot. When they differ the user (or the paint of
+      // their choice) already decided; the stale snapshot must not downscale.
+      // prevEffort stays as fallback for the no-session draft path.
+      const visibleEffort =
+        (liveSessionId ? ($sessionStates.get()[liveSessionId]?.reasoningEffort ?? '') : '') ||
+        ($draftReasoningEffort.get() || '')
+      const authoritativeEffort = visibleEffort || previous.effort
+      previous = { ...previous, effort: authoritativeEffort }
       const catalogProviders = (
         queryClient.getQueryData<ModelOptionsResponse>(
           modelOptionsQueryKey(cacheProfile || $activeGatewayProfile.get(), liveSessionId, cacheOwnerConnectionId)
@@ -340,10 +349,15 @@ const paintSelection = () => {
     setCurrentModel(selection.model)
           setCurrentProvider(selection.provider)
           markComposerSelectionManual()
-          // v14: an explicit user pick is a real-use selection — feed the
-          // cross-scope New Session sticky.
-          noteModelSelectionInUse(selection.model, selection.provider)
         }
+        // v19a: the sticky records the pair a REAL session adopted, whichever
+        // surface owns it — same rule as the session.info reconciler. Under a
+        // non-primary runtime the composer atoms stay untouched (no cross-
+        // surface repaint), but skipping the sticky here let a promoted-draft
+        // pick die with the consumed pending: the sticky kept the OLD pair and
+        // the next New Session seeded from it ("pick GLM-5.3, next chat opens
+        // flash"). Explicit writers stay unconditional (v18 contract).
+        noteModelSelectionInUse(selection.model, selection.provider)
 
         if (liveSessionId) {
           // Every live surface renders from its per-session slice, including

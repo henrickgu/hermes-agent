@@ -185,6 +185,17 @@ def _commit_agent_switch(sid: str, session: dict, agent, result, current_model: 
         logger.warning("In-place model switch failed for TUI agent: %s", exc)
         raise ValueError(f"Model switch to {result.new_model} failed ({exc}); "
                          f"staying on {getattr(agent, 'model', current_model)}.") from exc
+    # v19b: the switch re-resolved agent.reasoning_config from the GLOBAL config
+    # (switch_model's per-model re-read), silently discarding the session's
+    # create_reasoning_override. Any later rebuild re-seeds from that stale
+    # override and repins the OLD effort (repro: draft create effort=low, pick
+    # GLM-5.3 medium, turn ran medium, rebuild repersisted low to state.db).
+    # Sync the override to the live runtime so rebuilds and resumes agree with
+    # what the session actually runs now.
+    with contextlib.suppress(Exception):
+        _synced = getattr(agent, "reasoning_config", None)
+        if isinstance(_synced, dict) and _synced:
+            session["create_reasoning_override"] = _synced
     _restart_slash_worker(sid, session)
     _persist_live_session_runtime(session)
     _persist_live_session_system_prompt(session)
