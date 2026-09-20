@@ -2225,6 +2225,65 @@ def _persist_switch_billing_route(agent) -> None:
         logger.warning("Failed to persist billing route after model switch", exc_info=True)
 
 
+def _resolve_switch_reasoning_config(agent) -> dict | None:
+    """The reasoning level a live agent runs at AFTER a model switch.
+
+    Precedence: the session's own pick (the level the user chose on the pill,
+    which travels with the conversation) → the config's per-model table →
+    the global ``agent.reasoning_effort``. A session pick is never silently
+    re-resolved from the global default: that overwrote the user's level with
+    the profile default on every switch (proven repro — a desktop session
+    created at ``low`` logged ``reasoning_config resolved ... 'medium'`` 25s
+    later and state.db still recorded ``low``).
+
+    A level the NEW route cannot serve is clamped DOWN to the nearest weaker
+    supported level (cost guard — never escalate), so switching to a model
+    with a narrower vocabulary degrades honestly instead of erroring or
+    silently dropping the pick.
+    """
+    current = getattr(agent, "reasoning_config", None)
+    if isinstance(current, dict) and current.get("enabled") is not False:
+        level = str(current.get("effort") or "").strip()
+        if level:
+            supported = _switch_route_efforts(agent)
+            if supported:
+                from agent.reasoning_effort import clamp_effort
+
+                level = clamp_effort(level, supported) or level
+            return {"enabled": True, "effort": level}
+        # An explicit dict with no level is "enabled, level unknown" — fall
+        # through to the config so the pick resolves to something concrete.
+    elif isinstance(current, dict) and current.get("enabled") is False:
+        # ``none`` is a decision (thinking off), not a missing value.
+        return {"enabled": False}
+
+    # No session preference: the config's own resolution (per-model > global).
+    from hermes_constants import resolve_reasoning_config
+    from hermes_cli.config import load_config
+
+    return resolve_reasoning_config(load_config() or {}, getattr(agent, "model", "") or "")
+
+
+def _switch_route_efforts(agent) -> tuple[str, ...]:
+    """Levels the switched-to (provider, model) route's entry clamp accepts.
+
+    Best-effort: an unknown/unsupported route returns an empty tuple and the
+    caller keeps the requested level verbatim (the wire layer clamps again
+    downstream, never upward).
+    """
+    try:
+        from agent.reasoning_effort import route_supported_efforts
+
+        return tuple(
+            route_supported_efforts(
+                getattr(agent, "provider", ""), getattr(agent, "model", "")
+            )
+            or ()
+        )
+    except Exception:
+        return ()
+
+
 def switch_model(
     agent, new_model, new_provider, api_key='', base_url='', api_mode='', capabilities=None
 ):
@@ -2263,12 +2322,11 @@ def switch_model(
     )
     if hasattr(agent, "context_compressor") and agent.context_compressor:
         _update_switch_compressor(agent, custom_providers, effective_context_length, snapshot)
-    # Re-read the per-model reasoning_effort override so it applies immediately (per-model > global;
-    # YAML False = disabled).
+    # Re-read the per-model reasoning_effort override so it applies immediately
+    # (per-model > global; YAML False = disabled) — but an explicit SESSION
+    # pick still wins: the level the user chose travels with the conversation.
     try:
-        from hermes_constants import resolve_reasoning_config
-        from hermes_cli.config import load_config as _sm_load_config
-        agent.reasoning_config = resolve_reasoning_config(_sm_load_config() or {}, agent.model)
+        agent.reasoning_config = _resolve_switch_reasoning_config(agent)
         logger.info(
             "switch_model: reasoning_config resolved for %s: %s", agent.model, agent.reasoning_config
         )

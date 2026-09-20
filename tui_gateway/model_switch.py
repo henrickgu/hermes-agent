@@ -238,13 +238,12 @@ def _commit_agent_switch(sid: str, session: dict, agent, result, current_model: 
         logger.warning("In-place model switch failed for TUI agent: %s", exc)
         raise ValueError(f"Model switch to {result.new_model} failed ({exc}); "
                          f"staying on {getattr(agent, 'model', current_model)}.") from exc
-    # v19b: the switch re-resolved agent.reasoning_config from the GLOBAL config
-    # (switch_model's per-model re-read), silently discarding the session's
-    # create_reasoning_override. Any later rebuild re-seeds from that stale
-    # override and repins the OLD effort (repro: draft create effort=low, pick
-    # GLM-5.3 medium, turn ran medium, rebuild repersisted low to state.db).
-    # Sync the override to the live runtime so rebuilds and resumes agree with
-    # what the session actually runs now.
+    # The in-place swap re-resolved agent.reasoning_config; with the session
+    # pick taking precedence over the global config, that value IS the level
+    # this conversation runs at now. Sync the session override so rebuilds and
+    # resumes agree with the live runtime instead of re-seeding a stale level
+    # (repro before the carry fix: draft create effort=low, switch to GLM-5.3,
+    # rebuild re-pinned the OLD level and state.db disagreed with the turn).
     with contextlib.suppress(Exception):
         _synced = getattr(agent, "reasoning_config", None)
         if isinstance(_synced, dict) and _synced:
