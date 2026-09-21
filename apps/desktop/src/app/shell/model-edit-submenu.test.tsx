@@ -139,16 +139,18 @@ describe('ModelEditSubmenu reports edits without performing them', () => {
       reasoning: true
     })
 
-    // Rendered levels (max collapses onto the scale top); labels are the
-    // modelOptions translations, not the SHORT_LABELS chrome.
+    // `max` is an official level on the rendered scale since the Leva 9
+    // merge (REASONING_EFFORTS gained max and ultra), so it renders as its
+    // own "Max" row instead of collapsing onto the scale top. Labels come
+    // from the modelOptions translations, not the SHORT_LABELS chrome.
     expect(screen.getByText('Low')).toBeTruthy()
     expect(screen.getByText('Medium')).toBeTruthy()
     expect(screen.getByText('High')).toBeTruthy()
-    expect(screen.getByText('Ultra')).toBeTruthy()
-    // Full-scale-only levels stay out of a native list that excludes them.
-    // (xhigh is on the rendered scale but not in the GLM vocabulary; minimal
-    // left the scale entirely in the 5-level trim.)
+    expect(screen.getByText('Max')).toBeTruthy()
+    // Levels outside this route's vocabulary stay out of the list.
+    // (xhigh/minimal/ultra are on the full scale but not verified here.)
     expect(screen.queryByText('Extra High')).toBeNull()
+    expect(screen.queryByText('Ultra')).toBeNull()
   })
 
   it('nativeEfforts: absent falls back to the full scale', () => {

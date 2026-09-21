@@ -31,8 +31,10 @@ describe('model-status-label', () => {
   it('maps reasoning effort to compact labels', () => {
     expect(reasoningEffortLabel('high')).toBe('High')
     expect(reasoningEffortLabel('xhigh')).toBe('XHigh')
-    // 'max' left the trimmed 5-level scale — unknown values pass through.
-  expect(reasoningEffortLabel('max')).toBe('max')
+    // `max` is back on the official scale since the Leva 9 merge
+    // (REASONING_EFFORTS = minimal, low, medium, high, xhigh, max, ultra),
+    // so it has its own compact label instead of passing through raw.
+    expect(reasoningEffortLabel('max')).toBe('Max')
     expect(reasoningEffortLabel('ultra')).toBe('Ultra')
     expect(reasoningEffortLabel('')).toBe('')
   })
