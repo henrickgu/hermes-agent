@@ -11,7 +11,9 @@ import { $modelPresets, applyModelPreset, modelPresetKey, setModelPreset } from 
 import { notifyError } from '@/store/notifications'
 import {
   $defaultReasoningEffort,
+  getCurrentComposerScope,
   markComposerSelectionManual,
+  noteModelSelectionInUse,
   setCurrentFastMode,
   setCurrentReasoningEffort
 } from '@/store/session'
@@ -81,6 +83,15 @@ export function useModelMenuController({
 
   // Push a reasoning change onto the session that owns it, with rollback.
   const patchReasoning = async (next: string, previous: string, provider: string, model: string) => {
+    // v21: the pick IS real use — feed the sticky so the next New Session
+    // seeds from it (same provenance as a model pick; the v20 contract).
+    // Before this, a pill click wrote the draft atom / the session slice only:
+    // the sticky kept the previous level and the next new chat seeded from the
+    // stale value (or from the profile default), so "pick low → next session
+    // lands on medium". Falsy `next` must not erase the level the pair was
+    // recorded with — noteModelSelectionInUse skips empty efforts.
+    noteModelSelectionInUse(model, provider, getCurrentComposerScope(), next)
+
     if (touchesPrimary) {
       markComposerSelectionManual()
       setCurrentReasoningEffort(next)
@@ -114,6 +125,9 @@ export function useModelMenuController({
       }
 
       setModelPreset(provider, model, { effort: previous })
+      // Roll the sticky back with the pick — a rejected level must not seed
+      // the next New Session either.
+      noteModelSelectionInUse(model, provider, getCurrentComposerScope(), previous)
       notifyError(err, t.shell.modelOptions.updateFailed)
     }
   }
