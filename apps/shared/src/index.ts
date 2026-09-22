@@ -102,8 +102,10 @@ export {
   isReasoningEffort,
   REASONING_EFFORT_VALUES,
   REASONING_EFFORTS,
+  TRIMMED_REASONING_EFFORTS,
   type ReasoningEffort,
-  type ReasoningEffortValue
+  type ReasoningEffortValue,
+  type TrimmedReasoningEffort
 } from './reasoning-effort'
 export {
   isStableOpen,

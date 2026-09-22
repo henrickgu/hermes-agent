@@ -280,14 +280,24 @@ def _reasoning_catalog_reader(slug: str):
 def _apply_capabilities(rows: list[dict]) -> None:
     """Attach ``{model: {fast, reasoning, ...}}`` per row. ``reasoning`` defaults True when the catalog is
     silent (the dial is a no-op on models that ignore it; hiding it from a capable model is worse). A
-    serving aggregator's detail overrides models.dev (adds ``can_disable_reasoning``). ``supported_efforts``
-    is deliberately NOT forwarded — it under-reports levels that work."""
+    serving aggregator's detail overrides models.dev (adds ``can_disable_reasoning``).
+
+    ``native_efforts`` carries the route's VERIFIED vocabulary — the same tables the transport layer
+    clamps against (``supported_efforts_for``). Absent means "unknown", and the UI then falls back to
+    its trimmed scale. The aggregator's ``supported_efforts`` is still NOT forwarded on its own: it
+    under-reports levels that work. The two are not in conflict — one reads what the route ADVERTISES,
+    the other what it ACCEPTS; the effort menu wants the latter."""
     from hermes_cli.models import model_supports_fast_mode
 
     try:
         from agent.models_dev import get_model_capabilities
     except Exception:
-        get_model_capabilities = None  # type: ignore[assignment]
+        get_model_capabilities = None  # type: assignment
+
+    try:
+        from agent.reasoning_effort import supported_efforts_for
+    except Exception:
+        supported_efforts_for = None  # type: assignment
 
     for row in rows:
         slug = row.get("slug") or ""
@@ -305,6 +315,14 @@ def _apply_capabilities(rows: list[dict]) -> None:
                     reasoning = True
 
             entry: dict[str, Any] = {"fast": bool(model_supports_fast_mode(model)), "reasoning": reasoning}
+
+            if reasoning and supported_efforts_for is not None:
+                try:
+                    verified = supported_efforts_for(slug, model)
+                except Exception:
+                    verified = None
+                if verified:
+                    entry["native_efforts"] = list(verified)
 
             if reasoning and read_reasoning_catalog is not None:
                 try:

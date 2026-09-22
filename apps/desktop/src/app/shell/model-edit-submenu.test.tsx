@@ -153,13 +153,18 @@ describe('ModelEditSubmenu reports edits without performing them', () => {
     expect(screen.queryByText('Ultra')).toBeNull()
   })
 
-  it('nativeEfforts: absent falls back to the full scale', () => {
+  it('nativeEfforts: absent falls back to the trimmed scale', () => {
     const onSetOptions = vi.fn()
     renderSubmenu({ fastControl: { kind: 'none' }, onSetOptions, reasoning: true })
 
-    expect(screen.getByText('Extra High')).toBeTruthy()
     expect(screen.getByText('Low')).toBeTruthy()
-    expect(screen.getByText('Ultra')).toBeTruthy()
+    expect(screen.getByText('Medium')).toBeTruthy()
+    expect(screen.getByText('High')).toBeTruthy()
+    expect(screen.getByText('Extra High')).toBeTruthy()
+    expect(screen.getByText('Max')).toBeTruthy()
+    // Unknown route: `minimal` collapses onto `low` and `ultra` is internal.
+    expect(screen.queryByText('Min')).toBeNull()
+    expect(screen.queryByText('Ultra')).toBeNull()
   })
 
 })

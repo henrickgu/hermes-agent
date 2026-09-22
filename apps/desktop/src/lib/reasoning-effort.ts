@@ -1,11 +1,19 @@
 import { DEFAULT_REASONING_EFFORT, isReasoningEffort, REASONING_EFFORTS, REASONING_EFFORT_VALUES,
-  type ReasoningEffort } from '@hermes/shared'
+  TRIMMED_REASONING_EFFORTS,
+  type ReasoningEffort,
+  type TrimmedReasoningEffort } from '@hermes/shared'
 
 import { normalize } from '@/lib/text'
 
 // A escala vive no @hermes/shared (leva 9: minimal e max entraram na escala oficial).
-export { DEFAULT_REASONING_EFFORT, isReasoningEffort, REASONING_EFFORTS, REASONING_EFFORT_VALUES }
-export type { ReasoningEffort }
+export {
+  DEFAULT_REASONING_EFFORT,
+  isReasoningEffort,
+  REASONING_EFFORTS,
+  REASONING_EFFORT_VALUES,
+  TRIMMED_REASONING_EFFORTS
+}
+export type { ReasoningEffort, TrimmedReasoningEffort }
 
 /** Compact labels for chrome where space is tight (pill, picker rows). Menus
  *  and settings use the translated `shell.modelOptions` strings instead. */
@@ -74,7 +82,7 @@ export function resolveReasoningEffort(effort: string, fallback: string = DEFAUL
 }
 
 /** Efforts the route officially accepts, mapped onto the UI scale — or the
- *  full UI scale when unknown. The backend sends `native_efforts` from its
+ *  TRIMMED scale when unknown. The backend sends `native_efforts` from its
  *  transport clamping tables (verified, per-route vocabulary; wire names like
  *  `max` that the UI scale may not carry). Levels the scale doesn't render
  *  collapse to the nearest weaker rendered level, so a route whose top tier is
@@ -82,7 +90,10 @@ export function resolveReasoningEffort(effort: string, fallback: string = DEFAUL
  *  with no row. Pure function, shared by every effort menu. */
 export function effortsForModel(nativeEfforts?: string[]): ReasoningEffort[] {
   if (!nativeEfforts || nativeEfforts.length === 0) {
-    return [...REASONING_EFFORTS]
+    // Unknown route: offer the trimmed five, not the full wire vocabulary.
+    // `minimal` collapses onto `low` and `ultra` is Hermes-internal, so both
+    // read as noise to the user; a route that declares itself never lands here.
+    return [...TRIMMED_REASONING_EFFORTS]
   }
 
   const out: ReasoningEffort[] = []
@@ -112,8 +123,8 @@ export function effortsForModel(nativeEfforts?: string[]): ReasoningEffort[] {
   }
 
   // Never empty: a route that exposes nothing renderable falls back to the
-  // full scale rather than a menu with no rows.
-  return out.length > 0 ? out : [...REASONING_EFFORTS]
+  // trimmed scale rather than a menu with no rows.
+  return out.length > 0 ? out : [...TRIMMED_REASONING_EFFORTS]
 }
 
 /** The supported level closest to `from`: an exact hit stays; otherwise walk

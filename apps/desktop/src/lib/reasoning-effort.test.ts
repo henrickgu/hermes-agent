@@ -12,7 +12,8 @@ import {
   reasoningEffortClamp,
   reasoningEffortLabel,
   resolveFreshDraftEffort,
-  resolveReasoningEffort
+  resolveReasoningEffort,
+  TRIMMED_REASONING_EFFORTS
 } from './reasoning-effort'
 
 describe('reasoning-effort', () => {
@@ -56,9 +57,11 @@ describe('reasoning-effort', () => {
 })
 
 describe('effortsForModel', () => {
-  it('unknown route falls back to the full scale', () => {
-    expect(effortsForModel(undefined)).toEqual([...REASONING_EFFORTS])
-    expect(effortsForModel([])).toEqual([...REASONING_EFFORTS])
+  it('unknown route falls back to the TRIMMED scale, not the full wire vocabulary', () => {
+    // `minimal` collapses onto `low` and `ultra` is Hermes-internal, so an
+    // unknown route offers five honest rungs instead of seven (#704).
+    expect(effortsForModel(undefined)).toEqual([...TRIMMED_REASONING_EFFORTS])
+    expect(effortsForModel([])).toEqual([...TRIMMED_REASONING_EFFORTS])
   })
 
   it('keeps the GLM-5.3 native vocabulary as rows (max e nivel oficial desde a leva 9)', () => {
@@ -70,8 +73,8 @@ describe('effortsForModel', () => {
   })
 
   it('never returns an empty menu', () => {
-    expect(effortsForModel(['none'])).toEqual([...REASONING_EFFORTS])
-    expect(effortsForModel(['bogus'])).toEqual([...REASONING_EFFORTS])
+    expect(effortsForModel(['none'])).toEqual([...TRIMMED_REASONING_EFFORTS])
+    expect(effortsForModel(['bogus'])).toEqual([...TRIMMED_REASONING_EFFORTS])
   })
 })
 
