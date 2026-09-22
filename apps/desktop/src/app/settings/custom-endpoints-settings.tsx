@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useStore } from '@nanostores/react'
+import { useEffect, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -16,9 +17,16 @@ import { Check, Globe, Loader2, Plus, Save, Trash2, Zap } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 import { confirm } from '@/store/confirm'
 import { notify, notifyError } from '@/store/notifications'
-import type { CustomEndpoint, CustomEndpointUpdate } from '@/types/hermes'
+import { $settingsRequestProfile } from '@/store/settings-scope'
+import type {
+  CustomEndpoint,
+  CustomEndpointApiMode,
+  CustomEndpointModelDetail,
+  CustomEndpointUpdate
+} from '@/types/hermes'
 
 import { EmptyState, Pill, SectionHeading, SettingsContent, SettingsSkeleton } from './primitives'
+import { SettingsProfileScope } from './profile-scope'
 
 interface CustomEndpointsSettingsProps {
   onConfigSaved?: () => void
@@ -27,6 +35,7 @@ interface CustomEndpointsSettingsProps {
 
 interface EndpointForm {
   apiKey: string
+  apiMode: CustomEndpointApiMode
   baseUrl: string
   contextLength: string
   discoverModels: boolean
@@ -38,6 +47,7 @@ interface EndpointForm {
 
 const EMPTY_FORM: EndpointForm = {
   apiKey: '',
+  apiMode: '',
   baseUrl: '',
   contextLength: '',
   discoverModels: true,
@@ -50,6 +60,7 @@ const EMPTY_FORM: EndpointForm = {
 function formFromEndpoint(endpoint: CustomEndpoint): EndpointForm {
   return {
     apiKey: '',
+    apiMode: endpoint.api_mode ?? '',
     baseUrl: endpoint.base_url,
     contextLength: endpoint.context_length ? String(endpoint.context_length) : '',
     discoverModels: endpoint.discover_models,
@@ -60,7 +71,7 @@ function formFromEndpoint(endpoint: CustomEndpoint): EndpointForm {
   }
 }
 
-function toPayload(form: EndpointForm, models?: string[]): CustomEndpointUpdate {
+function toPayload(form: EndpointForm, models?: string[], modelDetails?: CustomEndpointModelDetail[]): CustomEndpointUpdate {
   const contextLength = Number.parseInt(form.contextLength, 10)
 
   return {
@@ -69,14 +80,21 @@ function toPayload(form: EndpointForm, models?: string[]): CustomEndpointUpdate 
     base_url: form.baseUrl.trim(),
     model: form.model.trim(),
     api_key: form.apiKey.trim() || undefined,
+    api_mode: form.apiMode,
     context_length: Number.isFinite(contextLength) && contextLength > 0 ? contextLength : undefined,
     discover_models: form.discoverModels,
     make_default: form.makeDefault,
+    model_details: modelDetails?.length ? modelDetails : undefined,
     models: models?.length ? models : undefined
   }
 }
 
 export function CustomEndpointsSettings({ onConfigSaved, onMainModelChanged }: CustomEndpointsSettingsProps) {
+  // Shared settings "Applies to" scope: read/write this profile's endpoints,
+  // not whichever Bot is active in the left rail. Undefined follows the
+  // active profile (request-shaped — never pass null, which retargets primary).
+  const scopeProfile = useStore($settingsRequestProfile)
+  const mounted = useRef(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState(false)
@@ -85,18 +103,28 @@ export function CustomEndpointsSettings({ onConfigSaved, onMainModelChanged }: C
   const [endpoints, setEndpoints] = useState<CustomEndpoint[]>([])
   const [form, setForm] = useState<EndpointForm>(EMPTY_FORM)
   const [discoveredModels, setDiscoveredModels] = useState<string[]>([])
+  const [discoveredDetails, setDiscoveredDetails] = useState<CustomEndpointModelDetail[]>([])
 
   async function refresh() {
-    const data = await getCustomEndpoints()
-    setEndpoints(data.endpoints)
+    const data = await getCustomEndpoints(scopeProfile)
+
+    if (mounted.current) {
+      setEndpoints(data.endpoints)
+    }
   }
 
   useEffect(() => {
     let cancelled = false
+    mounted.current = true
+    setLoading(true)
+    setForm(EMPTY_FORM)
+    setDiscoveredModels([])
+    setDiscoveredDetails([])
+    setEndpoints([])
 
     async function load() {
       try {
-        const data = await getCustomEndpoints()
+        const data = await getCustomEndpoints(scopeProfile)
 
         if (cancelled) {
           return
@@ -123,12 +151,17 @@ export function CustomEndpointsSettings({ onConfigSaved, onMainModelChanged }: C
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [scopeProfile])
 
   async function handleSave() {
     try {
       setSaving(true)
-      const response = await saveCustomEndpoint(toPayload(form, discoveredModels))
+      const response = await saveCustomEndpoint(toPayload(form, discoveredModels, discoveredDetails), scopeProfile)
+
+      if (!mounted.current) {
+        return
+      }
+
       setEndpoints(response.endpoints)
       const saved = response.endpoints.find(endpoint => endpoint.id === response.id)
 
@@ -154,7 +187,12 @@ export function CustomEndpointsSettings({ onConfigSaved, onMainModelChanged }: C
   async function handleValidate() {
     try {
       setTesting(true)
-      const response = await validateCustomEndpoint(toPayload(form))
+      const response = await validateCustomEndpoint(toPayload(form), scopeProfile)
+
+      if (!mounted.current) {
+        return
+      }
+
       setDiscoveredModels(response.models)
 
       if (response.ok) {
@@ -184,7 +222,12 @@ export function CustomEndpointsSettings({ onConfigSaved, onMainModelChanged }: C
   async function handleActivate(endpoint: CustomEndpoint) {
     try {
       setActivating(endpoint.id)
-      const response = await activateCustomEndpoint(endpoint.id)
+      const response = await activateCustomEndpoint(endpoint.id, scopeProfile)
+
+      if (!mounted.current) {
+        return
+      }
+
       await refresh()
       onConfigSaved?.()
       onMainModelChanged?.(response.provider, response.model)
@@ -204,7 +247,12 @@ export function CustomEndpointsSettings({ onConfigSaved, onMainModelChanged }: C
 
     try {
       setDeleting(endpoint.id)
-      const response = await deleteCustomEndpoint(endpoint.id)
+      const response = await deleteCustomEndpoint(endpoint.id, scopeProfile)
+
+      if (!mounted.current) {
+        return
+      }
+
       setEndpoints(response.endpoints)
 
       if (form.id === endpoint.id) {
@@ -222,7 +270,12 @@ export function CustomEndpointsSettings({ onConfigSaved, onMainModelChanged }: C
   }
 
   if (loading) {
-    return <SettingsSkeleton sections={[{ heading: true, rows: 3 }]} />
+    return (
+      <SettingsContent>
+        <SettingsProfileScope className="mb-5" />
+        <SettingsSkeleton sections={[{ heading: true, rows: 3 }]} />
+      </SettingsContent>
+    )
   }
 
   const allModelOptions = Array.from(new Set([...discoveredModels, form.model].filter(Boolean)))
@@ -230,6 +283,7 @@ export function CustomEndpointsSettings({ onConfigSaved, onMainModelChanged }: C
 
   return (
     <SettingsContent>
+      <SettingsProfileScope className="mb-5" />
       <div className="space-y-6">
         <section>
           <SectionHeading icon={Globe} meta={`${endpoints.length}`} title={translateNow('customEndpoints.title')} />
