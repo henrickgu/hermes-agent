@@ -1,3 +1,4 @@
+import { DEFAULT_REASONING_EFFORT, resolveReasoningEffort } from '@/lib/reasoning-effort'
 import type { CronJob, CronJobUpdates } from '@/types/hermes'
 
 const asText = (value: unknown): string => (typeof value === 'string' ? value : '')
@@ -5,6 +6,37 @@ const asText = (value: unknown): string => (typeof value === 'string' ? value : 
 /** Script-only cron jobs run a shell script on schedule with no LLM prompt. */
 export function jobIsScriptOnly(job: Pick<CronJob, 'no_agent' | 'script'>): boolean {
   return Boolean(job.no_agent) && Boolean(asText(job.script).trim())
+}
+
+/** The job's pinned reasoning effort ('' when the job follows the profile default). */
+export function jobPinnedEffort(job: Pick<CronJob, 'reasoning_effort'>): string {
+  return asText(job.reasoning_effort).trim()
+}
+
+/**
+ * What the cron detail panel should render for the effort row. A per-job pin
+ * wins and shows verbatim-labelled; with no pin the row still renders, showing
+ * the EFFECTIVE level (profile default, else the built-in medium) plus a
+ * suffix, so an inherited level never reads as a pinned one. Script-only jobs
+ * run no LLM and get no row at all.
+ */
+export function jobEffortDisplay(
+  job: Pick<CronJob, 'no_agent' | 'script' | 'reasoning_effort'>,
+  inputs: { profileDefaultEffort: string; suffix: string; labelFor: (level: string) => string }
+): { level: string; label: string; isProfileDefault: boolean } | null {
+  if (jobIsScriptOnly(job)) {
+    return null
+  }
+
+  const pinned = jobPinnedEffort(job)
+
+  if (pinned) {
+    return { level: pinned, label: inputs.labelFor(pinned), isProfileDefault: false }
+  }
+
+  const effective = resolveReasoningEffort(inputs.profileDefaultEffort) || DEFAULT_REASONING_EFFORT
+
+  return { level: effective, label: inputs.labelFor(effective) + inputs.suffix, isProfileDefault: true }
 }
 
 export type CronEditorValidationError = 'prompt' | 'prompt_and_schedule' | 'schedule'

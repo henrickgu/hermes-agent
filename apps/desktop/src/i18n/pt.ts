@@ -3982,6 +3982,7 @@ const ptBase = defineLocale({
     modelLabel: 'Modelo',
     modelDefault: 'Padrão (modelo global)',
     effortLabel: 'Esforço',
+    effortProfileDefaultSuffix: ' (padrão do perfil)',
     customScheduleLabel: 'Agendamento personalizado',
     customPlaceholder: '0 9 * * * ou dias úteis às 9h',
     customHint: 'Expressão cron, ou frases como “toda hora” ou “dias úteis às 9h”.',

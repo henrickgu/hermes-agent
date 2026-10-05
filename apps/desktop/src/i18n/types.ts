@@ -2668,6 +2668,7 @@ export interface Translations {
     modelLabel: string
     modelDefault: string
     effortLabel: string
+    effortProfileDefaultSuffix: string
     customScheduleLabel: string
     customPlaceholder: string
     customHint: string
