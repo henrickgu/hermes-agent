@@ -2667,6 +2667,7 @@ export interface Translations {
     deliverNeedsHomeChannel: string
     modelLabel: string
     modelDefault: string
+    effortLabel: string
     customScheduleLabel: string
     customPlaceholder: string
     customHint: string

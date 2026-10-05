@@ -145,6 +145,10 @@ function jobModel(job: CronJob): string {
   return asText(job.model).trim()
 }
 
+function jobReasoningEffort(job: CronJob): string {
+  return asText(job.reasoning_effort).trim()
+}
+
 function jobProvider(job: CronJob): string {
   return asText(job.provider).trim()
 }
@@ -790,11 +794,17 @@ interface CronJobDetailProps {
 }
 
 function CronJobDetail({ busy, c, job, onEdit, onOpenSession, onPauseResume, onTrigger }: CronJobDetailProps) {
+  const { t } = useI18n()
   const state = jobState(job)
   const isPaused = state === 'paused'
   const deliver = jobDeliver(job)
   const prompt = jobPrompt(job)
   const modelOverride = jobModel(job)
+  const effort = jobReasoningEffort(job)
+  // Raw level ('high') reads as an identifier; surface the translated scale label
+  // when the level is on it, else show the value verbatim (unknown/custom wire name).
+  const effortOptions = t.shell.modelOptions as unknown as Record<string, string | ((v: never) => string)>
+  const effortLabelValue = typeof effortOptions[effort] === 'string' ? effortOptions[effort] : effort
 
   return (
     <PanelDetail>
@@ -823,7 +833,8 @@ function CronJobDetail({ busy, c, job, onEdit, onOpenSession, onPauseResume, onT
               value: formatTime(job.next_run_at)
             },
             { label: c.deliverLabel, value: c.deliveryLabels[deliver] ?? deliver },
-            ...(modelOverride ? [{ label: c.modelLabel, value: modelOverride }] : [])
+            ...(modelOverride ? [{ label: c.modelLabel, value: modelOverride }] : []),
+            ...(effort ? [{ label: c.effortLabel, value: effortLabelValue }] : [])
           ]}
         />
 
