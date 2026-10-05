@@ -1,4 +1,4 @@
-import { mergeTranslations, type TranslationOverride } from '@hermes/shared/i18n'
+import { mergeTranslations } from '@hermes/shared/i18n'
 
 import { defineLocale } from './define-locale'
 import type { Translations } from './types'
@@ -4068,6 +4068,37 @@ const ptBase = defineLocale({
   },
 
   sidebar: {
+    filter: {
+      grouping: 'Agrupamento',
+      ordering: 'Ordenação',
+      show: 'Mostrar',
+      filters: 'Filtros',
+      status: 'Status',
+      pullRequest: 'Pull request',
+      profile: 'Perfil',
+      project: 'Projeto',
+      archived: 'Arquivadas',
+      resetToDefaults: 'Restaurar padrões',
+      expandAll: 'Expandir tudo',
+      collapseAll: 'Recolher tudo',
+      inboxStyle: 'Estilo de caixa de entrada',
+      updated: 'Atualizado',
+      created: 'Criado',
+      tokens: 'Tokens',
+      cost: 'Custo',
+      manual: 'Manual',
+      preview: 'Prévia',
+      pr: 'PR',
+      needsInput: 'Precisa de ação',
+      working: 'Trabalhando',
+      unread: 'Não lida',
+      draft: 'Rascunho',
+      idle: 'Ociosa',
+      open: 'Aberto',
+      merged: 'Mesclado',
+      closed: 'Fechado',
+      noPR: 'Sem PR'
+    },
     gatewayGroups: {
       grouping: 'Gateway e perfil',
       rename: 'Renomear grupo',
