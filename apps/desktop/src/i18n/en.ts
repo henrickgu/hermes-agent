@@ -3126,6 +3126,7 @@ export const en: Translations = {
     modelLabel: 'Model',
     modelDefault: 'Default (global model)',
     effortLabel: 'Effort',
+    effortProfileDefaultSuffix: ' (profile default)',
     customScheduleLabel: 'Custom schedule',
     customPlaceholder: '0 9 * * * or weekdays at 9am',
     customHint: 'Cron expression, or phrases like "every hour" or "weekdays at 9am".',
