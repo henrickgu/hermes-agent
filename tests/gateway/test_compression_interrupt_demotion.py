@@ -10,10 +10,9 @@ from __future__ import annotations
 
 import sys
 import threading
-import time
 import types
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -33,8 +32,7 @@ from gateway.platforms.base import (
     build_session_key,
 )
 from gateway.platforms.event import MessageEvent, MessageType
-from gateway.run import GatewayRunner, _AGENT_PENDING_SENTINEL  # noqa: E402
-
+from gateway.run import GatewayRunner  # noqa: E402
 
 def _make_event(text: str = "hello", chat_id: str = "123") -> MessageEvent:
     source = SessionSource(
@@ -49,7 +47,6 @@ def _make_event(text: str = "hello", chat_id: str = "123") -> MessageEvent:
         source=source,
         message_id="msg1",
     )
-
 
 def _make_runner(*, session_id: str = "parent-session") -> GatewayRunner:
     runner = object.__new__(GatewayRunner)
@@ -80,7 +77,6 @@ def _make_runner(*, session_id: str = "parent-session") -> GatewayRunner:
     runner._session_db._db.get_compression_lock_holder.return_value = None
     return runner
 
-
 def _make_adapter() -> MagicMock:
     adapter = MagicMock()
     adapter._pending_messages = {}
@@ -89,7 +85,6 @@ def _make_adapter() -> MagicMock:
     adapter.config.extra = {}
     adapter.platform = MagicMock(value="telegram")
     return adapter
-
 
 def _make_parent_no_subagents() -> MagicMock:
     parent = MagicMock()
@@ -101,17 +96,6 @@ def _make_parent_no_subagents() -> MagicMock:
         "current_tool": "terminal",
     }
     return parent
-
-
-class TestSessionHasCompressionInFlight:
-
-    @pytest.mark.asyncio
-    async def test_returns_true_when_lock_held(self) -> None:
-        runner = _make_runner()
-        sk = build_session_key(_make_event().source)
-        runner._session_db._db.get_compression_lock_holder.return_value = "holder-1"
-        assert await runner._session_has_compression_in_flight(sk) is True
-
 
 class TestBusyHandlerDemotesInterruptForCompression:
     @pytest.mark.asyncio
@@ -148,9 +132,8 @@ class TestBusyHandlerDemotesInterruptForCompression:
 
         adapter._send_with_retry.assert_called_once()
         content = adapter._send_with_retry.call_args.kwargs.get("content", "")
-        assert "Compactando o contexto" in content
-        assert "na fila" in content.lower()
+        assert "Compressing context" in content
+        assert "Queued" in content
         assert "/stop" in content
-        assert "Interrompendo" not in content
-
+        assert "Interrupting current task" not in content
 

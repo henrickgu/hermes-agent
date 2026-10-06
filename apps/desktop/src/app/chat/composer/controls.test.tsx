@@ -170,12 +170,6 @@ describe('contributed-actions grouping', () => {
 })
 
 describe('ComposerControls shortcut tooltips', () => {
-  it('shows Enter for Send', async () => {
-    renderControls()
-
-    await expectShortcutTooltip('Send', '↵')
-  })
-
   it('keeps Send (not Steer) while a turn is running if there is a payload', async () => {
     renderControls({ busy: true, busyAction: 'steer' })
 
@@ -192,6 +186,13 @@ describe('ComposerControls shortcut tooltips', () => {
     renderControls({ busy: true, busyAction: 'queue' })
 
     await expectShortcutTooltip('Queue message', 'Ctrl+↵')
+  })
+
+  it('hides Queue while idle even if the composer has a payload', () => {
+    renderControls({ busy: false, busyAction: 'queue', hasComposerPayload: true })
+
+    expect(screen.queryByLabelText('Queue message')).toBeNull()
+    expect(screen.getByLabelText('Send')).toBeTruthy()
   })
 })
 

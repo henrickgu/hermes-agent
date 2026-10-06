@@ -3,10 +3,10 @@ import { useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { translateNow } from '@/i18n'
+import { useI18n } from '@/i18n'
 import { cn } from '@/lib/utils'
 
-import { ListRow, Pill } from '../primitives'
+import { LIST_ROW_COLUMNS, ListRow, Pill } from '../primitives'
 
 import { RowValue } from './account-row-value'
 import type { BillingRefusal } from './api'
@@ -25,6 +25,8 @@ export function AutoReloadRow({
   bounds: Pick<BillingStateResponse, 'max_usd' | 'min_usd'>
   row: BillingAccountRowView
 }) {
+  const { t } = useI18n()
+  const b = t.settings.billing.autoReload
   const api = useBillingApi()
   const queryClient = useQueryClient()
   const [confirmDisable, setConfirmDisable] = useState(false)
@@ -33,7 +35,7 @@ export function AutoReloadRow({
   // save — opening Manage on a prefilled (possibly below-min) config must not
   // flash an error (spec §9).
   const [showErrors, setShowErrors] = useState(false)
-  const [message, setMessage] = useState<null | { kind: 'error' | 'success'; text: string }>(null)
+  const [message, setMessage] = useState<null | { kind: 'error' | 'success'; text: 'updated' | 'turnedOff' }>(null)
   const [refusal, setRefusal] = useState<BillingRefusal | null>(null)
 
   const [reloadTo, setReloadTo] = useState(
@@ -46,7 +48,7 @@ export function AutoReloadRow({
     initialAutoReloadAmount(autoReload.threshold_usd, autoReload.threshold_display)
   )
 
-  const validation = validateAutoReloadInputs(threshold, reloadTo, bounds)
+  const validation = validateAutoReloadInputs(threshold, reloadTo, bounds, t.settings.billing)
   const busy = saving
   const maxBound = bounds.max_usd ?? undefined
   const minBound = bounds.min_usd ?? undefined
@@ -96,7 +98,7 @@ export function AutoReloadRow({
     }
 
     await queryClient.invalidateQueries({ queryKey: ['billing', 'state'] })
-    setMessage({ kind: 'success', text: translateNow('billing.autoRefillUpdated') })
+    setMessage({ kind: 'success', text: 'updated' })
     setEditing(false)
   }
 
@@ -126,7 +128,7 @@ export function AutoReloadRow({
     }
 
     await queryClient.invalidateQueries({ queryKey: ['billing', 'state'] })
-    setMessage({ kind: 'success', text: translateNow('billing.autoRefillTurnedOff') })
+    setMessage({ kind: 'success', text: 'turnedOff' })
     setEditing(false)
   }
 
@@ -143,7 +145,7 @@ export function AutoReloadRow({
               </div>
             ) : null}
             <BillingRefusalInline refusal={refusal} />
-            {message && <InlineMessage kind={message.kind}>{message.text}</InlineMessage>}
+            {message && <InlineMessage kind={message.kind}>{b[message.text]}</InlineMessage>}
           </>
         }
         description={row.description}
@@ -166,7 +168,7 @@ export function AutoReloadRow({
   // panes. The form is `invisible` + `aria-hidden` when not editing.
   return (
     <div className="@container">
-      <div className="grid gap-3 py-3 @2xl:grid-cols-[minmax(0,1fr)_minmax(15rem,22rem)] @2xl:items-start">
+      <div className={cn('grid gap-3 py-3 @2xl:items-start', LIST_ROW_COLUMNS)}>
         <div className="min-w-0">
           <div className="text-[length:var(--conversation-text-font-size)] font-medium text-foreground">
             {row.title}
@@ -179,9 +181,9 @@ export function AutoReloadRow({
             <div aria-hidden={!editing} className={cn('space-y-2 [grid-area:stack]', !editing && 'invisible')}>
               <div className="grid gap-2 @2xl:grid-cols-2">
                 <label className="min-w-0 text-[length:var(--conversation-caption-font-size)] text-(--ui-text-tertiary)">
-                  {translateNow('billing.autoRefillThreshold')}
+                  {b.threshold}
                   <Input
-                    aria-label={translateNow('billing.autoRefillThresholdAria')}
+                    aria-label={b.thresholdAria}
                     className="mt-1 py-[3px]"
                     disabled={busy || !editing}
                     inputMode="decimal"
@@ -196,9 +198,9 @@ export function AutoReloadRow({
                   />
                 </label>
                 <label className="min-w-0 text-[length:var(--conversation-caption-font-size)] text-(--ui-text-tertiary)">
-                  {translateNow('billing.autoRefillReloadTo')}
+                  {b.reloadTo}
                   <Input
-                    aria-label={translateNow('billing.autoRefillReloadToAria')}
+                    aria-label={b.reloadToAria}
                     className="mt-1 py-[3px]"
                     disabled={busy || !editing}
                     inputMode="decimal"
@@ -219,9 +221,9 @@ export function AutoReloadRow({
               </div>
               {confirmDisable ? (
                 <div className="flex min-w-0 flex-wrap items-center gap-2 text-[length:var(--conversation-caption-font-size)] text-(--ui-text-tertiary)">
-                  <span>{translateNow('billing.autoRefillTurnOffConfirm')}</span>
+                  <span>{b.turnOffConfirm}</span>
                   <Button disabled={busy} onClick={() => void disable()} size="sm" type="button" variant="outline">
-                    {translateNow('billing.autoRefillTurnOff')}
+                    {b.turnOff}
                   </Button>
                   <Button
                     disabled={busy}
@@ -230,7 +232,7 @@ export function AutoReloadRow({
                     type="button"
                     variant="ghost"
                   >
-                    {translateNow('common.cancel')}
+                    {b.cancel}
                   </Button>
                 </div>
               ) : (
@@ -242,7 +244,7 @@ export function AutoReloadRow({
                   type="button"
                   variant="outline"
                 >
-                  {translateNow('billing.autoRefillDisable')}
+                  {b.disable}
                 </Button>
               )}
               {/* Refusal stays INSIDE the reserved layer so it never pushes Usage. */}
@@ -251,7 +253,7 @@ export function AutoReloadRow({
             {/* VIEW layer — success feedback overlaid in the same cell when not editing. */}
             {!editing && message && (
               <div className="[grid-area:stack]">
-                <InlineMessage kind={message.kind}>{message.text}</InlineMessage>
+                <InlineMessage kind={message.kind}>{b[message.text]}</InlineMessage>
               </div>
             )}
           </div>
@@ -262,15 +264,15 @@ export function AutoReloadRow({
           {editing ? (
             <>
               <Button disabled={busy || !validation.values} onClick={() => void save()} size="sm" type="button">
-                {busy ? translateNow('common.saving') : translateNow('common.save')}
+                {busy ? b.saving : b.save}
               </Button>
               <Button disabled={busy} onClick={cancelEdit} size="sm" type="button" variant="outline">
-                {translateNow('common.cancel')}
+                {b.cancel}
               </Button>
             </>
           ) : (
             <Button onClick={openEdit} size="sm" type="button" variant="outline">
-              {translateNow('billing.manageAction')}
+              {b.manage}
             </Button>
           )}
         </div>

@@ -3,18 +3,50 @@ import { useEffect, useRef, useState } from 'react'
 
 import { useSessionView } from '@/app/chat/session-view'
 import { useI18n } from '@/i18n'
-import { isDesktopFsRemoteMode, openDesktopDir, revealDesktopPath } from '@/lib/desktop-fs'
+import { isDesktopFsRemoteMode } from '@/lib/desktop-fs'
 import { Download, FolderOpen, MonitorPlay } from '@/lib/icons'
-import { localPreviewTarget, normalizeOrLocalPreviewTarget } from '@/lib/local-preview'
+import { normalizeOrLocalPreviewTarget } from '@/lib/local-preview'
 import { downloadGatewayMediaFile } from '@/lib/media'
 import { previewName } from '@/lib/preview-targets'
 import { notifyError } from '@/store/notifications'
-import { $previewTabSources, closePreviewForSource, openPreview, type PreviewRecordSource } from '@/store/preview'
+import { $previewTabSources, closePreviewForSource, openPreview } from '@/store/preview'
 
-const IS_MAC = typeof navigator !== 'undefined' && /mac/i.test(navigator.platform || navigator.userAgent || '')
-const IS_WIN = typeof navigator !== 'undefined' && /win/i.test(navigator.platform || navigator.userAgent || '')
+/** What the Electron main process said about this target's LOCAL filesystem
+ * state (#101683). `null` keeps the stock card — remote-backend targets keep
+ * Download, and a bridge-less dev server can't classify. */
+type LocalTargetState = { path: string; type: 'directory' | 'file' } | { type: 'missing' } | null
 
-export function PreviewAttachment({ source = 'manual', target }: { source?: PreviewRecordSource; target: string }) {
+async function classifyLocalTarget(rawTarget: string, cwd?: string | null): Promise<LocalTargetState> {
+  const bridge = window.hermesDesktop
+
+  // Only the Electron host's filesystem is knowable here; a remote backend's
+  // paths are not on this machine, so they keep the gateway-backed actions.
+  if (!bridge?.normalizePreviewTarget || isDesktopFsRemoteMode()) {
+    return null
+  }
+
+  try {
+    const resolved = await bridge.normalizePreviewTarget(rawTarget, cwd || undefined)
+
+    if (!resolved || resolved.previewKind === 'missing') {
+      return { type: 'missing' }
+    }
+
+    if (resolved.previewKind === 'directory' && resolved.path) {
+      return { path: resolved.path, type: 'directory' }
+    }
+
+    if (resolved.kind === 'file' && resolved.path) {
+      return { path: resolved.path, type: 'file' }
+    }
+  } catch {
+    // An old Electron build without the normalizer keeps the stock card.
+  }
+
+  return null
+}
+
+export function PreviewAttachment({ target }: { target: string }) {
   const { t } = useI18n()
   // This link lives in one session's transcript; resolve it against THAT
   // session's cwd, not the primary chat's.
@@ -23,41 +55,13 @@ export function PreviewAttachment({ source = 'manual', target }: { source?: Prev
   const [opening, setOpening] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [downloaded, setDownloaded] = useState(false)
-  const [revealing, setRevealing] = useState(false)
+  const [localTarget, setLocalTarget] = useState<LocalTargetState>(null)
   const cwdRef = useRef(cwd)
   const mountedRef = useRef(false)
   const requestTokenRef = useRef(0)
   const targetRef = useRef(target)
   const name = previewName(target)
   const isActive = openSources.includes(target)
-
-  // A folder link (no file extension in the last segment — a chat delivery
-  // folder like "Hermes - Revisão de Skills") should open ITSELF, not its
-  // parent: `reveal` would select it inside the parent, `openDir` opens it.
-  const looksLikeDirectory =
-    !/\.[a-z0-9]{1,8}$/i.test(target.replace(/[?#].*$/, '').split(/[\\/]/).pop() || '') &&
-    !/^https?:\/\//i.test(target)
-
-  // Card label: folder-shaped targets get the friendly "View in folder"
-  // wording (and only this button — download/preview make no sense for a
-  // directory); file targets keep the platform reveal label alongside the
-  // other actions.
-  const revealLabel = looksLikeDirectory
-    ? t.fileMenu.viewInFolder
-    : IS_MAC
-      ? t.fileMenu.revealFinder
-      : IS_WIN
-        ? t.fileMenu.revealExplorer
-        : t.fileMenu.revealFileManager
-
-  // Local filesystem only: the path this card points at lives on this machine,
-  // so the OS file manager can open it. Hidden on remote backends.
-  const canReveal = !isDesktopFsRemoteMode()
-
-  // Directory-shaped card: a single "View in folder" action. Download and
-  // preview target file bytes/preview pipelines that do not apply to a
-  // directory (and the preview resolver requires an entry file anyway).
-  const isDirCard = canReveal && looksLikeDirectory
 
   cwdRef.current = cwd
   targetRef.current = target
@@ -78,6 +82,55 @@ export function PreviewAttachment({ source = 'manual', target }: { source?: Prev
     setOpening(false)
   }, [cwd, target])
 
+  // Classify the target against the local filesystem so the card offers the
+  // native action instead of a Download this machine already has (#101683).
+  useEffect(() => {
+    let current = true
+    setLocalTarget(null)
+
+    void classifyLocalTarget(target, cwd).then(state => {
+      if (current) {
+        setLocalTarget(state)
+      }
+    })
+
+    return () => {
+      current = false
+    }
+  }, [cwd, target])
+
+  async function openInFileManager(path: string, directory: boolean) {
+    if (opening) {
+      return
+    }
+
+    setOpening(true)
+
+    try {
+      if (directory) {
+        const result = await window.hermesDesktop?.openDir?.(path)
+
+        if (!result?.ok) {
+          throw new Error(result?.error || `Could not open directory: ${path}`)
+        }
+      } else {
+        const revealed = await window.hermesDesktop?.revealPath?.(path)
+
+        if (revealed === false) {
+          throw new Error(`${path} — ${t.fileMenu.revealMissing}`)
+        }
+      }
+    } catch (error) {
+      if (mountedRef.current) {
+        notifyError(error, t.preview.unavailable)
+      }
+    } finally {
+      if (mountedRef.current) {
+        setOpening(false)
+      }
+    }
+  }
+
   async function togglePreview() {
     if (opening) {
       return
@@ -85,6 +138,14 @@ export function PreviewAttachment({ source = 'manual', target }: { source?: Prev
 
     if (isActive) {
       closePreviewForSource(target)
+
+      return
+    }
+
+    // The classifier already knows this path is not on this computer: report
+    // instead of running a pipeline that would fabricate a broken tab.
+    if (localTarget?.type === 'missing') {
+      notifyError(new Error(`${target} — ${t.preview.missingTarget}`), t.preview.unavailable)
 
       return
     }
@@ -111,7 +172,7 @@ export function PreviewAttachment({ source = 'manual', target }: { source?: Prev
         throw new Error(`Could not open preview target: ${requestTarget}`)
       }
 
-      openPreview(preview, source)
+      openPreview(preview)
     } catch (error) {
       if (
         !mountedRef.current ||
@@ -158,44 +219,28 @@ export function PreviewAttachment({ source = 'manual', target }: { source?: Prev
     }
   }
 
-  // Open the card's target in the OS file manager. A folder-looking target
-  // opens itself (openDir); a file is selected inside its parent (reveal).
-  // The renderer-side resolver is enough here — no preview round-trip needed,
-  // which also keeps folders (no index.html) working.
-  async function openInFileManager() {
-    if (revealing) {
-      return
-    }
-
-    setRevealing(true)
-
-    try {
-      const resolved = localPreviewTarget(target, cwd || undefined)
-
-      // The renderer-side resolver keeps a leading slash on Windows drive
-      // paths (new URL('file:///C:/…').pathname === '/C:/…'); the file-manager
-      // bridges want the bare drive form. Trailing slashes confuse the
-      // directory-vs-file heuristic, so trim those too.
-      const path = (resolved?.path || target)
-        .replace(/^\/([a-z]:\/)/i, '$1')
-        .replace(/\/+$/, '')
-
-      const isDir = looksLikeDirectory || !path.includes('.')
-
-      if (isDir) {
-        await openDesktopDir(path)
-      } else {
-        await revealDesktopPath(path)
-      }
-    } catch (error) {
-      if (mountedRef.current) {
-        notifyError(error, t.errors.genericFailure)
-      }
-    } finally {
-      if (mountedRef.current) {
-        setRevealing(false)
-      }
-    }
+  // A local directory is not previewable: one native folder action — no
+  // Download, no preview button that used to open a broken text tab (#101683).
+  if (localTarget?.type === 'directory') {
+    return (
+      <div className="flex w-full max-w-160 items-center gap-2 rounded-lg border border-(--ui-stroke-tertiary) bg-card/55 px-2.5 py-1.5 text-sm">
+        <span className="grid size-6 shrink-0 place-items-center rounded-md bg-muted/55 text-muted-foreground/85">
+          <MonitorPlay className="size-3.5" />
+        </span>
+        <span className="min-w-0 flex-1 truncate text-[0.78rem] font-medium text-foreground/90" title={target}>
+          {name}
+        </span>
+        <button
+          className="flex shrink-0 items-center gap-1 rounded-md border border-(--ui-stroke-tertiary) bg-background/40 px-2 py-1 text-[0.7rem] font-medium text-muted-foreground transition-colors hover:bg-accent/55 hover:text-foreground disabled:opacity-50"
+          disabled={opening}
+          onClick={() => void openInFileManager(localTarget.path, true)}
+          type="button"
+        >
+          <FolderOpen className="size-3" />
+          {t.fileMenu.revealFileManager}
+        </button>
+      </div>
+    )
   }
 
   return (
@@ -206,42 +251,44 @@ export function PreviewAttachment({ source = 'manual', target }: { source?: Prev
       <span className="min-w-0 flex-1 truncate text-[0.78rem] font-medium text-foreground/90" title={target}>
         {name}
       </span>
-      {!isDirCard && (
+      {localTarget?.type === 'file' ? (
+        // The file already exists on this machine: reveal it in the OS file
+        // manager instead of offering to download it again (#101683).
+        <button
+          className="flex shrink-0 items-center gap-1 rounded-md border border-(--ui-stroke-tertiary) bg-background/40 px-2 py-1 text-[0.7rem] font-medium text-muted-foreground transition-colors hover:bg-accent/55 hover:text-foreground disabled:opacity-50"
+          disabled={opening}
+          onClick={() => void openInFileManager(localTarget.path, false)}
+          type="button"
+        >
+          <FolderOpen className="size-3" />
+          {t.fileMenu.revealFileManager}
+        </button>
+      ) : (
         <button
           aria-label={t.fileMenu.download}
           className="flex shrink-0 items-center gap-1 rounded-md border border-(--ui-stroke-tertiary) bg-background/40 px-2 py-1 text-[0.7rem] font-medium text-muted-foreground transition-colors hover:bg-accent/55 hover:text-foreground disabled:opacity-50"
           disabled={downloading}
           onClick={() => void downloadFile()}
-          title={t.fileMenu.download}
           type="button"
         >
           <Download className="size-3" />
           {downloaded ? t.fileMenu.downloadSaved : t.fileMenu.download}
         </button>
       )}
-      {canReveal && (
-        <button
-          aria-label={revealLabel}
-          className="flex shrink-0 items-center gap-1 rounded-md border border-(--ui-stroke-tertiary) bg-background/40 px-2 py-1 text-[0.7rem] font-medium text-muted-foreground transition-colors hover:bg-accent/55 hover:text-foreground disabled:opacity-50"
-          disabled={revealing}
-          onClick={() => void openInFileManager()}
-          title={revealLabel}
-          type="button"
-        >
-          <FolderOpen className="size-3" />
-          {revealLabel}
-        </button>
-      )}
-      {!isDirCard && (
-        <button
-          className="shrink-0 rounded-md border border-(--ui-stroke-tertiary) bg-background/40 px-2 py-1 text-[0.7rem] font-medium text-muted-foreground transition-colors hover:bg-accent/55 hover:text-foreground disabled:opacity-50"
-          disabled={opening}
-          onClick={() => void togglePreview()}
-          type="button"
-        >
-          {opening ? t.preview.opening : isActive ? t.preview.hide : t.preview.openPreview}
-        </button>
-      )}
+      <button
+        className="shrink-0 rounded-md border border-(--ui-stroke-tertiary) bg-background/40 px-2 py-1 text-[0.7rem] font-medium text-muted-foreground transition-colors hover:bg-accent/55 hover:text-foreground disabled:opacity-50"
+        disabled={opening}
+        onClick={() => void togglePreview()}
+        type="button"
+      >
+        {opening
+          ? t.preview.opening
+          : localTarget?.type === 'missing'
+            ? t.preview.unavailable
+            : isActive
+              ? t.preview.hide
+              : t.preview.openPreview}
+      </button>
     </div>
   )
 }

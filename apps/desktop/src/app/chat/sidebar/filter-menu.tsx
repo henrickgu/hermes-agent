@@ -21,6 +21,7 @@ import {
 import { useI18n } from '@/i18n'
 import { desktopGit } from '@/lib/desktop-git'
 import { cn } from '@/lib/utils'
+import { $showsAdvancedChrome } from '@/store/interface-mode'
 import {
   $sidebarCardRows,
   $sidebarFiltersActive,
@@ -184,6 +185,9 @@ export function SidebarFilterMenu({ className }: { className?: string }) {
   // locally, the gateway's REST mirror remotely. Resolved per render, not once
   // at module load: switching to a remote profile swaps the bridge underneath.
   const prAvailable = Boolean(desktopGit()?.review?.prList)
+  // Simple mode owns the row readouts and the rail, and PRs are a coding
+  // signal — those rows wait for Advanced rather than appearing pre-decided.
+  const showsAdvancedChrome = useStore($showsAdvancedChrome)
 
   // Fold the level in view: project rows, or the date/status buckets. Project
   // rows default open, so "all collapsed" means every one of them has been
@@ -284,19 +288,21 @@ export function SidebarFilterMenu({ className }: { className?: string }) {
             </DropdownMenuSubContent>
           </DropdownMenuSub>
 
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger>{f.show}</DropdownMenuSubTrigger>
-            <DropdownMenuSubContent>
-              {rowMetaOptions.map(option => (
-                <OptionCheckbox
-                  checked={rowMeta.includes(option.id)}
-                  key={option.id}
-                  onCheck={() => toggleSidebarRowMeta(option.id)}
-                  option={option}
-                />
-              ))}
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
+          {showsAdvancedChrome && (
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>{f.show}</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                {rowMetaOptions.map(option => (
+                  <OptionCheckbox
+                    checked={rowMeta.includes(option.id)}
+                    key={option.id}
+                    onCheck={() => toggleSidebarRowMeta(option.id)}
+                    option={option}
+                  />
+                ))}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          )}
 
           {grouping === 'project' && (
             <OptionCheckbox
@@ -317,11 +323,13 @@ export function SidebarFilterMenu({ className }: { className?: string }) {
           {/* The colored strip at the sidebar foot. Off, the statusbar grows a
               profile dropdown beside the gateway switcher, so nobody loses the
               door — this is for people whose profiles are bots, not workspaces. */}
-          <OptionCheckbox
-            checked={profileRailVisible}
-            onCheck={toggleProfileRailVisible}
-            option={{ icon: 'organization', id: 'profile-rail', label: t.sidebar.profileRail }}
-          />
+          {showsAdvancedChrome && (
+            <OptionCheckbox
+              checked={profileRailVisible}
+              onCheck={toggleProfileRailVisible}
+              option={{ icon: 'organization', id: 'profile-rail', label: t.sidebar.profileRail }}
+            />
+          )}
         </DropdownMenuGroup>
 
         <DropdownMenuSeparator />
@@ -345,7 +353,7 @@ export function SidebarFilterMenu({ className }: { className?: string }) {
 
           {/* `gh` only exists where the checkout does, so on a remote backend
               this submenu never appears rather than filtering everything out. */}
-          {prAvailable && (
+          {prAvailable && showsAdvancedChrome && (
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>{f.pullRequest}</DropdownMenuSubTrigger>
               <DropdownMenuSubContent>

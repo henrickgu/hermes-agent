@@ -1,0 +1,950 @@
+"use strict";
+import { atom, computed } from "nanostores";
+import { setApiRequestLocalMode } from "@/api/client";
+import { lastVisibleMessageIsUser } from "@/app/chat/thread-loading";
+import {
+  activeConnectionScopeSuffix,
+  connectionScopeSuffix,
+  rescopeConnectionScopedStores
+} from "@/lib/connection-scoped";
+import { resolveFreshDraftEffort } from "@/lib/reasoning-effort";
+import { isMessagingSource } from "@/lib/session-source";
+import { persistBoolean, persistString, readJson, storedBoolean, storedString, writeJson } from "@/lib/storage";
+import { $removedSessionIds, isSessionRemovalPending, tombstoneRowIds } from "./session-removal";
+import { clearUnreadOnOpen } from "./session-unread-remote";
+export const isUserPickedModel = () => getCurrentModelSource() === "manual";
+export const isRefreshProtectedModel = () => {
+  const source = getCurrentModelSource();
+  return source === "manual" || source === "sticky_seed";
+};
+const WORKSPACE_CWD_KEY = "hermes.desktop.workspace-cwd";
+const COMPOSER_MODEL_KEY = "hermes.desktop.composer.model";
+const COMPOSER_PROVIDER_KEY = "hermes.desktop.composer.provider";
+const COMPOSER_MODEL_SOURCE_KEY = "hermes.desktop.composer.model-source";
+const COMPOSER_EFFORT_KEY = "hermes.desktop.composer.reasoning-effort";
+const COMPOSER_FAST_KEY = "hermes.desktop.composer.fast";
+const COMPOSER_SERVICE_TIER_KEY = "hermes.desktop.composer.service-tier";
+const LAST_MODEL_KEY = "hermes.desktop.composer.last-model";
+const LAST_PROVIDER_KEY = "hermes.desktop.composer.last-provider";
+const LAST_SCOPE_KEY = "hermes.desktop.composer.last-scope";
+const LAST_EFFORT_KEY = "hermes.desktop.composer.last-effort";
+const PROFILE_EFFORT_KEY = "hermes.desktop.profile.reasoning-effort";
+let composerSelectionScope = "";
+function composerScopeForConnection(connection) {
+  if (!connection) {
+    return null;
+  }
+  if (connection.mode !== "remote" && !connection.registryScoped) {
+    return "";
+  }
+  if (connection.connectionId) {
+    return `.registry.${encodeURIComponent(connection.connectionId)}.${encodeURIComponent(connection.profile || "default")}`;
+  }
+  return connectionScopeSuffix(connection);
+}
+function composerSelectionKey(base) {
+  return composerSelectionScope === null ? null : `${base}${composerSelectionScope}`;
+}
+function storedComposerString(base) {
+  const key = composerSelectionKey(base);
+  return key === null ? null : storedString(key);
+}
+const LAST_SESSION_KEY = "hermes.desktop.lastSessionId";
+const LAST_ROUTE_KEY = "hermes.desktop.lastRoute";
+function profileNavigationKey(base, profile) {
+  const key = profile.trim() || "default";
+  return `${base}.profile.${encodeURIComponent(key)}${activeConnectionScopeSuffix()}`;
+}
+let legacyDiscardNeeded = true;
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", (e) => {
+    if (e.key === LAST_SESSION_KEY || e.key === LAST_ROUTE_KEY) {
+      legacyDiscardNeeded = true;
+    }
+  });
+}
+function discardLegacyRememberedNavigation() {
+  if (!legacyDiscardNeeded) {
+    return;
+  }
+  legacyDiscardNeeded = false;
+  if (storedString(LAST_SESSION_KEY) !== null) {
+    persistString(LAST_SESSION_KEY, null);
+  }
+  if (storedString(LAST_ROUTE_KEY) !== null) {
+    persistString(LAST_ROUTE_KEY, null);
+  }
+}
+export function _resetLegacyDiscardForTests() {
+  legacyDiscardNeeded = true;
+}
+export function getRememberedSessionId(profile) {
+  discardLegacyRememberedNavigation();
+  return storedString(profileNavigationKey(LAST_SESSION_KEY, profile));
+}
+export function setRememberedSessionId(id, profile) {
+  discardLegacyRememberedNavigation();
+  persistString(profileNavigationKey(LAST_SESSION_KEY, profile), id);
+}
+export function migrateRememberedNavigationForProfile(oldProfile, newProfile) {
+  discardLegacyRememberedNavigation();
+  for (const base of [LAST_SESSION_KEY, LAST_ROUTE_KEY]) {
+    const value = storedString(profileNavigationKey(base, oldProfile));
+    if (value !== null) {
+      persistString(profileNavigationKey(base, newProfile), value);
+      persistString(profileNavigationKey(base, oldProfile), null);
+    }
+  }
+}
+export function migrateSessionOwnerHintsForProfile(oldProfile, newProfile) {
+  const from = oldProfile.trim() || "default";
+  const to = newProfile.trim() || "default";
+  let changed = false;
+  for (const [key, entry] of [...sessionOwnerHints]) {
+    const { route } = entry;
+    if (route.connectionId !== "local" || route.profile !== from && route.targetProfile !== from) {
+      continue;
+    }
+    sessionOwnerHints.delete(key);
+    rememberSessionOwnerHint(entry.id, {
+      ...route,
+      profile: route.profile === from ? to : route.profile,
+      ...route.targetProfile === from ? { targetProfile: to } : {}
+    });
+    changed = true;
+  }
+  if (changed) {
+    persistSessionOwnerHints();
+  }
+}
+export function sessionBelongsToProfile(sessions, storedSessionId, profile) {
+  const key = profile.trim() || "default";
+  return sessions.some((session) => {
+    const owner = (session.profile ?? "").trim() || "default";
+    return owner === key && sessionMatchesStoredId(session, storedSessionId);
+  });
+}
+export function knownSessionProfile(sessions, sessionId) {
+  const owner = knownSessionOwner(sessions, sessionId);
+  return typeof owner === "string" ? owner : (owner?.targetProfile ?? owner?.profile)?.trim() || void 0;
+}
+function messagingListOwnerForOmittedProfile(session) {
+  if (!session || !isMessagingSource(session.source) || !messagingListServer) {
+    return void 0;
+  }
+  const connectionId = messagingListServer.connectionId?.trim() || "";
+  const profile = messagingListServer.profile?.trim() || "default";
+  if (connectionId && connectionId !== "local") {
+    return { connectionId, profile };
+  }
+  return profile;
+}
+export function knownSessionOwner(sessions, sessionId) {
+  if (!sessionId) {
+    return void 0;
+  }
+  const session = sessions.find((candidate) => sessionMatchesStoredId(candidate, sessionId));
+  const profile = session?.profile?.trim();
+  const connectionId = session?.connection_id?.trim();
+  const hint = getSessionOwnerHint(sessionId);
+  if (connectionId) {
+    return { connectionId, profile: profile || "default" };
+  }
+  const hintProfiles = /* @__PURE__ */ new Set([hint?.profile.trim() || "default", hint?.targetProfile?.trim() || "default"]);
+  if (hint && (!profile || hintProfiles.has(profile || "default"))) {
+    return hint;
+  }
+  if (profile) {
+    return profile;
+  }
+  const served = messagingListOwnerForOmittedProfile(session);
+  if (served) {
+    return served;
+  }
+  return hint;
+}
+export function rememberedSessionProfile(sessions, sessionId, activeProfile) {
+  return knownSessionProfile(sessions, sessionId) ?? ((activeProfile ?? "").trim() || "default");
+}
+export function getRememberedRoute(profile) {
+  discardLegacyRememberedNavigation();
+  return storedString(profileNavigationKey(LAST_ROUTE_KEY, profile));
+}
+export function setRememberedRoute(path, profile) {
+  discardLegacyRememberedNavigation();
+  persistString(profileNavigationKey(LAST_ROUTE_KEY, profile), path);
+}
+let configuredDefaultProjectDir = "";
+function workspaceCwdKey(connection = $connection.get()) {
+  const profile = connection?.profile?.trim() || "default";
+  if (connection?.mode !== "remote") {
+    return profile === "default" ? WORKSPACE_CWD_KEY : `${WORKSPACE_CWD_KEY}.profile.${encodeURIComponent(profile)}`;
+  }
+  const base = encodeURIComponent(connection.baseUrl || "remote");
+  return `${WORKSPACE_CWD_KEY}.remote.${base}.${encodeURIComponent(profile)}`;
+}
+export const getRememberedWorkspaceCwd = () => storedString(workspaceCwdKey())?.trim() || "";
+export const getConfiguredDefaultProjectDir = () => configuredDefaultProjectDir;
+export async function syncConfiguredDefaultProjectDir(shouldPublish = () => true) {
+  const settings = window.hermesDesktop?.settings?.getDefaultProjectDir;
+  if (!settings) {
+    if (shouldPublish()) {
+      configuredDefaultProjectDir = "";
+    }
+    return configuredDefaultProjectDir;
+  }
+  const { dir } = await settings();
+  if (shouldPublish()) {
+    configuredDefaultProjectDir = dir?.trim() || "";
+  }
+  return configuredDefaultProjectDir;
+}
+export async function ensureDefaultWorkspaceCwd(shouldPublish = () => true) {
+  const sanitize = window.hermesDesktop?.sanitizeWorkspaceCwd;
+  if (!sanitize || !shouldPublish()) {
+    return;
+  }
+  await syncConfiguredDefaultProjectDir(shouldPublish);
+  if (!shouldPublish()) {
+    return;
+  }
+  const configured = getConfiguredDefaultProjectDir();
+  const seedLiveCwd = (cwd2) => {
+    if (shouldPublish() && cwd2 && !$activeSessionId.get()) {
+      setCurrentCwdTransient(cwd2);
+    }
+  };
+  const remembered = getRememberedWorkspaceCwd();
+  if ($connection.get()?.mode === "remote") {
+    if (shouldPublish() && !$activeSessionId.get()) {
+      setCurrentCwdTransient(remembered);
+    }
+    return;
+  }
+  if (configured) {
+    const { cwd: cwd2 } = await sanitize(configured);
+    seedLiveCwd(cwd2);
+    return;
+  }
+  const { cwd } = remembered ? await sanitize(remembered) : { cwd: "" };
+  if (shouldPublish() && !$activeSessionId.get()) {
+    setCurrentCwdTransient(cwd);
+  }
+}
+export function applyConfiguredDefaultProjectDir(dir) {
+  configuredDefaultProjectDir = dir?.trim() || "";
+}
+function updateAtom(store, next) {
+  store.set(typeof next === "function" ? next(store.get()) : next);
+}
+export const sessionPinId = (session) => session._lineage_root_id ?? session.id;
+export const sessionMatchesStoredId = (session, storedSessionId) => session.id === storedSessionId || session._lineage_root_id === storedSessionId || Boolean(session._lineage_ids?.includes(storedSessionId));
+const lineageIndexBySessions = /* @__PURE__ */ new WeakMap();
+function lineageIndex(sessions) {
+  const cached = lineageIndexBySessions.get(sessions);
+  if (cached) {
+    return cached;
+  }
+  const index = /* @__PURE__ */ new Map();
+  const add = (key, value) => {
+    const bucket = index.get(key);
+    if (!bucket) {
+      index.set(key, [value]);
+    } else if (!bucket.includes(value)) {
+      bucket.push(value);
+    }
+  };
+  for (const session of sessions) {
+    add(session.id, session.id);
+    if (session._lineage_root_id) {
+      add(session.id, session._lineage_root_id);
+      add(session._lineage_root_id, session.id);
+      add(session._lineage_root_id, session._lineage_root_id);
+    }
+    const ids = session._lineage_ids;
+    if (ids && ids.length > 1) {
+      for (const a of ids) {
+        for (const b of ids) {
+          add(a, b);
+        }
+      }
+    }
+  }
+  lineageIndexBySessions.set(sessions, index);
+  return index;
+}
+export function lineageAliases(storedId, sessions) {
+  return lineageIndex(sessions).get(storedId)?.slice() ?? [storedId];
+}
+export function idsShareLineage(a, b, sessions) {
+  if (a === b) {
+    return true;
+  }
+  return sessions.some((session) => sessionMatchesStoredId(session, a) && sessionMatchesStoredId(session, b));
+}
+export function shouldMigrateComposerScope(fromKey, toKey, sessions) {
+  const from = fromKey?.trim();
+  const to = toKey?.trim();
+  if (!from || !to || from === to) {
+    return false;
+  }
+  return idsShareLineage(from, to, sessions);
+}
+export function resolveComposerSessionKey(selectedSessionId, sessions) {
+  if (!selectedSessionId) {
+    return null;
+  }
+  const row = sessions.find((session) => sessionMatchesStoredId(session, selectedSessionId));
+  return row ? sessionPinId(row) : selectedSessionId;
+}
+const profileKeyOf = (profile) => (profile ?? "").trim() || "default";
+function carriedConnectionId(prev, incoming) {
+  if (incoming.connection_id?.trim()) {
+    return incoming.connection_id;
+  }
+  const carried = prev?.connection_id?.trim();
+  if (!carried) {
+    return void 0;
+  }
+  return !incoming.profile?.trim() || profileKeyOf(incoming.profile) === profileKeyOf(prev?.profile) ? carried : void 0;
+}
+export function mergeSessionPage(previous, incoming, keepIds) {
+  const keep = keepIds instanceof Set ? keepIds : new Set(keepIds);
+  const profileKeyOf2 = (session) => (session.profile ?? "").trim() || "default";
+  const identity = (session) => `${profileKeyOf2(session)}::${session.id}`;
+  const lineageIdentity = (session) => `${profileKeyOf2(session)}::${session._lineage_root_id ?? session.id}`;
+  const prevById = new Map(previous.map((session) => [identity(session), session]));
+  const prevByLineage = new Map(previous.map((session) => [lineageIdentity(session), session]));
+  const merged = incoming.filter((session) => !session.is_internal_child).map((session) => {
+    const prev = prevById.get(identity(session)) ?? prevByLineage.get(lineageIdentity(session));
+    const last_active = Math.max(prev?.last_active ?? 0, session.last_active ?? 0);
+    const title = session.title?.trim() ? session.title : prev?.title?.trim() ? prev.title : session.title;
+    const connection_id = carriedConnectionId(prev, session);
+    return last_active === session.last_active && title === session.title && connection_id === session.connection_id ? session : { ...session, last_active, title, ...connection_id ? { connection_id } : {} };
+  });
+  if (keep.size === 0) {
+    return merged;
+  }
+  const incomingIds = new Set(merged.map(identity));
+  const incomingLineageKeys = new Set(merged.map(lineageIdentity));
+  const incomingLineageIdMembers = new Set(
+    merged.flatMap((session) => (session._lineage_ids ?? []).map((id) => `${profileKeyOf2(session)}::${id}`))
+  );
+  const tombstones = $removedSessionIds.get();
+  const tombstoned = (session) => tombstones.size > 0 && tombstoneRowIds(session).some((id) => tombstones.has(id));
+  const survivors = previous.filter(
+    (session) => (
+      // An internal delegate child is never listed; the authoritative page
+      // already omits it, so the keep-list must not resurrect it (#94124).
+      !session.is_internal_child && // The keep-list answers "live, not listed yet" — a hidden row (canonical
+      // Bot Chat, room plumbing) is LISTED-NEVER by design, so a live turn or
+      // open tab must not resurrect it into the sidebar (#113273).
+      !session.hidden && !tombstoned(session) && !incomingIds.has(identity(session)) && !incomingLineageKeys.has(lineageIdentity(session)) && !incomingLineageIdMembers.has(identity(session)) && (keep.has(session.id) || session._lineage_root_id != null && keep.has(session._lineage_root_id))
+    )
+  );
+  if (!survivors.length) {
+    return merged;
+  }
+  const recency = (session) => Math.max(session.last_active || 0, session.started_at || 0);
+  const sortedSurvivors = [...survivors].sort((a, b) => recency(b) - recency(a));
+  const interleaved = [];
+  let survivorIndex = 0;
+  let mergedIndex = 0;
+  while (survivorIndex < sortedSurvivors.length && mergedIndex < merged.length) {
+    if (recency(sortedSurvivors[survivorIndex]) >= recency(merged[mergedIndex])) {
+      interleaved.push(sortedSurvivors[survivorIndex++]);
+    } else {
+      interleaved.push(merged[mergedIndex++]);
+    }
+  }
+  while (survivorIndex < sortedSurvivors.length) {
+    interleaved.push(sortedSurvivors[survivorIndex++]);
+  }
+  while (mergedIndex < merged.length) {
+    interleaved.push(merged[mergedIndex++]);
+  }
+  return interleaved;
+}
+const ALL_PROFILES_SCAN = "all";
+function sidebarProfileKey(session) {
+  return (session.profile ?? "").trim() || "default";
+}
+function sessionListIdentity(session) {
+  return `${sidebarProfileKey(session)}::${session.id}`;
+}
+export function carryForwardFailedProfileSessions(previous, incoming, errors) {
+  if (!errors?.length || previous.length === 0) {
+    return incoming;
+  }
+  const failed = new Set(errors.map((error) => (error.profile ?? "").trim() || "default"));
+  const incomingIds = new Set(incoming.map(sessionListIdentity));
+  const carried = [];
+  for (const session of previous) {
+    if (session.hidden || !(failed.has(ALL_PROFILES_SCAN) || failed.has(sidebarProfileKey(session))) || incomingIds.has(sessionListIdentity(session))) {
+      continue;
+    }
+    carried.push(session);
+  }
+  if (carried.length === 0) {
+    return incoming;
+  }
+  const recency = (session) => Math.max(session.last_active || 0, session.started_at || 0);
+  return [...incoming, ...carried].sort((a, b) => recency(b) - recency(a));
+}
+export function keepFailedProfileMeta(previous, incoming, errors) {
+  if (!errors?.length) {
+    return incoming;
+  }
+  if (errors.some((error) => error.profile?.trim() === ALL_PROFILES_SCAN)) {
+    return previous;
+  }
+  const next = { ...incoming };
+  for (const error of errors) {
+    const key = (error.profile ?? "").trim() || "default";
+    if (Object.prototype.hasOwnProperty.call(previous, key)) {
+      next[key] = previous[key];
+    } else {
+      delete next[key];
+    }
+  }
+  return next;
+}
+export function touchSessionActivity(sessionId, options) {
+  const id = sessionId?.trim();
+  if (!id) {
+    return;
+  }
+  const at = options?.at ?? Date.now() / 1e3;
+  const preview = options?.preview?.trim().slice(0, 200) || void 0;
+  setSessions((prev) => {
+    let changed = false;
+    const next = prev.map((session) => {
+      if (!sessionMatchesStoredId(session, id)) {
+        return session;
+      }
+      const last_active = Math.max(session.last_active ?? 0, at);
+      if (last_active === session.last_active && (!preview || preview === session.preview)) {
+        return session;
+      }
+      changed = true;
+      return preview ? { ...session, last_active, preview } : { ...session, last_active };
+    });
+    return changed ? next : prev;
+  });
+}
+export function applySessionTitle(storedSessionId, title) {
+  const id = storedSessionId?.trim();
+  if (!id) {
+    return;
+  }
+  const next = title?.trim() || null;
+  const patch = (rows) => {
+    let changed = false;
+    const mapped = rows.map((session) => {
+      if (!sessionMatchesStoredId(session, id) || session.title === next) {
+        return session;
+      }
+      changed = true;
+      return { ...session, title: next };
+    });
+    return changed ? mapped : rows;
+  };
+  setSessions(patch);
+  setCronSessions(patch);
+  setMessagingSessions(patch);
+  setUnlistedSessionOwnerRows(patch);
+}
+export const $connection = atom(null);
+export const $gatewayState = atom("idle");
+export const $sessions = atom([]);
+export const $cronSessions = atom([]);
+export const CRON_SECTION_LIMIT = 50;
+export const $messagingSessions = atom([]);
+export const MESSAGING_SECTION_LIMIT = 100;
+let messagingListServer = null;
+export function setMessagingListServer(server) {
+  messagingListServer = server;
+}
+export function messagingListServerForFetch(scopeProfile, connectionId) {
+  const connection = String(connectionId ?? "").trim();
+  const profile = scopeProfile.trim();
+  return {
+    connectionId: connection && connection !== "local" ? connection : null,
+    profile: profile && profile !== "all" ? profile : null
+  };
+}
+export function stampMessagingRowsWithListServer(rows, server) {
+  const connectionId = server?.connectionId?.trim() || "";
+  if (!connectionId || connectionId === "local") {
+    return rows;
+  }
+  let changed = false;
+  const next = rows.map((row) => {
+    if (!isMessagingSource(row.source) || row.connection_id?.trim()) {
+      return row;
+    }
+    changed = true;
+    return { ...row, connection_id: connectionId };
+  });
+  return changed ? next : rows;
+}
+export const $messagingPlatformTotals = atom({});
+export const $messagingTruncated = atom(false);
+export function ownerLookupSessionRows() {
+  const cron = $cronSessions.get();
+  const messaging = $messagingSessions.get();
+  if (!cron.length && !messaging.length) {
+    return $sessions.get();
+  }
+  return [...$sessions.get(), ...cron, ...messaging];
+}
+export const $sessionProfilesTruncated = atom({});
+export const $sessionProfilesUsage = atom({});
+export const $corruptSessionStores = atom([]);
+export const $sessionsLoading = atom(true);
+export const $sessionsLoadError = atom(false);
+export const $activeSessionId = atom(null);
+export const $selectedStoredSessionId = atom(null);
+export const $activeSessionStoredIdRotation = atom(null);
+export const $messages = atom([]);
+export const $messagesEmpty = computed($messages, (messages) => messages.length === 0);
+export const $lastVisibleMessageIsUser = computed($messages, lastVisibleMessageIsUser);
+export const $freshDraftReady = atom(false);
+export const $busy = atom(false);
+export const $awaitingResponse = atom(false);
+export const $resumeFailedSessionId = atom(null);
+let sessionResumeRequestSequence = 0;
+export const $sessionResumeRequest = atom(null);
+const SESSION_OWNER_HINT_LIMIT = 256;
+const SESSION_OWNER_HINTS_KEY = "hermes.desktop.sessionOwnerHints.v1";
+const sessionOwnerHints = /* @__PURE__ */ new Map();
+function sessionOwnerHintKey(sessionId, route) {
+  return JSON.stringify([route.connectionId.trim(), route.profile.trim() || "default", sessionId]);
+}
+function normalizeOwnerRoute(route) {
+  return {
+    ...route,
+    connectionId: route.connectionId.trim(),
+    profile: route.profile.trim() || "default",
+    ...route.targetProfile ? { targetProfile: route.targetProfile.trim() || "default" } : {}
+  };
+}
+function persistSessionOwnerHints() {
+  writeJson(
+    SESSION_OWNER_HINTS_KEY,
+    sessionOwnerHints.size === 0 ? null : [...sessionOwnerHints.values()].map((entry) => [entry.id, entry.route])
+  );
+}
+function rememberSessionOwnerHint(sessionId, route) {
+  const id = sessionId.trim();
+  const normalized = normalizeOwnerRoute(route);
+  if (!id || !normalized.connectionId) {
+    return false;
+  }
+  const key = sessionOwnerHintKey(id, normalized);
+  sessionOwnerHints.delete(key);
+  sessionOwnerHints.set(key, { id, route: normalized });
+  while (sessionOwnerHints.size > SESSION_OWNER_HINT_LIMIT) {
+    const oldest = sessionOwnerHints.keys().next().value;
+    if (oldest === void 0) {
+      break;
+    }
+    sessionOwnerHints.delete(oldest);
+  }
+  return true;
+}
+export function hydrateSessionOwnerHints() {
+  const raw = readJson(SESSION_OWNER_HINTS_KEY);
+  if (!Array.isArray(raw)) {
+    return;
+  }
+  for (const entry of raw) {
+    if (!Array.isArray(entry) || entry.length !== 2) {
+      continue;
+    }
+    const [id, route] = entry;
+    if (typeof id !== "string" || !route || typeof route !== "object" || typeof route.connectionId !== "string" || typeof route.profile !== "string") {
+      continue;
+    }
+    const candidate = route;
+    rememberSessionOwnerHint(id, {
+      connectionId: candidate.connectionId,
+      profile: candidate.profile,
+      ...typeof candidate.targetProfile === "string" ? { targetProfile: candidate.targetProfile } : {},
+      ...candidate.mode === "local" || candidate.mode === "remote" ? { mode: candidate.mode } : {}
+    });
+  }
+}
+hydrateSessionOwnerHints();
+export function setSessionOwnerHint(sessionId, route) {
+  if (rememberSessionOwnerHint(sessionId, route)) {
+    persistSessionOwnerHints();
+  }
+}
+export function forgetSessionOwnerHintsForConnection(connectionId) {
+  const id = connectionId.trim();
+  if (!id) {
+    return;
+  }
+  let changed = false;
+  for (const [key, entry] of [...sessionOwnerHints]) {
+    if (entry.route.connectionId === id) {
+      sessionOwnerHints.delete(key);
+      changed = true;
+    }
+  }
+  if (changed) {
+    persistSessionOwnerHints();
+  }
+}
+export function forgetSessionOwnerHintsForSession(sessionId) {
+  const id = sessionId.trim();
+  if (!id) {
+    return;
+  }
+  let changed = false;
+  for (const [key, entry] of [...sessionOwnerHints]) {
+    if (entry.id === id) {
+      sessionOwnerHints.delete(key);
+      changed = true;
+    }
+  }
+  if (changed) {
+    persistSessionOwnerHints();
+  }
+}
+export function sessionOwnerRouteFromRow(session) {
+  const connectionId = (session?.connection_id ?? "").trim();
+  const profile = (session?.profile ?? "").trim();
+  if (!connectionId || !profile) {
+    return void 0;
+  }
+  return { connectionId, profile, targetProfile: profile };
+}
+export function _resetSessionOwnerHintsForTests({ storage = false } = {}) {
+  sessionOwnerHints.clear();
+  if (storage) {
+    writeJson(SESSION_OWNER_HINTS_KEY, null);
+  }
+}
+export function getSessionOwnerHints(sessionId) {
+  const id = sessionId.trim();
+  return [...sessionOwnerHints.values()].filter((entry) => entry.id === id).map((entry) => ({ ...entry.route }));
+}
+export function getSessionOwnerHint(sessionId, scope) {
+  const id = sessionId.trim();
+  if (scope) {
+    const entry = sessionOwnerHints.get(sessionOwnerHintKey(id, scope));
+    return entry ? { ...entry.route } : void 0;
+  }
+  const matches = [...sessionOwnerHints.values()].filter((entry) => entry.id === id);
+  return matches.length === 1 ? { ...matches[0].route } : void 0;
+}
+export const $resumeExhaustedSessionId = atom(null);
+export const $unlistedSessionOwnerRows = atom([]);
+export const $currentModel = atom(storedComposerString(COMPOSER_MODEL_KEY) ?? "");
+export const $currentProvider = atom(storedComposerString(COMPOSER_PROVIDER_KEY) ?? "");
+export const $draftReasoningEffort = atom(storedString(COMPOSER_EFFORT_KEY) ?? "");
+export const $currentReasoningEffortWire = atom("");
+export const $currentServiceTier = atom(storedString(COMPOSER_SERVICE_TIER_KEY) ?? "");
+export const $currentReasoningEffort = $draftReasoningEffort;
+export const $currentFastMode = atom(storedBoolean(COMPOSER_FAST_KEY, false));
+export const $yoloActive = atom(false);
+export const $currentCwd = atom(getRememberedWorkspaceCwd());
+export const $workspaceCwdOwner = atom(null);
+export const $terminalBackend = atom("");
+export const $newChatWorkspaceTarget = atom(void 0);
+export const $newChatWorkspaceTargetGeneration = atom(0);
+export const $currentBranch = atom("");
+export const $currentUsage = atom({
+  calls: 0,
+  input: 0,
+  output: 0,
+  total: 0
+});
+export const $sessionStartedAt = atom(null);
+export const $tileSessionFocusStartedAt = atom(null);
+export const $turnStartedAt = atom(null);
+export const $introPersonality = atom("");
+export const $currentPersonality = atom("");
+export const $availablePersonalities = atom([]);
+export const $introSeed = atom(0);
+export const $contextSuggestions = atom([]);
+export const $modelPickerOpen = atom(false);
+export const $sessionPickerOpen = atom(false);
+function rescopeComposerSelection(nextScope) {
+  if (nextScope === composerSelectionScope) {
+    return;
+  }
+  composerSelectionScope = nextScope;
+  $currentModel.set(storedComposerString(COMPOSER_MODEL_KEY) ?? "");
+  $currentProvider.set(storedComposerString(COMPOSER_PROVIDER_KEY) ?? "");
+  $currentModelSource.set(getCurrentModelSource());
+}
+export function setComposerSelectionOwner(connectionId, profile) {
+  rescopeComposerSelection(
+    `.registry.${encodeURIComponent(connectionId)}.${encodeURIComponent(profile.trim() || "default")}`
+  );
+}
+export function clearComposerSelectionOwner() {
+  rescopeComposerSelection(null);
+}
+export const setConnection = (next) => {
+  updateAtom($connection, next);
+  rescopeConnectionScopedStores($connection.get());
+  const mode = $connection.get()?.mode;
+  if (mode) {
+    setApiRequestLocalMode(mode === "local");
+  }
+  rescopeComposerSelection(composerScopeForConnection($connection.get()));
+};
+export const setGatewayState = (next) => updateAtom($gatewayState, next);
+export const setSessions = (next) => updateAtom($sessions, next);
+export const setUnlistedSessionOwnerRows = (next) => updateAtom($unlistedSessionOwnerRows, next);
+export const setCronSessions = (next) => updateAtom($cronSessions, next);
+export const setMessagingSessions = (next) => updateAtom($messagingSessions, next);
+export const setMessagingPlatformTotals = (next) => updateAtom($messagingPlatformTotals, next);
+export const setMessagingTruncated = (next) => updateAtom($messagingTruncated, next);
+export const setSessionProfilesTruncated = (next) => updateAtom($sessionProfilesTruncated, next);
+export const setSessionProfilesUsage = (next) => updateAtom($sessionProfilesUsage, next);
+export const setSessionsLoading = (next) => updateAtom($sessionsLoading, next);
+export const setSessionsLoadError = (next) => updateAtom($sessionsLoadError, next);
+export function setCorruptSessionStores(storage) {
+  const next = Object.keys(storage ?? {}).filter((profile) => storage?.[profile] === "corrupt").sort();
+  const prev = $corruptSessionStores.get();
+  if (prev.length !== next.length || prev.some((profile, i) => profile !== next[i])) {
+    $corruptSessionStores.set(next);
+  }
+}
+export const setActiveSessionId = (next) => updateAtom($activeSessionId, next);
+export const setActiveSessionStoredIdRotation = (next) => updateAtom($activeSessionStoredIdRotation, next);
+export const $unreadFinishedSessionIds = atom([]);
+export function markAllSessionsRead() {
+  if ($unreadFinishedSessionIds.get().length > 0) {
+    $unreadFinishedSessionIds.set([]);
+  }
+}
+export const $lastReadAtBySessionId = atom({});
+export const clearReadBaseline = (storedSessionId) => {
+  const map = $lastReadAtBySessionId.get();
+  if (storedSessionId in map) {
+    const { [storedSessionId]: _dropped, ...rest } = map;
+    $lastReadAtBySessionId.set(rest);
+  }
+};
+export const setSelectedStoredSessionId = (next) => {
+  updateAtom($selectedStoredSessionId, next);
+  const id = $selectedStoredSessionId.get();
+  if (id) {
+    markSessionRead(id);
+  }
+  if (id) {
+    void clearUnreadOnOpen(id);
+  }
+};
+export const markSessionRead = (storedSessionId) => {
+  if (!storedSessionId) {
+    return;
+  }
+  const sessions = $sessions.get();
+  const familyIds = new Set(lineageAliases(storedSessionId, sessions));
+  const lastReadAt = Date.now();
+  const nextReadMap = { ...$lastReadAtBySessionId.get() };
+  for (const id of familyIds) {
+    nextReadMap[id] = lastReadAt;
+  }
+  $lastReadAtBySessionId.set(nextReadMap);
+  $unreadFinishedSessionIds.set($unreadFinishedSessionIds.get().filter((id) => !familyIds.has(id)));
+};
+export const setMessages = (next) => updateAtom($messages, next);
+export const setFreshDraftReady = (next) => updateAtom($freshDraftReady, next);
+export { $freshDraftKey, rotateFreshDraftKey } from "./composer";
+export const setResumeFailedSessionId = (next) => updateAtom($resumeFailedSessionId, next);
+export const requestSessionResume = (sessionId, ownerRoute) => {
+  const id = sessionId.trim();
+  if (!id) {
+    return;
+  }
+  if (isSessionRemovalPending(id)) {
+    return;
+  }
+  if (ownerRoute) {
+    setSessionOwnerHint(id, ownerRoute);
+  }
+  $sessionResumeRequest.set({
+    ...ownerRoute ? { ownerRoute: { ...ownerRoute } } : {},
+    sequence: ++sessionResumeRequestSequence,
+    sessionId: id
+  });
+};
+export const setResumeExhaustedSessionId = (next) => updateAtom($resumeExhaustedSessionId, next);
+export const setBusy = (next) => updateAtom($busy, next);
+export const setAwaitingResponse = (next) => updateAtom($awaitingResponse, next);
+export const setCurrentModel = (next) => {
+  const previous = $currentModel.get();
+  updateAtom($currentModel, next);
+  if ($currentModel.get() !== previous) {
+    $currentReasoningEffortWire.set("");
+  }
+  const key = composerSelectionKey(COMPOSER_MODEL_KEY);
+  if (key !== null) {
+    persistString(key, $currentModel.get() || null);
+  }
+};
+export const setCurrentProvider = (next) => {
+  const previous = $currentProvider.get();
+  updateAtom($currentProvider, next);
+  if ($currentProvider.get() !== previous) {
+    $currentReasoningEffortWire.set("");
+  }
+  const key = composerSelectionKey(COMPOSER_PROVIDER_KEY);
+  if (key !== null) {
+    persistString(key, $currentProvider.get() || null);
+  }
+};
+export const setCurrentModelTransient = (next) => updateAtom($currentModel, next);
+export const setCurrentProviderTransient = (next) => updateAtom($currentProvider, next);
+let explicitManualPickInThisUiSession = false;
+export const isExplicitManualPickInThisUiSession = () => explicitManualPickInThisUiSession;
+export const resetExplicitManualPickForTests = () => {
+  explicitManualPickInThisUiSession = false;
+};
+export const getCurrentModelSource = () => {
+  const source = storedComposerString(COMPOSER_MODEL_SOURCE_KEY);
+  if (source === "sticky_seed") {
+    return "sticky_seed";
+  }
+  if (source === "manual" && !isExplicitManualPickInThisUiSession()) {
+    const sticky = computeLastUsedSelection();
+    if (sticky.model && sticky.provider) {
+      const model = storedComposerString(COMPOSER_MODEL_KEY);
+      const provider = storedComposerString(COMPOSER_PROVIDER_KEY);
+      if (model === sticky.model && provider === sticky.provider) {
+        setCurrentModelSource("sticky_seed");
+        return "sticky_seed";
+      }
+    }
+  }
+  return source === "default" || source === "manual" ? source : "";
+};
+export const $currentModelSource = atom(getCurrentModelSource());
+export const setCurrentModelSource = (source) => {
+  const key = composerSelectionKey(COMPOSER_MODEL_SOURCE_KEY);
+  if (key !== null) {
+    persistString(key, source || null);
+  }
+  $currentModelSource.set(source);
+};
+let composerSelectionGeneration = 0;
+export const getComposerSelectionGeneration = () => composerSelectionGeneration;
+export const markComposerSelectionManual = () => {
+  composerSelectionGeneration += 1;
+  explicitManualPickInThisUiSession = true;
+  setCurrentModelSource("manual");
+};
+export const setCurrentReasoningEffortWire = (wire) => {
+  $currentReasoningEffortWire.set(wire ?? "");
+};
+export const setCurrentReasoningEffort = (next, source = "preset-apply") => {
+  const prev = $draftReasoningEffort.get();
+  updateAtom($draftReasoningEffort, next);
+  const now = $draftReasoningEffort.get();
+  persistString(COMPOSER_EFFORT_KEY, now || null);
+};
+export const computeFreshDraftEffort = (presetEffort) => resolveFreshDraftEffort({
+  presetEffort,
+  profileDefault: $defaultReasoningEffort.get()
+});
+export const noteModelSelectionInUse = (model, provider, scope, effort) => {
+  if (!model.trim() || !provider.trim()) {
+    return;
+  }
+  const modelKey = composerSelectionKey(LAST_MODEL_KEY);
+  const providerKey = composerSelectionKey(LAST_PROVIDER_KEY);
+  const scopeKey = composerSelectionKey(LAST_SCOPE_KEY);
+  const effortKey = composerSelectionKey(LAST_EFFORT_KEY);
+  if (modelKey !== null) {
+    persistString(modelKey, model);
+  }
+  if (providerKey !== null) {
+    persistString(providerKey, provider);
+  }
+  if (scopeKey !== null) {
+    persistString(scopeKey, scope ?? composerSelectionScope ?? "");
+  }
+  if (effortKey !== null && typeof effort === "string" && effort.trim()) {
+    persistString(effortKey, effort.trim());
+  }
+};
+export const getCurrentComposerScope = () => composerSelectionScope ?? "";
+let explicitContextSwitchEpoch = 0;
+let lastConsumedExplicitContextSwitchEpoch = 0;
+export const markExplicitContextSwitch = () => {
+  explicitContextSwitchEpoch += 1;
+};
+export const getExplicitContextSwitchEpoch = () => explicitContextSwitchEpoch;
+export const consumeExplicitContextSwitch = () => {
+  if (explicitContextSwitchEpoch !== lastConsumedExplicitContextSwitchEpoch) {
+    lastConsumedExplicitContextSwitchEpoch = explicitContextSwitchEpoch;
+    return true;
+  }
+  return false;
+};
+export const computeLastUsedSelection = () => {
+  const model = storedComposerString(LAST_MODEL_KEY) ?? "";
+  const provider = storedComposerString(LAST_PROVIDER_KEY) ?? "";
+  const scope = storedComposerString(LAST_SCOPE_KEY) ?? "";
+  const effort = storedComposerString(LAST_EFFORT_KEY) ?? "";
+  return model && provider ? { model, provider, scope, effort } : { model: "", provider: "", scope: "", effort: "" };
+};
+export const $defaultReasoningEffort = atom(storedString(PROFILE_EFFORT_KEY) ?? "");
+export const setDefaultReasoningEffort = (next) => {
+  updateAtom($defaultReasoningEffort, next);
+  persistString(PROFILE_EFFORT_KEY, next || null);
+};
+export const setCurrentServiceTier = (next) => {
+  updateAtom($currentServiceTier, next);
+  persistString(COMPOSER_SERVICE_TIER_KEY, $currentServiceTier.get());
+};
+export const setCurrentFastMode = (next) => {
+  updateAtom($currentFastMode, next);
+  persistBoolean(COMPOSER_FAST_KEY, $currentFastMode.get());
+};
+export const setYoloActive = (next) => updateAtom($yoloActive, next);
+export const setCurrentCwd = (next) => {
+  updateAtom($currentCwd, next);
+  persistString(workspaceCwdKey(), $currentCwd.get().trim() || null);
+};
+export const setTerminalBackend = (next) => updateAtom($terminalBackend, next);
+export const setCurrentCwdTransient = (next) => updateAtom($currentCwd, next);
+const WORKSPACE_CWD_UNOWNED = "desktop:workspace-cwd-unowned";
+export const setWorkspaceCwdOwner = (storedSessionId) => updateAtom($workspaceCwdOwner, storedSessionId);
+export const releaseWorkspaceCwdOwner = () => updateAtom($workspaceCwdOwner, WORKSPACE_CWD_UNOWNED);
+export const commitWorkspaceCwdForSelectedSession = (cwd) => {
+  setCurrentCwdTransient(cwd);
+  setWorkspaceCwdOwner($selectedStoredSessionId.get());
+};
+export const workspaceCwdBelongsToSelectedSession = () => ($workspaceCwdOwner.get() ?? null) === ($selectedStoredSessionId.get() ?? null);
+export const setNewChatWorkspaceTarget = (next) => {
+  const generation = $newChatWorkspaceTargetGeneration.get() + 1;
+  $newChatWorkspaceTarget.set(next);
+  $newChatWorkspaceTargetGeneration.set(generation);
+  return generation;
+};
+export const $currentCwdExplicit = atom(false);
+export const setCurrentCwdExplicit = (next) => updateAtom($currentCwdExplicit, next);
+export const workspaceCwdForNewSession = () => {
+  return getConfiguredDefaultProjectDir();
+};
+export const setCurrentBranch = (next) => updateAtom($currentBranch, next);
+export const setCurrentUsage = (next) => updateAtom($currentUsage, next);
+export const setSessionStartedAt = (next) => updateAtom($sessionStartedAt, next);
+export const setTileSessionFocusStartedAt = (next) => updateAtom($tileSessionFocusStartedAt, next);
+export const setTurnStartedAt = (next) => updateAtom($turnStartedAt, next);
+export const setIntroPersonality = (next) => updateAtom($introPersonality, next);
+export const setCurrentPersonality = (next) => updateAtom($currentPersonality, next);
+export const setAvailablePersonalities = (next) => updateAtom($availablePersonalities, next);
+export const setIntroSeed = (next) => updateAtom($introSeed, next);
+export const setContextSuggestions = (next) => updateAtom($contextSuggestions, next);
+export const setModelPickerOpen = (next) => updateAtom($modelPickerOpen, next);
+export const setSessionPickerOpen = (next) => updateAtom($sessionPickerOpen, next);

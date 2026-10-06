@@ -14,9 +14,31 @@ from dataclasses import dataclass
 from typing import Optional
 
 from utils import is_truthy_value
+from agent.i18n import t
 from hermes_constants import INDICATOR_STYLES
 
 logger = logging.getLogger(__name__)
+
+
+def _localized(key: str, default: str) -> str:
+    """``t(key)`` with *default* when no catalog (not even ``en``) carries the key."""
+    value = t(key)
+    return default if value == key else value
+
+
+# Category identifiers -> ``slash.category.<slug>`` (identifiers stay English; labels are localized
+# only at render time via ``category_label``).
+_CATEGORY_SLUGS: dict[str, str] = {
+    "Session": "session", "Configuration": "configuration", "Info": "info",
+    "Tools & Skills": "tools_skills", "Plugins": "plugins", "Exit": "exit",
+    "Context": "context", "Background & Automation": "background_automation",
+}
+
+
+def category_label(category: str) -> str:
+    """Localized label for a registry category / help sub-group identifier."""
+    slug = _CATEGORY_SLUGS.get(category)
+    return _localized(f"slash.category.{slug}", category) if slug else category
 
 
 @dataclass(frozen=True)
@@ -43,6 +65,16 @@ class CommandDef:
     argument_mode: str | None = None  # desktop composer: options|text|mixed; None inferred
     # Desktop availability: None = offered; "hidden" = runs but out of the popover; else a reason.
     desktop: str | None = None
+    # Desktop subcommand scope.  When set, the desktop surface only offers
+    # (completion) and forwards (exec) these subcommands — the first argument
+    # token must be one of them.  Use when a command family mixes desktop-
+    # relevant review actions with CLI-hub mutations (e.g. /skills install),
+    # so offering the command doesn't widen the whole family.
+    desktop_subcommands: tuple[str, ...] | None = None
+
+    def describe(self) -> str:
+        """Localized description (``slash.<name>.description``); ``description`` is the English source."""
+        return _localized(f"slash.{self.name}.description", self.description)
 
 
 VALID_BUSY_POLICIES: frozenset[str] = frozenset({"dispatch", "reject", "interrupt_then_dispatch"})
@@ -50,204 +82,209 @@ VALID_BUSY_POLICIES: frozenset[str] = frozenset({"dispatch", "reject", "interrup
 
 COMMAND_REGISTRY: list[CommandDef] = [
     # Session
-    CommandDef("start", "Confirma pings de start sem responder", "Session",
+    CommandDef("start", "Acknowledge platform start pings without a reply", "Session",
                gateway_only=True, busy_policy="dispatch", busy_handler="start"),
-    CommandDef("new", "Nova sessão (ID e histórico novos)", "Session",
+    CommandDef("new", "Start a new session (fresh session ID + history)", "Session",
                aliases=("reset",), args_hint="[name]",
                busy_policy="interrupt_then_dispatch", busy_handler="new"),
-    CommandDef("topic", "Sessões por tópico no Telegram (DM)", "Session",
+    CommandDef("topic", "Enable or inspect Telegram DM topic sessions", "Session",
                gateway_only=True, args_hint="[off|help|session-id]"),
-    CommandDef("clear", "Limpa a tela e começa sessão nova", "Session",
+    CommandDef("clear", "Clear screen and start a new session", "Session",
                cli_only=True, desktop="terminal"),
-    CommandDef("redraw", "Redesenha a UI (recupera o terminal)", "Session",
+    CommandDef("redraw", "Force a full UI repaint (recovers from terminal drift)", "Session",
                cli_only=True, desktop="terminal"),
-    CommandDef("history", "Mostra o histórico da conversa", "Session",
+    CommandDef("history", "Show conversation history", "Session",
                cli_only=True, desktop="terminal"),
-    CommandDef("save", "Exporta a conversa atual", "Session",
+    CommandDef("save", "Export the current conversation (bare /save shows usage)", "Session",
                args_hint="<json|md|html> [filename] [redact]"),
-    CommandDef("retry", "Reenvia a última mensagem ao agente", "Session"),
-    CommandDef("prompt", "Escreve o prompt no editor e envia", "Session",
+    CommandDef("retry", "Retry the last message (resend to agent)", "Session"),
+    CommandDef("prompt", "Compose your next prompt in $EDITOR (markdown), then send it", "Session",
                cli_only=True, args_hint="[initial text]", aliases=("compose",)),
-    CommandDef("undo", "Volta N turnos e refaz (padrão 1)", "Session",
+    CommandDef("undo", "Back up N user turns and re-prompt (default 1)", "Session",
                args_hint="[N]"),
-    CommandDef("title", "Define título da sessão atual", "Session", args_hint="[name]"),
-    CommandDef("handoff", "Transfere a sessão p/ Telegram etc.", "Session",
+    CommandDef("title", "Set a title for the current session", "Session", args_hint="[name]"),
+    CommandDef("handoff", "Hand off this session to a messaging platform (Telegram, Discord, etc.)", "Session",
                args_hint="<platform>", cli_only=True, argument_mode="options"),
-    CommandDef("branch", "Cria um ramo da sessão atual (novo tópico no Discord/Telegram/Slack/Matrix; --here fica aqui)", "Session",
-               aliases=("fork",), args_hint="[--here] [name]"),
-    CommandDef("worktree", "Mostra, lista, cria ou remove worktrees git isoladas", "Session",
+    CommandDef("branch", "Branch the current session (new thread on Discord/Telegram/Slack/Matrix; --here stays here)",
+               "Session", aliases=("fork",), args_hint="[--here] [name]"),
+    CommandDef("worktree", "Show, list, create, or prune isolated git worktrees", "Session",
                cli_only=True, args_hint="[new [name]|list|prune [--dry-run]]",
                subcommands=("new", "list", "prune")),
-    CommandDef("compress", "Comprime o contexto da conversa", "Session",
+    CommandDef("compress", "Compress conversation context (add 'here [N]' to keep recent N turns; --preview shows what would happen)", "Session",
                aliases=("compact",), args_hint="[here [N] | focus topic | --preview|--dry-run]"),
-    CommandDef("rollback", "Restaura checkpoints de arquivos", "Session",
+    CommandDef("rollback", "List or restore filesystem checkpoints (restores keep your hand-edits; --all overrides)", "Session",
                args_hint="[number] [--all]"),
-    CommandDef("snapshot", "Snapshots do estado do Hermes", "Session",
+    CommandDef("snapshot", "Create or restore state snapshots of Hermes config/state", "Session",
                cli_only=True, aliases=("snap",), args_hint="[create|restore <id>|prune]",
                desktop="terminal"),
-    CommandDef("export", "Exporta um perfil (config/skills/tema)", "Configuration",
+    CommandDef("export", "Export a profile (config, skills, theme) to a shareable archive", "Configuration",
                cli_only=True, args_hint="[profile] [-o output.tar.gz]"),
-    CommandDef("import", "Importa um perfil compartilhado", "Configuration",
+    CommandDef("import", "Import a shared profile archive as a new profile", "Configuration",
                cli_only=True, args_hint="<archive.tar.gz> [--name <name>]"),
-    CommandDef("stop", "Mata processos em background", "Session",
+    CommandDef("stop", "Kill all running background processes", "Session",
                busy_policy="interrupt_then_dispatch", busy_handler="stop"),
-    CommandDef("pause", "Pausa global (parada de emergência)", "Session",
+    CommandDef("pause", "Pause new work globally (emergency stop); '/pause off' resumes", "Session",
                gateway_only=True, args_hint="[reason | off]", busy_policy="dispatch"),
-    CommandDef("approve", "Aprova comando perigoso pendente", "Session",
+    CommandDef("approve", "Approve a pending dangerous command", "Session",
                gateway_only=True, args_hint="[session|always]", busy_policy="dispatch",
                desktop="messaging"),
-    CommandDef("deny", "Recusa comando perigoso pendente", "Session",
+    CommandDef("deny", "Deny a pending dangerous command (optionally with a reason)", "Session",
                gateway_only=True, args_hint="[all] [reason]", busy_policy="dispatch",
                desktop="messaging"),
-    CommandDef("bg", "Roda prompt em sessão em background", "Session",
+    CommandDef("bg", "Run a prompt in a separate background session", "Session",
                args_hint="<prompt>", busy_policy="dispatch"),
-    CommandDef("btw", "Pergunta avulsa sem interromper", "Session",
+    CommandDef("btw", "Ask a side question about the current conversation without interrupting it", "Session",
                args_hint="<question>", busy_policy="dispatch"),
-    CommandDef("agents", "Mostra agentes e tarefas ativos", "Session",
+    CommandDef("agents", "Show active agents and running tasks", "Session",
                aliases=("tasks",), busy_policy="dispatch"),
-    CommandDef("journey", "Linha do tempo de aprendizado",
+    CommandDef("journey", "Open the learning journey timeline",
                "Session", aliases=("learning", "memory-graph"), cli_only=True,
                args_hint="[list|delete <id>|edit <id>]", subcommands=("list", "delete", "edit")),
-    CommandDef("queue", "Enfileira prompt p/ próximo turno (ou lista/edita/remove/move/limpa)", "Session",
+    CommandDef("queue", "Queue a prompt for the next turn, or list/edit/rm/move/clear queued prompts", "Session",
                aliases=("q",), args_hint="[<prompt>|list|edit N <prompt>|rm N|move A B|clear]",
                subcommands=("list", "edit", "rm", "move", "clear", "add"),
                busy_policy="dispatch", busy_handler="queue"),
-    CommandDef("steer", "Injeta msg após a próxima ferramenta sem interromper", "Session",
-               args_hint="<prompt>", busy_policy="dispatch", busy_handler="steer"),
-    CommandDef("goal", "Define objetivo permanente do Hermes", "Session",
-               args_hint="[text | draft <text> | show | gate add <cmd> | pause | resume | clear | status | wait <pid> | unwait]",
+    CommandDef("steer", "Inject a message after the next tool call without interrupting", "Session",
+               aliases=("s",), args_hint="<prompt>", busy_policy="dispatch", busy_handler="steer"),
+    CommandDef("goal", "Set a standing goal Hermes works on across turns until achieved", "Session",
+               args_hint="[text | -- <text> | draft <text> | show | gate add <cmd> | pause | resume | clear | status | wait <pid> | unwait]",
                argument_mode="mixed", busy_policy="dispatch", busy_handler="goal"),
-    CommandDef("heartbeat", "Prompt recorrente nesta sessão", "Session",
+    CommandDef("heartbeat", "Set a recurring prompt that re-enters this session when idle", "Session",
                aliases=("hb",), args_hint="[every <interval> <prompt> | status | pause | resume | clear]",
                subcommands=("status", "pause", "resume", "clear"),
                busy_policy="dispatch"),
-    CommandDef("refine", "Revisa a conversa e salva lições", "Session",
+    CommandDef("refine", "Review this conversation now and save lessons to memory/skills", "Session",
                args_hint="[focus instructions]"),
-    CommandDef("review", "Subagente revisa o trabalho atual", "Session",
+    CommandDef("review", "Spawn an independent subagent to review the work just discussed (PR, code, docs)", "Session",
                args_hint="[review instructions]"),
-    CommandDef("loop", "Reexecuta prompt em intervalos", "Session",
+    CommandDef("loop", "Re-run a prompt on a recurring interval in this session", "Session",
                aliases=("proactive",),
                args_hint="[interval] <prompt> [--times N] [--until <condition>] | status | pause | resume | stop",
                argument_mode="mixed", busy_policy="dispatch", busy_handler="loop"),
-    CommandDef("plan", "Plano de implementação em markdown", "Session",
+    CommandDef("plan", "Write a markdown implementation plan to .hermes/plans/ without executing anything", "Session",
                args_hint="[task]"),
-    CommandDef("moa", "Roda pelo preset Mixture of Agents", "Session",
+    CommandDef("moa", "Run one prompt through the default Mixture of Agents preset, then restore your model", "Session",
                args_hint="<prompt>", busy_policy="reject", busy_handler="moa"),
-    CommandDef("subgoal", "Critérios extras do objetivo ativo", "Session",
+    CommandDef("subgoal", "Add or manage extra criteria on the active goal", "Session",
                args_hint="[text | remove N | clear]", busy_policy="dispatch"),
-    CommandDef("status", "Info de sessão, modelo e contexto", "Session",
+    CommandDef("status", "Show session, model, token, and context info", "Session",
                busy_policy="dispatch"),
-    CommandDef("egress", "Status do proxy egress do Docker", "Session",
+    CommandDef("egress", "Show Docker egress proxy status", "Session",
                args_hint="[status]", subcommands=("status",), busy_policy="dispatch",
                busy_handler="egress", execute="egress"),
-    CommandDef("context", "Janela de contexto em detalhe", "Session",
+    CommandDef("context", "Show detailed context window view with usage gauge, category breakdown, compression stats, and throughput", "Session",
                aliases=("ctx",), args_hint="[all]", subcommands=("all",), busy_policy="dispatch"),
-    CommandDef("whoami", "Seu nível de acesso (admin/usuário)", "Info"),
-    CommandDef("profile", "Perfil ativo e diretório home", "Info",
+    CommandDef("whoami", "Show your slash command access (admin / user)", "Info"),
+    CommandDef("profile", "Show active profile name and home directory", "Info",
                busy_policy="dispatch", execute="profile"),
-    CommandDef("sethome", "Define este chat como canal home", "Session",
+    CommandDef("sethome", "Set this chat as the home channel", "Session",
                gateway_only=True, aliases=("set-home",), desktop="terminal"),
-    CommandDef("resume", "Retoma sessão nomeada anterior", "Session",
+    CommandDef("resume", "Resume a previously-named session", "Session",
                args_hint="[name]", argument_mode="mixed"),
-    CommandDef("sessions", "Navega e retoma sessões anteriores", "Session"),
+    CommandDef("sessions", "Browse and resume previous sessions", "Session"),
 
     # Configuration
-    CommandDef("config", "Mostra a configuração atual", "Configuration",
+    CommandDef("config", "Show current configuration", "Configuration",
                cli_only=True, desktop="terminal"),
-    CommandDef("model", "Troca de modelo (--global persiste)", "Configuration",
+    CommandDef("model", "Switch model (session-scoped; --global to persist)", "Configuration",
                args_hint="[model] [--provider name] [--reasoning level] [--global|--session] [--refresh]",
                busy_policy="reject", busy_handler="model", desktop="hidden"),
-    CommandDef("codex-runtime", "Runtime codex app-server (OpenAI)",
+    CommandDef("codex-runtime", "Toggle codex app-server runtime for OpenAI/Codex models",
                "Configuration", aliases=("codex_runtime",), args_hint="[auto|codex_app_server]",
                busy_policy="reject", busy_handler="codex-runtime"),
-    CommandDef("personality", "Define personalidade pré-definida", "Configuration",
+    CommandDef("personality", "Set a predefined personality", "Configuration",
                args_hint="[name]", argument_mode="options"),
-    CommandDef("statusbar", "Barra de status contexto/modelo", "Configuration",
+    CommandDef("statusbar", "Toggle the context/model status bar", "Configuration",
                cli_only=True, aliases=("sb",), desktop="terminal"),
-    CommandDef("battery", "Indicador de bateria na barra",
+    CommandDef("battery", "Toggle a color-coded battery indicator in the status bar",
                "Configuration", cli_only=True, args_hint="[on|off|status]",
                subcommands=("on", "off", "status")),
-    CommandDef("timestamps", "Timestamps [HH:MM] nas mensagens", "Configuration",
+    CommandDef("timestamps", "Toggle [HH:MM] timestamps on messages and /history", "Configuration",
                cli_only=True, args_hint="[on|off|status]",
                subcommands=("on", "off", "status"), aliases=("ts",)),
-    CommandDef("diff", "Mudanças git no diretório atual", "Info",
+    CommandDef("diff", "Show git changes in the working directory", "Info",
                args_hint="[staged|all|session] [--stat] [path...]",
                subcommands=("staged", "all", "session")),
-    CommandDef("verbose", "Progresso das ferramentas (ciclo)",
+    CommandDef("verbose", "Cycle tool progress display: off -> new -> all -> verbose",
                "Configuration", cli_only=True, gateway_config_gate="display.tool_progress_command",
                busy_policy="dispatch", desktop="terminal"),
-    CommandDef("focus", "Modo foco: prompt e resposta final",
+    CommandDef("focus", "Toggle focus view — show only your prompt and the final response",
                "Configuration", cli_only=True, args_hint="[on|off|status]",
                subcommands=("on", "off", "status")),
-    CommandDef("footer", "Rodapé de metadados nas respostas",
+    CommandDef("footer", "Toggle gateway runtime-metadata footer on final replies",
                "Configuration", args_hint="[on|off|status]", subcommands=("on", "off", "status"),
                busy_policy="dispatch", desktop="terminal"),
-    CommandDef("yolo", "Modo YOLO (pula aprovações)",
+    CommandDef("yolo", "Toggle YOLO mode (skip all dangerous command approvals)",
                "Configuration", busy_policy="dispatch"),
-    CommandDef("approvals", "Modo de aprovação de comandos",
+    CommandDef("approvals", "Show or set the persistent dangerous-command approval mode",
                "Configuration", args_hint="[manual|smart|off]",
                subcommands=("manual", "smart", "off")),
-    CommandDef("reasoning", "Esforço e exibição do raciocínio", "Configuration",
+    CommandDef("reasoning", "Manage reasoning effort and display", "Configuration",
                args_hint="[level|show|hide|full|clamp] [--global]",
-               subcommands=("none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra", "show", "hide", "on", "off", "full", "clamp", "--global"),
-               desktop="advanced"),
-    CommandDef("fast", "Modo rápido OpenAI/Anthropic", "Configuration",
+               subcommands=("none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra", "show", "hide", "on", "off", "full", "clamp", "--global")),
+    CommandDef("fast", "Fast mode — OpenAI Priority Processing / Anthropic Fast Mode (normal/fast/auto/cold)", "Configuration",
                args_hint="[normal|fast|auto|cold|status] [--global]",
                subcommands=("normal", "fast", "auto", "cold", "status", "on", "off", "--global"),
                desktop="advanced"),
-    CommandDef("skin", "Tema/skin da interface", "Configuration",
+    CommandDef("skin", "Show or change the display skin/theme", "Configuration",
                cli_only=True, args_hint="[name]", argument_mode="options"),
-    CommandDef("indicator", "Estilo do indicador de atividade", "Configuration",
+    CommandDef("indicator", "Pick the TUI busy-indicator style", "Configuration",
                cli_only=True, args_hint=f"[{'|'.join(INDICATOR_STYLES)}]",
                subcommands=INDICATOR_STYLES, desktop="terminal"),
-    CommandDef("voice", "Liga/desliga o modo voz", "Configuration",
+    CommandDef("voice", "Toggle voice mode", "Configuration",
                args_hint="[on|off|tts|status]", subcommands=("on", "off", "tts", "status"),
                desktop="composer-voice"),
-    CommandDef("wake", "Wake word 'Hey Hermes'", "Configuration",
+    CommandDef("wake", "Toggle the 'Hey Hermes' wake word listener", "Configuration",
                cli_only=True, args_hint="[on|off|status]", subcommands=("on", "off", "status")),
-    CommandDef("busy", "Msgs enquanto o Hermes trabalha", "Configuration",
+    CommandDef("busy", "Control how messages behave while Hermes is working", "Configuration",
                args_hint="[queue|steer|interrupt|status]",
                subcommands=("queue", "steer", "interrupt", "status"),
                busy_policy="dispatch", desktop="terminal"),
 
     # Tools & Skills
-    CommandDef("tools", "Gerencia ferramentas", "Tools & Skills",
+    CommandDef("tools", "Manage tools: /tools [list|disable|enable] [name...]", "Tools & Skills",
                args_hint="[list|disable|enable] [name...]", cli_only=True, argument_mode="options"),
-    CommandDef("toolsets", "Lista toolsets disponíveis", "Tools & Skills",
+    CommandDef("toolsets", "List available toolsets", "Tools & Skills",
                cli_only=True, desktop="terminal"),
-    CommandDef("skills", "Busca, instala e gerencia skills",
+    CommandDef("skills", "Search, install, inspect, or manage skills",
                "Tools & Skills", cli_only=True,
                gateway_config_gate="skills.write_approval",
                subcommands=("search", "browse", "inspect", "install", "audit",
                             "pending", "approve", "reject", "diff", "approval"),
-               desktop="settings"),
-    CommandDef("memory", "Memórias pendentes / aprovação",
+               # Desktop exposes only the write-approval review slice — the
+               # same surface the gateway handler offers.  The hub mutations
+               # (search/browse/inspect/install/audit) run a full interactive
+               # CLI hub that must not be reachable from a desktop exec
+               # (#98330 review).
+               desktop_subcommands=("pending", "approve", "reject", "diff",
+                                    "approval")),
+    CommandDef("memory", "Review pending memory writes / toggle the approval gate",
                "Tools & Skills", args_hint="[pending|approve|reject|approval] [id|on|off]",
                subcommands=("pending", "approve", "reject", "approval")),
-    CommandDef("bundles", "Bundles de skills (alias /<nome>)",
+    CommandDef("bundles", "List skill bundles (aliases /<name> for multiple skills)",
                "Tools & Skills", execute="bundles"),
-    CommandDef("pet", "Mascote petdex (/pet, /pet list)", "Tools & Skills",
+    CommandDef("pet", "Toggle or adopt a petdex mascot (/pet, /pet list, /pet <slug>)", "Tools & Skills",
                cli_only=True, args_hint="[toggle|list|scale <n>|<slug>]", subcommands=("toggle", "list", "scale", "off")),
-    CommandDef("hatch", "Gera pet petdex de uma descrição",
+    CommandDef("hatch", "Generate a new petdex pet from a description",
                "Tools & Skills", cli_only=True, aliases=("generate-pet",), args_hint="[description]"),
-    CommandDef("learn", "Aprende skill do que você descrever",
+    CommandDef("learn", "Learn a reusable skill from anything you describe (dirs, URLs, this chat, notes)",
                "Tools & Skills", args_hint="<what to learn from>"),
-    CommandDef("init", "Gera/atualiza AGENTS.md do projeto",
+    CommandDef("init", "Generate or update AGENTS.md project instructions from a repo scan",
                "Tools & Skills", args_hint="[notes]"),
-    CommandDef("cron", "Gerencia tarefas agendadas", "Tools & Skills",
+    CommandDef("cron", "Manage scheduled tasks", "Tools & Skills",
                cli_only=True, args_hint="[subcommand]",
                subcommands=("list", "add", "create", "edit", "pause", "resume", "run", "remove"),
                desktop="terminal"),
-    CommandDef("suggestions", "Revisa automações sugeridas",
+    CommandDef("suggestions", "Review suggested automations (accept/dismiss)",
                "Tools & Skills", aliases=("suggest",), args_hint="[accept|dismiss N | catalog]",
                subcommands=("accept", "dismiss", "catalog", "clear")),
-    CommandDef("blueprint", "Automação de um template blueprint",
+    CommandDef("blueprint", "Set up an automation from a blueprint template",
                "Tools & Skills", aliases=("bp",), args_hint="[name] [slot=value ...]"),
-    CommandDef("curator", "Manutenção de skills em background",
+    CommandDef("curator", "Background skill maintenance (status, run, pin, archive, list-archived)",
                "Tools & Skills", args_hint="[subcommand]",
                subcommands=("status", "run", "pause", "resume", "pin", "unpin", "restore", "list-archived"),
                desktop="advanced"),
-    CommandDef("kanban", "Quadro multi-perfil (tarefas etc.)",
+    CommandDef("kanban", "Multi-profile collaboration board (tasks, links, comments)",
                "Tools & Skills", args_hint="[subcommand]",
                subcommands=("init", "boards", "create", "list", "ls", "show", "assign",
                             "reclaim", "reassign", "diagnostics", "diag", "link", "unlink",
@@ -256,56 +293,56 @@ COMMAND_REGISTRY: list[CommandDef] = [
                             "notify-list", "notify-unsubscribe", "log", "runs",
                             "heartbeat", "assignees", "context", "specify", "gc"),
                busy_policy="dispatch", desktop="advanced"),
-    CommandDef("reload", "Recarrega .env na sessão atual", "Tools & Skills",
+    CommandDef("reload", "Reload .env variables into the running session", "Tools & Skills",
                cli_only=True, desktop="terminal"),
-    CommandDef("reload-mcp", "Recarrega servidores MCP", "Tools & Skills",
+    CommandDef("reload-mcp", "Reload MCP servers from config", "Tools & Skills",
                aliases=("reload_mcp",), desktop="advanced"),
-    CommandDef("reload-skills", "Re-escaneia skills instaladas",
+    CommandDef("reload-skills", "Re-scan ~/.hermes/skills/ for newly installed or removed skills",
                "Tools & Skills", aliases=("reload_skills",), desktop="advanced"),
-    CommandDef("browser", "Conecta navegador via CDP", "Tools & Skills",
+    CommandDef("browser", "Connect browser tools to your live Chromium-family browser via CDP, or switch to Browser Use mode", "Tools & Skills",
                cli_only=True, args_hint="[connect|disconnect|status|use]",
                subcommands=("connect", "disconnect", "status", "use")),
-    CommandDef("plugins", "Lista plugins e status",
+    CommandDef("plugins", "List installed plugins and their status",
                "Tools & Skills", cli_only=True, desktop="terminal"),
 
     # Info
-    CommandDef("commands", "Todos os comandos e skills", "Info",
+    CommandDef("commands", "Browse all commands and skills (paginated)", "Info",
                gateway_only=True, args_hint="[page]", busy_policy="dispatch",
                execute="gateway_commands"),
-    CommandDef("help", "Comandos disponíveis (filtra)", "Info", busy_policy="dispatch",
+    CommandDef("help", "Show available commands (/help skills lists skill commands, /help <text> filters)", "Info", busy_policy="dispatch",
                execute="gateway_help", args_hint="[skills|<filter>]"),
-    CommandDef("palette", "Paleta de comandos (Ctrl+P)", "Info",
+    CommandDef("palette", "Open the fuzzy command palette (also Ctrl+P)", "Info",
                cli_only=True, busy_policy="dispatch"),
-    CommandDef("restart", "Reinicia o gateway com cuidado", "Session",
+    CommandDef("restart", "Gracefully restart the gateway after draining active runs", "Session",
                gateway_only=True, busy_policy="dispatch", desktop="terminal"),
-    CommandDef("usage", "Uso de tokens e limites", "Info",
+    CommandDef("usage", "Show token usage and rate limits; `reset` redeems a banked Codex limit reset", "Info",
                args_hint="[reset [--force]]"),
-    CommandDef("subscription", "Plano Nous (muda no navegador)", "Info",
+    CommandDef("subscription", "View your Nous plan and change it in the browser", "Info",
                cli_only=True, aliases=("upgrade",)),
-    CommandDef("login", "Entra com conta Nous", "Info",
+    CommandDef("login", "Sign in with a Nous account (keeps your connectors)", "Info",
                busy_policy="dispatch", desktop="settings"),
-    CommandDef("topup", "Saldo Nous e cobrança no portal", "Info"),
-    CommandDef("insights", "Métricas e análises de uso", "Info",
+    CommandDef("topup", "Show your Nous balance and manage billing on the portal", "Info"),
+    CommandDef("insights", "Show usage insights and analytics", "Info",
                args_hint="[days]", desktop="advanced"),
-    CommandDef("platforms", "Status das plataformas do gateway", "Info",
+    CommandDef("platforms", "Show gateway/messaging platform status", "Info",
                cli_only=True, aliases=("gateway",), desktop="terminal"),
-    CommandDef("platform", "Pausa/retoma plataforma com falha", "Info",
+    CommandDef("platform", "Pause, resume, or list a failing gateway platform", "Info",
                gateway_only=True, args_hint="<pause|resume|list> [name]"),
-    CommandDef("copy", "Copia última resposta p/ clipboard", "Info",
+    CommandDef("copy", "Copy the last assistant response to clipboard", "Info",
                cli_only=True, args_hint="[number]", desktop="terminal"),
-    CommandDef("paste", "Anexa imagem do clipboard", "Info",
+    CommandDef("paste", "Attach clipboard image from your clipboard", "Info",
                cli_only=True, desktop="terminal"),
-    CommandDef("image", "Anexa imagem local ao prompt", "Info",
+    CommandDef("image", "Attach a local image file for your next prompt", "Info",
                cli_only=True, args_hint="<path>", desktop="terminal"),
-    CommandDef("update", "Atualiza o Hermes Agent", "Info",
+    CommandDef("update", "Update Hermes Agent to the latest version", "Info",
                busy_policy="dispatch", desktop="terminal"),
-    CommandDef("version", "Mostra a versão do Hermes Agent", "Info", aliases=("v",),
+    CommandDef("version", "Show Hermes Agent version", "Info", aliases=("v",),
                busy_policy="dispatch", execute="version"),
-    CommandDef("debug", "Relatório de debug com links", "Info",
+    CommandDef("debug", "Upload debug report (system info + logs) and get shareable links", "Info",
                args_hint="[nous|local]"),
 
     # Exit
-    CommandDef("quit", "Sai da CLI (--delete apaga sessão)", "Exit",
+    CommandDef("quit", "Exit the CLI (use --delete to also remove session history)", "Exit",
                cli_only=True, aliases=("exit",), args_hint="[--delete]", desktop="terminal")]
 
 
@@ -324,9 +361,12 @@ def infer_argument_mode(cmd: CommandDef) -> str | None:
     return "text" if hint else None
 
 
-def command_desktop_meta(cmd: CommandDef) -> dict[str, str | None]:
+def command_desktop_meta(cmd: CommandDef) -> dict[str, object]:
     """Wire shape for ``commands.catalog`` — reads the CommandDef, nothing else."""
-    return {"argument_mode": infer_argument_mode(cmd), "desktop": cmd.desktop}
+    meta: dict[str, object] = {"argument_mode": infer_argument_mode(cmd), "desktop": cmd.desktop}
+    if cmd.desktop_subcommands is not None:
+        meta["desktop_subcommands"] = list(cmd.desktop_subcommands)
+    return meta
 
 
 def desktop_surface_registry() -> dict[str, str | None]:
@@ -359,27 +399,45 @@ def resolve_command(name: str) -> CommandDef | None:
 
 
 def _build_description(cmd: CommandDef) -> str:
-    """CLI-facing description including the usage hint."""
+    """CLI-facing localized description including the usage hint."""
     if not cmd.args_hint:
-        return cmd.description
-    return f"{cmd.description} (usage: /{cmd.name} {cmd.args_hint})"
+        return cmd.describe()
+    return t("slash.shared.usage_suffix", description=cmd.describe(), name=cmd.name, args_hint=cmd.args_hint)
 
 
-# Flat "/command" -> description, and the same grouped by category; both exclude gateway_only.
-COMMANDS: dict[str, str] = {}
-COMMANDS_BY_CATEGORY: dict[str, dict[str, str]] = {}
+def build_commands_by_category() -> dict[str, dict[str, str]]:
+    """Localized ``{category: {"/command": description}}`` (excludes gateway_only).
+
+    Built per call so a ``display.language`` change applies without a restart; category keys are
+    the registry identifiers -- render them with ``category_label``.
+    """
+    grouped: dict[str, dict[str, str]] = {}
+    for cmd in COMMAND_REGISTRY:
+        if cmd.gateway_only:
+            continue
+        entries = {f"/{cmd.name}": _build_description(cmd)}
+        for alias in cmd.aliases:
+            entries[f"/{alias}"] = t("slash.shared.alias_for", description=cmd.describe(), name=cmd.name)
+        grouped.setdefault(cmd.category, {}).update(entries)
+    return grouped
+
+
+def build_commands() -> dict[str, str]:
+    """Localized flat ``{"/command": description}`` (excludes gateway_only)."""
+    flat: dict[str, str] = {}
+    for entries in build_commands_by_category().values():
+        flat.update(entries)
+    return flat
+
+
+# ``COMMANDS`` / ``COMMANDS_BY_CATEGORY`` resolve lazily through the module ``__getattr__`` below so
+# every ``from hermes_cli.commands import COMMANDS`` sees the active language.
+_LAZY_LOCALIZED_TABLES = {"COMMANDS": build_commands, "COMMANDS_BY_CATEGORY": build_commands_by_category}
+
 # Subcommands lookup: "/cmd" -> ["sub1", ...]; explicit ``subcommands`` first (in
 # registry order), then pipe patterns in args_hint ("[on|off|status]") as fallback.
 SUBCOMMANDS: dict[str, list[str]] = {
     f"/{_cmd.name}": list(_cmd.subcommands) for _cmd in COMMAND_REGISTRY if _cmd.subcommands}
-for _cmd in COMMAND_REGISTRY:
-    if _cmd.gateway_only:
-        continue
-    _entries = {f"/{_cmd.name}": _build_description(_cmd)}
-    for _alias in _cmd.aliases:
-        _entries[f"/{_alias}"] = f"{_cmd.description} (alias for /{_cmd.name})"
-    COMMANDS.update(_entries)
-    COMMANDS_BY_CATEGORY.setdefault(_cmd.category, {}).update(_entries)
 
 _PIPE_SUBS_RE = re.compile(r"[a-z]+(?:\|[a-z]+)+")
 for _cmd in COMMAND_REGISTRY:
@@ -393,7 +451,7 @@ for _cmd in COMMAND_REGISTRY:
 HELP_SESSION_SUBGROUPS: dict[str, tuple[str, ...]] = {
     "Context": ("compress", "compact", "context", "ctx", "status"),
     "Background & Automation": (
-        "bg", "btw", "agents", "tasks", "queue", "q", "steer", "goal", "subgoal", "heartbeat", "hb",
+        "bg", "btw", "agents", "tasks", "queue", "q", "steer", "s", "goal", "subgoal", "heartbeat", "hb",
         "refine", "loop", "proactive", "moa", "journey", "learning", "memory-graph")}
 
 # All names + aliases the gateway dispatches. Config-gated commands are
@@ -484,8 +542,8 @@ def gateway_help_lines(allowed: Optional[Iterable[str]] = None) -> list[str]:
         # Skip internal aliases like reload_mcp (underscore variant of the name).
         alias_parts = [f"`/{a}`" for a in cmd.aliases
                        if not (a.replace("-", "_") == cmd.name.replace("-", "_") and a != cmd.name)]
-        alias_note = f" (alias: {', '.join(alias_parts)})" if alias_parts else ""
-        lines.append(f"`/{cmd.name}{args}` -- {cmd.description}{alias_note}")
+        alias_note = t("slash.shared.alias_note", aliases=", ".join(alias_parts)) if alias_parts else ""
+        lines.append(f"`/{cmd.name}{args}` -- {cmd.describe()}{alias_note}")
     return lines
 
 
@@ -497,263 +555,13 @@ def _iter_plugin_command_entries() -> list[tuple[str, str, str]]:
         commands = get_plugin_commands() or {}
     except Exception:
         return []
-    return [(name, str(meta.get("description") or f"Run /{name}"),
+    return [(name, str(meta.get("description") or t("slash.shared.plugin_default_desc", name=name)),
              str(meta.get("args_hint") or "").strip())
             for name, meta in commands.items() if isinstance(name, str) and isinstance(meta, dict)]
 
 
-# ---- BEGIN PLUGIN-COMPAT (revert-scheduled; see COMPAT_MANIFEST.md) ----
-# Names external plugins imported from this module before the Sep 2026 decomposition.
-# Internal code MUST NOT use these (scripts/check_compat_pointers.py fails CI if it does).
-# The whole block is removed by reverting the commit that added it.
-from typing import Any  # noqa: F401,E402
-from collections.abc import Callable  # noqa: F401,E402
-from typing import Dict  # noqa: F401,E402
-from collections.abc import Mapping  # noqa: F401,E402
-from typing import Optional  # noqa: F401,E402
-from collections.abc import Sequence  # noqa: F401,E402
-from typing import Tuple  # noqa: F401,E402
-from dataclasses import field  # noqa: F401,E402
-import os  # noqa: F401,E402
-import shutil  # noqa: F401,E402
-import subprocess  # noqa: F401,E402
-import time  # noqa: F401,E402
-
-def _requires_argument(args_hint: str) -> bool:
-    """Return True when selecting a command without text would be incomplete."""
-    return args_hint.strip().startswith("<")
-
-_CMD_NAME_LIMIT = 32
-
-def _clamp_command_names(
-    entries: Sequence[tuple[str, ...]],
-    reserved: set[str],
-) -> list[tuple[str, ...]]:
-    """Enforce 32-char command name limit with collision avoidance.
-
-    Both Telegram and Discord cap slash command names at 32 characters.
-    Names exceeding the limit are truncated.  If truncation creates a duplicate
-    (against *reserved* names or earlier entries in the same batch), the name is
-    shortened to 31 chars and a digit ``0``-``9`` is appended to differentiate.
-    If all 10 digit slots are taken the entry is silently dropped.
-
-    Accepts tuples of any length >= 2.  Extra elements beyond ``(name, desc)``
-    (e.g. ``cmd_key``) are passed through unchanged, so callers can attach
-    metadata that survives the rename.
-    """
-    used: set[str] = set(reserved)
-    result: list[tuple] = []
-    for entry in entries:
-        name, desc, *extra = entry
-        if len(name) > _CMD_NAME_LIMIT:
-            candidate = name[:_CMD_NAME_LIMIT]
-            if candidate in used:
-                prefix = name[:_CMD_NAME_LIMIT - 1]
-                for digit in range(10):
-                    candidate = f"{prefix}{digit}"
-                    if candidate not in used:
-                        break
-                else:
-                    # All 10 digit slots exhausted — skip entry
-                    continue
-            name = candidate
-        if name in used:
-            continue
-        used.add(name)
-        result.append((name, desc, *extra))
-    return result
-
-def _collect_gateway_skill_entries(
-    platform: str,
-    max_slots: int | None,
-    reserved_names: set[str],
-    desc_limit: int = 100,
-    sanitize_name: "Callable[[str], str] | None" = None,
-) -> tuple[list[tuple[str, str, str, str]], int]:
-    """Collect plugin + skill entries for a gateway platform.
-
-    Priority order:
-      1. Plugin slash commands (take precedence over skills)
-      2. Built-in skill commands (fill remaining slots, alphabetical)
-
-    Only skills are trimmed when the cap is reached.
-    Hub-installed skills are excluded.  Per-platform disabled skills are
-    excluded.
-
-    Args:
-        platform: Platform identifier for per-platform skill filtering
-            (``"telegram"``, ``"discord"``, etc.).
-        max_slots: Maximum number of entries to return (remaining slots after
-            built-in/core commands), or ``None`` to return every eligible
-            plugin and skill candidate for a caller that applies a global cap.
-        reserved_names: Names already taken by built-in commands.  Mutated
-            in-place as new names are added.
-        desc_limit: Max description length (40 for Telegram, 100 for Discord).
-        sanitize_name: Optional name transform applied before clamping, e.g.
-            :func:`_sanitize_telegram_name` for Telegram.  May return an
-            empty string to signal "skip this entry".
-
-    Returns:
-        ``(entries, hidden_count)`` where *entries* contains
-        ``(name, description, cmd_key, raw_name)`` tuples. ``cmd_key`` is the
-        original skill key (empty for plugins); ``raw_name`` is the sanitized
-        pre-clamp name used for configured priority matching.
-    """
-    all_entries: list[tuple[str, str, str, str]] = []
-
-    # --- Tier 1: Plugin slash commands (never trimmed) ---------------------
-    plugin_pairs: list[tuple[str, str, str]] = []
-    try:
-        from hermes_cli.plugins import get_plugin_commands
-        plugin_cmds = get_plugin_commands()
-        for cmd_name in sorted(plugin_cmds):
-            if platform == "telegram":
-                args_hint = str(plugin_cmds[cmd_name].get("args_hint") or "").strip()
-                if _requires_argument(args_hint):
-                    continue
-            name = sanitize_name(cmd_name) if sanitize_name else cmd_name
-            if not name:
-                continue
-            desc = plugin_cmds[cmd_name].get("description", "Plugin command")
-            if len(desc) > desc_limit:
-                desc = desc[:desc_limit - 3] + "..."
-            plugin_pairs.append((name, desc, name))
-    except Exception:
-        pass
-
-    plugin_pairs = [
-        (name, desc, raw_name)
-        for name, desc, raw_name in _clamp_command_names(plugin_pairs, reserved_names)
-    ]
-    reserved_names.update(n for n, _d, _raw_name in plugin_pairs)
-    # Plugins have no cmd_key — use empty string as placeholder.
-    for name, desc, raw_name in plugin_pairs:
-        all_entries.append((name, desc, "", raw_name))
-
-    # --- Tier 2: Built-in skill commands (trimmed at cap) -----------------
-    _platform_disabled: set[str] = set()
-    try:
-        from agent.skill_utils import get_disabled_skill_names
-        _platform_disabled = get_disabled_skill_names(platform=platform)
-    except Exception:
-        pass
-
-    skill_entries: list[tuple[str, str, str, str]] = []
-    try:
-        from agent.skill_commands import get_skill_commands
-        from tools.skills_tool import SKILLS_DIR
-        from agent.skill_utils import get_external_skills_dirs, get_project_skills_dirs
-        _skills_dir = str(SKILLS_DIR.resolve())
-        _hub_dir = str((SKILLS_DIR / ".hub").resolve()).rstrip("/") + "/"
-        # Build set of allowed directory prefixes: local skills dir + any
-        # user-configured ``skills.external_dirs`` + trusted project dirs.
-        # Ensure each prefix ends
-        # with ``/`` so ``/my-skills`` does not also match ``/my-skills-extra``.
-        # Without this widening, external skills are visible in
-        # ``hermes skills list`` and the agent's ``/skill-name`` dispatch but
-        # silently excluded from gateway slash menus (#8110).
-        _allowed_prefixes = [_skills_dir.rstrip("/") + "/"]
-        _allowed_prefixes.extend(
-            str(d).rstrip("/") + "/" for d in get_external_skills_dirs()
-        )
-        _allowed_prefixes.extend(
-            str(d).rstrip("/") + "/" for d in get_project_skills_dirs()
-        )
-        skill_cmds = get_skill_commands()
-        for cmd_key in sorted(skill_cmds):
-            info = skill_cmds[cmd_key]
-            skill_path = info.get("skill_md_path", "")
-            if not skill_path:
-                continue
-            if not any(skill_path.startswith(prefix) for prefix in _allowed_prefixes):
-                continue
-            if skill_path.startswith(_hub_dir):
-                continue
-            skill_name = info.get("name", "")
-            if skill_name in _platform_disabled:
-                continue
-            raw_name = cmd_key.lstrip("/")
-            name = sanitize_name(raw_name) if sanitize_name else raw_name
-            if not name:
-                continue
-            desc = info.get("description", "")
-            if len(desc) > desc_limit:
-                desc = desc[:desc_limit - 3] + "..."
-            skill_entries.append((name, desc, cmd_key, name))
-    except Exception:
-        pass
-
-    # Clamp names; cmd_key and raw_name survive any clamp-induced rename.
-    skill_entries = [
-        (name, desc, cmd_key, raw_name)
-        for name, desc, cmd_key, raw_name in _clamp_command_names(
-            skill_entries, reserved_names
-        )
-    ]
-
-    if max_slots is None:
-        return all_entries + skill_entries, 0
-
-    # Skills fill remaining slots — only tier that gets trimmed
-    remaining = max(0, max_slots - len(all_entries))
-    hidden_count = max(0, len(skill_entries) - remaining)
-    for name, desc, cmd_key, raw_name in skill_entries[:remaining]:
-        all_entries.append((name, desc, cmd_key, raw_name))
-
-    return all_entries[:max_slots], hidden_count
-
-def discord_skill_commands(
-    max_slots: int,
-    reserved_names: set[str],
-) -> tuple[list[tuple[str, str, str]], int]:
-    """Return skill entries for Discord slash command registration.
-
-    Same priority and filtering logic as :func:`telegram_menu_commands`
-    (plugins > skills, hub excluded, per-platform disabled excluded), but
-    adapted for Discord's constraints:
-
-    - Hyphens are allowed in names (no ``-`` → ``_`` sanitization)
-    - Descriptions capped at 100 chars (Discord's per-field max)
-
-    Args:
-        max_slots: Available command slots (100 minus existing built-in count).
-        reserved_names: Names of already-registered built-in commands.
-
-    Returns:
-        ``(entries, hidden_count)`` where *entries* is a list of
-        ``(discord_name, description, cmd_key)`` triples.  ``cmd_key`` is
-        the original ``/skill-name`` key needed for the slash handler callback.
-    """
-    entries, hidden_count = _collect_gateway_skill_entries(
-        platform="discord",
-        max_slots=max_slots,
-        reserved_names=set(reserved_names),  # copy — don't mutate caller's set
-        desc_limit=100,
-    )
-    return [
-        (name, desc, cmd_key) for name, desc, cmd_key, _raw_name in entries
-    ], hidden_count
-
-
-_PLUGIN_COMPAT_LAZY = {
-    'SlashCommandAutoSuggest': ('hermes_cli.commands_completion', 'SlashCommandAutoSuggest'),
-    'SlashCommandCompleter': ('hermes_cli.commands_completion', 'SlashCommandCompleter'),
-    'discord_skill_commands_by_category': ('hermes_cli.commands_platforms', 'discord_skill_commands_by_category'),
-    'slack_app_manifest': ('hermes_cli.commands_platforms', 'slack_app_manifest'),
-    'slack_native_slashes': ('hermes_cli.commands_platforms', 'slack_native_slashes'),
-    'slack_subcommand_map': ('hermes_cli.commands_platforms', 'slack_subcommand_map'),
-    'telegram_bot_commands': ('hermes_cli.commands_platforms', 'telegram_bot_commands'),
-    'telegram_menu_commands': ('hermes_cli.commands_platforms', 'telegram_menu_commands'),
-    'telegram_menu_max_commands': ('hermes_cli.commands_platforms', 'telegram_menu_max_commands'),
-}
-
-
-def __getattr__(name):  # PEP 562 — lazy so no import cycles
-    target = _PLUGIN_COMPAT_LAZY.get(name)
-    if target is None:
+def __getattr__(name):  # PEP 562 — COMMANDS / COMMANDS_BY_CATEGORY are built per call so labels follow the active language
+    localized = _LAZY_LOCALIZED_TABLES.get(name)
+    if localized is None:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-    import importlib
-    from hermes_cli.plugin_compat import warn_once
-    warn_once(__name__, name, *target)
-    return getattr(importlib.import_module(target[0]), target[1])
-# ---- END PLUGIN-COMPAT ----
+    return localized()

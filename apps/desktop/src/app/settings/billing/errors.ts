@@ -1,4 +1,5 @@
-import { translateNow } from '@/i18n'
+import type { Translations } from '@/i18n'
+import { en } from '@/i18n/en'
 
 import type { BillingRefusal } from './api'
 
@@ -10,53 +11,52 @@ export interface BillingRefusalPresentation {
 
 const portalAction = (url?: string): BillingRefusalPresentation['action'] => ({ type: 'portal', url })
 
-const retryMessage = (refusal: BillingRefusal): string => {
-  const t = (key: string, ...args: unknown[]) => translateNow(key, ...args)
-  const mins = refusal.retryAfter ? t('billing.refusalRetryIn', Math.max(1, Math.round(refusal.retryAfter / 60))) : ''
+const retryMessage = (refusal: BillingRefusal, copy: Translations['settings']['billing']['errors']): string => {
+  const mins = refusal.retryAfter ? Math.max(1, Math.round(refusal.retryAfter / 60)) : 0
 
-  return t('billing.refusalTooManyCharges', mins)
+  return copy.rateLimited.message(mins)
 }
 
-const stripeRetryMessage = (refusal: BillingRefusal): string => {
-  const t = (key: string, ...args: unknown[]) => translateNow(key, ...args)
-  const mins = refusal.retryAfter ? t('billing.refusalRetryIn', Math.max(1, Math.round(refusal.retryAfter / 60))) : ''
+const stripeRetryMessage = (refusal: BillingRefusal, copy: Translations['settings']['billing']['errors']): string => {
+  const mins = refusal.retryAfter ? Math.max(1, Math.round(refusal.retryAfter / 60)) : 0
 
-  return t('billing.refusalStripeTrouble', mins)
+  return copy.stripeUnavailable.message(mins)
 }
 
-export const resolveRefusal = (refusal: BillingRefusal): BillingRefusalPresentation => {
-  const t = (key: string, ...args: unknown[]) => translateNow(key, ...args)
-
+export const resolveRefusal = (
+  refusal: BillingRefusal,
+  copy: Translations['settings']['billing']['errors'] = en.settings.billing.errors
+): BillingRefusalPresentation => {
   switch (refusal.kind) {
     case 'consent_required':
       return {
         action: portalAction(refusal.portalUrl),
-        message: t('billing.refusalConsentMessage'),
-        title: t('billing.refusalConsentTitle')
+        message: copy.consentRequired.message,
+        title: copy.consentRequired.title
       }
 
     case 'insufficient_scope':
       return {
         action: { type: 'step_up' },
-        message: t('billing.refusalScopeMessage'),
-        title: t('billing.refusalScopeTitle')
+        message: copy.insufficientScope.message,
+        title: copy.insufficientScope.title
       }
     case 'remote_spending_revoked': {
       const who =
-        refusal.actor === 'admin' ? t('billing.refusalRevokedAdmin') : t('billing.refusalRevokedYou')
+        refusal.actor === 'admin' ? copy.remoteSpendingRevoked.messageByAdmin : copy.remoteSpendingRevoked.messageBySelf
 
       return {
         action: portalAction(refusal.portalUrl),
-        message: `${who}${t('billing.refusalRevokedSuffix')}`,
-        title: t('billing.refusalRevokedTitle')
+        message: copy.remoteSpendingReconnect(who),
+        title: copy.remoteSpendingRevoked.title
       }
     }
 
     case 'session_revoked':
       return {
         action: portalAction(refusal.portalUrl),
-        message: t('billing.refusalSessionMessage'),
-        title: t('billing.refusalSessionTitle')
+        message: copy.sessionRevoked.message,
+        title: copy.sessionRevoked.title
       }
 
     case 'cli_billing_disabled':
@@ -64,44 +64,47 @@ export const resolveRefusal = (refusal: BillingRefusal): BillingRefusalPresentat
     case 'remote_spending_disabled':
       return {
         action: portalAction(refusal.portalUrl),
-        message: t('billing.refusalDisabledMessage'),
-        title: t('billing.refusalDisabledTitle')
+        message: copy.cliBillingDisabled.message,
+        title: copy.cliBillingDisabled.title
       }
 
     case 'role_required':
       return {
         action: portalAction(refusal.portalUrl),
-        message: t('billing.refusalRoleMessage'),
-        title: t('billing.refusalRoleTitle')
+        message: copy.roleRequired.message,
+        title: copy.roleRequired.title
       }
 
     case 'idempotency_conflict':
       return {
         action: { type: 'none' },
-        message: t('billing.refusalIdempotencyMessage'),
-        title: t('billing.refusalIdempotencyTitle')
+        message: copy.idempotencyConflict.message,
+        title: copy.idempotencyConflict.title
       }
 
     case 'no_payment_method':
       return {
         action: portalAction(refusal.portalUrl),
-        message: t('billing.refusalNoCardSavedMessage'),
-        title: t('billing.refusalNoCardSavedTitle')
+        message: copy.noPaymentMethod.message,
+        title: copy.noPaymentMethod.title
       }
 
     case 'org_access_denied':
       return {
         action: { type: 'none' },
-        message: t('billing.refusalOrgMessage'),
-        title: t('billing.refusalOrgTitle')
+        message: copy.orgAccessDenied.message,
+        title: copy.orgAccessDenied.title
       }
     case 'monthly_cap_exceeded': {
       const remaining = refusal.payload?.remainingUsd
 
       return {
         action: portalAction(refusal.portalUrl),
-        message: remaining != null ? t('billing.refusalCapRemaining', `$${remaining}`) : t('billing.refusalCapMessage'),
-        title: t('billing.refusalCapTitle')
+        message:
+          remaining != null
+            ? copy.monthlyCapExceeded.messageHeadroom(remaining)
+            : copy.monthlyCapExceeded.messageReached,
+        title: copy.monthlyCapExceeded.title
       }
     }
 
@@ -110,50 +113,50 @@ export const resolveRefusal = (refusal: BillingRefusal): BillingRefusalPresentat
     case 'temporarily_unavailable':
       return {
         action: { type: 'retry' },
-        message: retryMessage(refusal),
-        title: t('billing.refusalTooManyChargesTitle')
+        message: retryMessage(refusal, copy),
+        title: copy.rateLimited.title
       }
 
     case 'stripe_unavailable':
       return {
         action: { type: 'retry' },
-        message: stripeRetryMessage(refusal),
-        title: t('billing.refusalStripeTroubleTitle')
+        message: stripeRetryMessage(refusal, copy),
+        title: copy.stripeUnavailable.title
       }
 
     case 'upgrade_cap_exceeded':
       return {
         action: { type: 'none' },
-        message: t('billing.refusalDailyCapMessage'),
-        title: t('billing.refusalDailyCapTitle')
+        message: copy.upgradeCapExceeded.message,
+        title: copy.upgradeCapExceeded.title
       }
 
     case 'endpoint_unavailable':
       return {
         action: { type: 'retry' },
-        message: refusal.message || t('billing.refusalEndpointFallback'),
-        title: t('billing.refusalEndpointTitle')
+        message: refusal.message || copy.endpointUnavailable.message,
+        title: copy.endpointUnavailable.title
       }
 
     case 'timeout':
       return {
         action: { type: 'retry' },
-        message: refusal.message || t('billing.refusalTimeoutFallback'),
-        title: t('billing.refusalTimeoutTitle')
+        message: refusal.message || copy.timeout.message,
+        title: copy.timeout.title
       }
 
     case 'transport':
       return {
         action: { type: 'retry' },
-        message: refusal.message || t('billing.refusalTransportFallback'),
-        title: t('billing.refusalTransportTitle')
+        message: refusal.message || copy.transport.message,
+        title: copy.transport.title
       }
 
     default:
       return {
         action: { type: 'none' },
-        message: refusal.message || t('billing.refusalGenericFallback'),
-        title: t('billing.refusalGenericTitle')
+        message: refusal.message || copy.default.message,
+        title: copy.default.title
       }
   }
 }

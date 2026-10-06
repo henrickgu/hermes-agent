@@ -3,6 +3,7 @@ import {
   coarseElapsed,
   Codicon,
   ContextMenu,
+  ContextMenuCheckboxItem,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
@@ -10,6 +11,7 @@ import {
   ContextMenuSubContent,
   ContextMenuSubTrigger,
   ContextMenuTrigger,
+  GlyphSpinner,
   haptic,
   host,
   queryClient,
@@ -33,6 +35,7 @@ import { isBackfilledFacePng } from './avatar-image'
 import {
   $botChatFocused,
   $focusedBotOwner,
+  $pendingBotOpen,
   $selectedRosterKey,
   focusedRosterOwner,
   saveSelectedRosterBot
@@ -73,6 +76,7 @@ import {
   useTurnBusy,
   workerActiveAt
 } from './row-helpers'
+import { openBotScreen } from './screen-open'
 import type { GroupMember, RosterRow, SidebarRowLabels } from './types'
 import {
   $botSections,
@@ -113,6 +117,8 @@ export function BotRow({ bot, onDelete, onEdit, onGroup, onNewSection, showHandl
   const b = useBots()
   const focusedOwner = focusedRosterOwner(useValue($focusedBotOwner))
   const selectedRosterKey = useValue($selectedRosterKey)
+  const pendingOpenKey = useValue($pendingBotOpen)?.key
+  const isOpening = pendingOpenKey === botRosterKey(bot)
   const botChatFocused = useValue($botChatFocused)
   const activeGroup = useValue($groupChatWorkspace)
   const allMeta = useValue($botMeta)
@@ -233,6 +239,7 @@ export function BotRow({ bot, onDelete, onEdit, onGroup, onNewSection, showHandl
 
   const row = (
     <RowButton
+      aria-busy={isOpening || undefined}
       aria-label={rowTooltip}
       className={cn(
         'flex w-full min-w-0 max-w-full items-center gap-2.5 overflow-hidden rounded-md px-2 py-2 text-left transition-colors',
@@ -294,6 +301,9 @@ export function BotRow({ bot, onDelete, onEdit, onGroup, onNewSection, showHandl
               />
             </Tip>
           ) : null}
+          {isOpening ? (
+            <GlyphSpinner ariaLabel={b.bot.openingChat} className="shrink-0 text-xs text-(--ui-text-secondary)" />
+          ) : null}
           {rowAgeTs ? (
             <span className="shrink-0 text-[0.6875rem] text-(--ui-text-quaternary)">
               {rowAge(rowAgeTs * 1000, t.sidebar.row)}
@@ -320,6 +330,26 @@ export function BotRow({ bot, onDelete, onEdit, onGroup, onNewSection, showHandl
       <ContextMenuTrigger asChild>{row}</ContextMenuTrigger>
       <ContextMenuContent>
         <ContextMenuItem onSelect={() => void openRosterBot(bot)}>{b.bot.openBotChat}</ContextMenuItem>
+        <ContextMenuItem onSelect={() => openBotScreen(bot, meta)}>{b.screen.menu}</ContextMenuItem>
+        <ContextMenuCheckboxItem
+          checked={Boolean(meta?.screenAutoOpen)}
+          onSelect={() => {
+            void ensureBotMetadata(bot)
+              .then(current => {
+                const next = !current.screenAutoOpen
+                void saveBotMeta(bot, { screenAutoOpen: next })
+                host.notify({
+                  kind: 'info',
+                  message: next
+                    ? b.screen.autoOpenOnToast(displayName(bot, current))
+                    : b.screen.autoOpenOffToast(displayName(bot, current))
+                })
+              })
+              .catch(error => host.notifyError?.(error, b.bot.metadataLoadFailed))
+          }}
+        >
+          {b.screen.autoOpenMenu}
+        </ContextMenuCheckboxItem>
         <ContextMenuSeparator />
         <ContextMenuItem
           onSelect={() => {

@@ -1,4 +1,4 @@
-import { translateNow } from '@/i18n'
+import { foldPersonalityName } from '@/lib/personalities'
 import { asText, normalize } from '@/lib/text'
 import type { ConfigFieldSchema, HermesConfigRecord, ToolsetInfo } from '@/types/hermes'
 
@@ -26,6 +26,19 @@ export const withoutKey = <T>(record: Record<string, T>, key: string) => {
 
 export const redactedValue = (v: string) => (v.length <= 8 ? '••••' : `${v.slice(0, 4)}...${v.slice(-4)}`)
 
+// The backend wraps stored-key previews in a write-guard sentinel
+// (hermes_cli/web_routers/_common.redacted_credential_preview): show the inner
+// preview, and a plain mask for the label-less forms.
+export const credentialPreview = (value: null | string | undefined): null | string => {
+  if (!value?.startsWith('«redacted')) {
+    return value || null
+  }
+
+  const inner = /^«redacted:(.+)»$/.exec(value)?.[1]?.trim()
+
+  return inner || '••••••••'
+}
+
 // Longest-prefix match so a more specific group like ``MINIMAX_CN_`` is
 // chosen over its shorter parent ``MINIMAX_``. Falls back to the bucket
 // "Other" used by the Keys settings view for un-grouped env vars.
@@ -45,15 +58,9 @@ export const providerGroup = (key: string) => {
   return best?.name ?? 'Other'
 }
 
-export const providerMeta = (name: string) => {
-  const meta =
-    PROVIDER_GROUPS.find(g => g.name === name && (g.description || g.docsUrl)) ??
-    PROVIDER_GROUPS.find(g => g.name === name)
-
-  return meta
-    ? { ...meta, description: meta.description ? translateNow(meta.description) : meta.description }
-    : undefined
-}
+export const providerMeta = (name: string) =>
+  PROVIDER_GROUPS.find(g => g.name === name && (g.description || g.docsUrl)) ??
+  PROVIDER_GROUPS.find(g => g.name === name)
 
 export const providerPriority = (name: string) => providerMeta(name)?.priority ?? 99
 
@@ -250,10 +257,29 @@ export function setNested(obj: HermesConfigRecord, path: string, value: unknown)
 }
 
 function personalityOptions(config: HermesConfigRecord): string[] {
-  const custom = getNested(config, 'agent.personalities')
+  // The Python runtime (`hermes_cli.personality.available_personalities`) honours both
+  // the root-level `personalities` block and `agent.personalities` (agent wins on a name
+  // clash). Read both so a root-registered persona the CLI/gateway resolve also appears in
+  // the dropdown (#123297).
+  // Fold each key the way the runtime does (`available_personalities`:
+  // `str(name).strip().lower()`, dropping the neutral spellings) so a case-variant,
+  // whitespace-padded, or neutral-named block never surfaces a row the runtime can't
+  // resolve, and a root/agent case clash dedupes to one canonical name (#123297).
+  const customNames: string[] = []
 
-  const customNames =
-    custom && typeof custom === 'object' && !Array.isArray(custom) ? Object.keys(custom as Record<string, unknown>) : []
+  for (const key of ['personalities', 'agent.personalities']) {
+    const block = getNested(config, key)
+
+    if (isPlainObject(block)) {
+      for (const name of Object.keys(block)) {
+        const folded = foldPersonalityName(name)
+
+        if (folded) {
+          customNames.push(folded)
+        }
+      }
+    }
+  }
 
   return [...new Set(['', ...BUILTIN_PERSONALITIES, ...customNames])]
 }

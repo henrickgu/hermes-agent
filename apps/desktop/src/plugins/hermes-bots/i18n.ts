@@ -35,17 +35,78 @@ import { useMemo } from 'react'
 import { getPluginCtx } from './shared'
 
 type BotsMessages = {
-  paneTitle: string
   /** Left rail: the bot + group-chat roster. */
+  editor: {
+    fullConfigHint: string
+    liveCapabilities: string
+    editSoul: string
+    remoteCapabilitiesHint: string
+    skillsEnabled: (enabled: number, total: number) => string
+    toolsetsEnabled: (enabled: number, total: number) => string
+    mcpServers: string
+    providerCustom: string
+    modelCustom: string
+    backToDropdowns: string
+    inheritLaunch: string
+    enterManually: string
+    gatewayDefault: string
+    modelNameExample: string
+    modelSwitchFailed: string
+    newDescription: string
+    name: string
+    title: string
+    description: string
+    createOn: string
+    general: string
+    capabilities: string
+    skills: string
+    tools: string
+    cloneFrom: string
+    freshProfile: string
+    inheritedModel: string
+    soul: string
+    shareKeys: string
+    shareKeysOn: (target: string) => string
+    shareKeysHint: string
+    needsModel: string
+    configureModel: string
+    createEmpty: string
+    nameTakenHint: string
+    nameFirstHint: string
+    newerDesktop: string
+    newerGateway: string
+    emptySkillsHint: string
+    defaultToolsHint: string
+    catalog: string
+    catalogInstalled: string
+    mcpHint: string
+    creating: string
+    createBot: string
+    auto: string
+    autoHint: string
+    unlock: string
+    lockFace: string
+    lockedHint: string
+    unlockedHint: string
+    noImageModel: string
+    checkingImage: string
+    chooseImage: string
+    editDescription: (name: string, profile: string) => string
+    nameTaken: (name: string) => string
+    nameTakenOn: (name: string, target: string) => string
+    currentConnection: (name: string) => string
+    remoteHint: (target: string) => string
+    cloneFromOn: (target: string) => string
+    catalogHint: (source: string) => string
+    sectionsFailed: (sections: string) => string
+    updated: (name: string) => string
+    created: (name: string) => string
+    createdOn: (name: string, target: string) => string
+  }
   roster: {
     search: string
     searchPlaceholder: string
     newBotOrGroup: string
-    newMenuTip: string
-    activityToastsOn: string
-    activityToastsOff: string
-    allGateways: string
-    currentGateway: string
     groupChats: string
     emptyTitle: string
     emptyDesc: string
@@ -54,7 +115,6 @@ type BotsMessages = {
     noMatchFiltersOn: (gateway: string) => string
     noMatchFilters: string
     clearFilters: string
-    filterRoster: (activeCount: number) => string
     allHidden: string
     allHiddenDesc: string
     showHidden: string
@@ -114,6 +174,8 @@ type BotsMessages = {
     /** Re-opens the forever-chat on purpose. A plain row click only returns to
      *  the tabs already open, so a closed Bot Chat needs an explicit ask. */
     openBotChat: string
+    /** Screen-reader label for the row spinner while a cold bot chat opens. */
+    openingChat: string
     /** Row context menu: pin/hide toggles, their toasts, and the groups entry. */
     pinToTop: string
     unpin: string
@@ -267,15 +329,119 @@ type BotsMessages = {
   }
   /** Skills hub + MCP setup surfaces embedded in the bot editor. */
   tools: {
+    installHint: (name: string) => string
+    installed: (name: string) => string
+    installFailed: (name: string) => string
+    searchHint: string
+    resizeHint: string
+    addServerFailed: string
+    noTarget: string
+    setKeyFailed: (name: string) => string
+    configured: (name: string) => string
+    authenticated: (name: string) => string
+    testFailed: string
+    completeSignIn: string
+    needsSetup: (name: string) => string
+    setUpDone: string
+    saveTest: string
+    authorizing: string
+    working: string
+    setupFailed: string
+    signIn: string
+    setUp: string
     skillsHub: string
     filterSkills: string
     searchHub: string
     noMcpServers: string
   }
 
+  /** Bot Screen: the bot's headless desktop on the gateway host, live in a pane. */
+  screen: {
+    title: string
+    menu: string
+    unsupportedTitle: string
+    unsupportedBody: string
+    notInstalledTitle: string
+    notInstalledBody: string
+    installHint: string
+    install: string
+    installing: string
+    installCancelled: string
+    installFailed: string
+    noPackageManager: string
+    portalTitle: string
+    portalOpen: string
+    heroStopped: string
+    heroNotInstalled: string
+    heroConnecting: string
+    heroStale: string
+    heroSuppressed: string
+    heroOpenLive: string
+    heroInstall: string
+    heroStart: string
+    portalWatching: string
+    portalYouControl: string
+    portalOtherControls: string
+    portalStopped: string
+    portalNotInstalled: string
+    portalUnsupported: string
+    portalUnavailable: string
+    /** Managed runtimes (Hermes Cloud): updates are the platform's job, not the user's. */
+    portalUnavailableManaged: string
+    unavailableTitle: string
+    autoOpenMenu: string
+    autoOpenOnToast: (name: string) => string
+    autoOpenOffToast: (name: string) => string
+    stoppedTitle: string
+    stoppedBody: string
+    placementSandbox: (backend: string) => string
+    imageSwitchTitle: string
+    imageSwitchBody: (current: string, target: string) => string
+    imageSwitchApprove: string
+    imageSwitchKeep: string
+    start: string
+    attaching: string
+    streamLost: string
+    reconnect: string
+    takeOver: string
+    handBack: string
+    handBackForce: string
+    handBackForceHint: string
+    openNeedsUpdate: string
+    youControl: string
+    otherControls: string
+    agentControls: string
+    controlTaken: string
+  }
+
   /** Bot-scoped scheduled jobs. Generic scheduling chrome (weekday names,
    *  Daily/Hourly, the job verbs) resolves against core's `cron` section. */
   cron: {
+    untitled: string
+    nameNul: string
+    instructionNul: string
+    minutesFromNow: string
+    hoursFromNow: string
+    daysFromNow: string
+    stopAfter: string
+    runsHint: string
+    detailDescription: string
+    status: string
+    active: string
+    paused: string
+    schedule: string
+    rawSchedule: string
+    repeat: string
+    nextRun: string
+    overdueSince: string
+    lastRun: string
+    lastResult: string
+    workdir: string
+    succeeded: string
+    failed: string
+    deliveryFailed: string
+    blockedConfig: string
+    legacyUnsafe: string
     filterHint: string
     needsRosterFirst: string
     staleNotice: string
@@ -318,16 +484,83 @@ type BotsMessages = {
 }
 
 const en: BotsMessages = {
-  paneTitle: 'Bots',
+  editor: {
+    fullConfigHint: 'Full configuration needs a newer gateway (restart it after updating Hermes).',
+    liveCapabilities: 'Capabilities (applies immediately — skills, tools, MCP)',
+    editSoul: 'SOUL.md (persona + agent-messaging protocol)',
+    remoteCapabilitiesHint:
+      'Remote capabilities require a newer desktop. Model and SOUL changes remain staged until you save.',
+    skillsEnabled: (enabled, total) => `Skills (${enabled}/${total} enabled)`,
+    toolsetsEnabled: (enabled, total) => `Toolsets (${enabled}/${total} enabled — unchecking all restores the default)`,
+    mcpServers: 'MCP servers',
+    providerCustom: 'Provider (Custom)',
+    modelCustom: 'Model (Custom)',
+    backToDropdowns: '← Back to dropdowns',
+    inheritLaunch: 'Inherit (launch profile)',
+    enterManually: '✏️ Enter manually…',
+    gatewayDefault: 'gateway default',
+    modelNameExample: 'e.g. model name',
+    modelSwitchFailed: 'Model switch failed',
+    newDescription: 'A named teammate with its own memory, skills, and chat. It can message your other agents.',
+    name: 'Name',
+    title: 'Title',
+    description: 'Description',
+    createOn: 'Create on',
+    general: 'General',
+    capabilities: 'Capabilities',
+    skills: 'Skills',
+    tools: 'Tools',
+    cloneFrom: 'Clone from profile',
+    freshProfile: 'Fresh profile (bundled skills)',
+    inheritedModel: 'inherited from launch profile',
+    soul: 'SOUL.md (optional — replaces the generated persona)',
+    shareKeys: 'Share keys & accounts with the main profile',
+    shareKeysOn: target => `Share keys & accounts with the default profile on ${target}`,
+    shareKeysHint:
+      'Subscriptions, OAuth logins, and API keys stay shared (not copied), so token refreshes never invalidate each other. Uncheck for an isolated snapshot copy.',
+    needsModel:
+      'No model provider is ready for it yet, so it skipped its introduction. Pick a provider and model under Advanced.',
+    configureModel: 'Configure model',
+    createEmpty: 'Create empty (skip bundled skills)',
+    nameTakenHint: 'That name is taken — pick another before configuring capabilities.',
+    nameFirstHint: 'Name the bot first — a draft profile is created when you open this tab (discarded if you cancel).',
+    newerDesktop: 'Skills need a newer Hermes Desktop.',
+    newerGateway: 'Capability catalog needs a newer gateway (restart it after updating Hermes).',
+    emptySkillsHint: '“Create empty” is checked — no bundled skills will be installed.',
+    defaultToolsHint: 'Leaving all (or none) checked keeps the default toolset behavior.',
+    catalog: 'catalog',
+    catalogInstalled: 'catalog · installed',
+    mcpHint:
+      'Configured servers copy from the main profile; catalog entries are the bundled MCP menu. Entries needing API keys route through setup first (credentials follow the shared keys setting).',
+    creating: 'Creating…',
+    createBot: 'Create Bot',
+    auto: 'Auto',
+    autoHint: 'Auto — the name decides',
+    unlock: 'Unlock',
+    lockFace: 'Lock face',
+    lockedHint: 'Face locked — renaming won’t change it.',
+    unlockedHint: 'Face follows the name.',
+    noImageModel:
+      'No image model available. If you just enabled one (or updated Hermes), restart the gateway: Ctrl+K → "Restart gateway".',
+    checkingImage: 'Checking image backend…',
+    chooseImage: 'Choose an image…',
+    editDescription: (name, profile) => `Appearance and role for ${name} (${profile}).`,
+    nameTaken: name => `An agent named "${name}" already exists.`,
+    nameTakenOn: (name, target) => `An agent named "${name}" already exists on ${target}.`,
+    currentConnection: name => `${name} (current)`,
+    remoteHint: target =>
+      `The agent is created on ${target} and appears in the roster as a Connections bot. Chat routes to that machine.`,
+    cloneFromOn: target => `Clone from profile (on ${target})`,
+    catalogHint: source => `Catalog from ${source} — unchecked skills are disabled after creation.`,
+    sectionsFailed: sections => `Some sections failed: ${sections}`,
+    updated: name => `${name} updated`,
+    created: name => `Bot "${name}" created`,
+    createdOn: (name, target) => `Bot "${name}" created on ${target}`
+  },
   roster: {
     search: 'Search bots and group chats',
     searchPlaceholder: 'Search bots and group chats…',
     newBotOrGroup: 'New bot or group chat',
-    newMenuTip: 'New…',
-    activityToastsOn: 'Activity toasts on — click to silence',
-    activityToastsOff: 'Activity toasts off — click to enable',
-    allGateways: 'All gateways',
-    currentGateway: 'Current gateway',
     groupChats: 'Group chats',
     emptyTitle: 'No bots yet',
     emptyDesc: 'Create your first bot.',
@@ -336,7 +569,6 @@ const en: BotsMessages = {
     noMatchFiltersOn: gateway => `No bots or group chats match these filters on ${gateway}`,
     noMatchFilters: 'No bots or group chats match these filters.',
     clearFilters: 'Clear filters',
-    filterRoster: activeCount => (activeCount ? `Filters (${activeCount} active)` : 'Filter roster'),
     allHidden: 'All bots are hidden',
     allHiddenDesc: 'They keep working and retain their history.',
     showHidden: 'Show hidden bots',
@@ -394,6 +626,7 @@ const en: BotsMessages = {
     descriptionHint: 'Leave blank to generate from the bot’s name and description.',
     newChatWith: 'New chat with this bot',
     openBotChat: 'Open Bot Chat',
+    openingChat: 'Opening chat…',
     pinToTop: 'Pin to top',
     unpin: 'Unpin',
     pinnedToast: name => `${name} pinned to top`,
@@ -538,12 +771,114 @@ const en: BotsMessages = {
     answerTo: member => `Answer @${member}`
   },
   tools: {
+    installHint: name => `Install "${name}" and add it to the list above`,
+    installed: name => `Skill "${name}" installed`,
+    installFailed: name => `Installing "${name}" failed`,
+    searchHint: 'Searching community + well-known sources — can take ~10s…',
+    resizeHint: 'Drag the corner to resize.',
+    addServerFailed: 'Could not add server',
+    noTarget: 'No target profile',
+    setKeyFailed: key => `Failed to set ${key}`,
+    configured: name => `${name} configured`,
+    authenticated: name => `${name} authenticated`,
+    testFailed: 'Server test failed after setup',
+    completeSignIn: 'Complete sign-in in your browser...',
+    needsSetup: keys => `needs setup (${keys}) — restart the gateway to enable in-app setup`,
+    setUpDone: 'set up ✓',
+    saveTest: 'Save & test',
+    authorizing: 'Authorizing…',
+    working: 'Working…',
+    setupFailed: 'Setup failed',
+    signIn: 'Sign in…',
+    setUp: 'Set up…',
     skillsHub: 'Hermes Skills Hub',
     filterSkills: 'Filter skills…',
     searchHub: 'Search the hub (community + well-known sources)…',
     noMcpServers: 'No MCP servers configured or in the catalog.'
   },
+  screen: {
+    title: 'Screen',
+    menu: 'Open Screen',
+    unsupportedTitle: 'No bot screen on this host',
+    unsupportedBody: 'Bot screens run on Linux gateway hosts. This bot uses the host\u2019s own display.',
+    notInstalledTitle: 'Screen packages missing',
+    notInstalledBody: 'The gateway host needs TigerVNC and the Xfce core to give this bot a screen. Run on the host:',
+    installHint: 'Runs on the gateway host as the user Hermes runs as; sudo is asked for once, through Hermes.',
+    install: 'Install on host',
+    installing: 'Installing…',
+    installCancelled: 'Install cancelled: no sudo password was provided.',
+    installFailed: 'Install failed. Read the log above, or run the command on the host yourself.',
+    noPackageManager: 'No supported package manager (apt, dnf, pacman) was found on the gateway host.',
+    portalTitle: 'Screen',
+    portalOpen: 'Open',
+    heroStopped: 'Screen is off',
+    heroNotInstalled: 'Not installed on this host',
+    heroConnecting: 'Checking the screen…',
+    heroStale: 'Last seen — screen unreachable',
+    heroSuppressed: 'Hidden while someone has control',
+    heroOpenLive: 'Open live',
+    heroInstall: 'Install',
+    heroStart: 'Start',
+    portalWatching: 'Live · bot in control',
+    portalYouControl: 'Live · you are in control',
+    portalOtherControls: 'Live · another viewer in control',
+    portalStopped: 'Stopped',
+    portalNotInstalled: 'Not installed on host',
+    portalUnsupported: 'Not available on this host',
+    portalUnavailable: 'Update the bot\u2019s Hermes to use Screen',
+    portalUnavailableManaged: 'Screen is not available on this managed Hermes release yet',
+    unavailableTitle: 'Screen needs a newer Hermes',
+    autoOpenMenu: 'Open Screen when the bot uses it',
+    autoOpenOnToast: name => `${name}’s Screen opens when it starts using its desktop`,
+    autoOpenOffToast: name => `${name}’s Screen stays closed until you open it`,
+    stoppedTitle: 'Screen is off',
+    stoppedBody: 'Start this bot\u2019s desktop to watch what it does and take over when it needs you.',
+    placementSandbox: backend => `Screen runs inside the ${backend} sandbox, with the terminal`,
+    imageSwitchTitle: 'New sandbox image available',
+    imageSwitchBody: (current, target) =>
+      `Your sandbox still runs ${current}, which has no desktop. Switching to ${target} recreates the container the next time the bot uses its terminal: files in /root and /workspace stay on this machine, packages installed inside the container are reinstalled on demand.`,
+    imageSwitchApprove: 'Switch image',
+    imageSwitchKeep: 'Keep current image',
+    start: 'Start screen',
+    attaching: 'Connecting to the screen\u2026',
+    streamLost: 'Screen stream ended',
+    reconnect: 'Reconnect',
+    takeOver: 'Take over',
+    handBack: 'Hand back',
+    handBackForce: 'Hand back (force)',
+    handBackForceHint: 'Release a lease held by a viewer that is no longer here, e.g. after a reload.',
+    openNeedsUpdate: 'Update Hermes Desktop to open bot screens.',
+    youControl: 'You are in control',
+    otherControls: 'Another viewer is in control',
+    agentControls: 'Bot is in control',
+    controlTaken: 'Another viewer took control. Watching only.'
+  },
   cron: {
+    untitled: 'Untitled job',
+    nameNul: 'Job name cannot contain NUL (U+0000).',
+    instructionNul: 'Job instruction cannot contain NUL (U+0000).',
+    minutesFromNow: 'minutes from now',
+    hoursFromNow: 'hours from now',
+    daysFromNow: 'days from now',
+    stopAfter: 'Stop after',
+    runsHint: 'runs (blank = forever)',
+    detailDescription: 'What this job runs, and when it runs next.',
+    status: 'Status',
+    active: 'Active',
+    paused: 'Paused',
+    schedule: 'Schedule',
+    rawSchedule: 'Schedule (raw)',
+    repeat: 'Repeat',
+    nextRun: 'Next run',
+    overdueSince: 'Overdue since',
+    lastRun: 'Last run',
+    lastResult: 'Last result',
+    workdir: 'Working directory',
+    succeeded: 'Succeeded',
+    failed: 'Failed',
+    deliveryFailed: 'Ran, but delivery failed',
+    blockedConfig: 'Blocked by configuration (not run)',
+    legacyUnsafe: 'Paused for security: delete and recreate this legacy job before running it again.',
     filterHint:
       'Scheduled jobs exist in this profile but none are tagged for this bot. Name a job "[bot:<name>] …" to show it here, or see them in Cron below.',
     needsRosterFirst: 'This bot has to appear in the roster first.',
@@ -584,273 +919,86 @@ const en: BotsMessages = {
   }
 }
 
-const ptBr: BotsMessages = {
-  paneTitle: 'Robôs',
-  roster: {
-    search: 'Buscar bots e chats em grupo',
-    searchPlaceholder: 'Buscar bots e chats em grupo…',
-    newBotOrGroup: 'Novo bot ou chat em grupo',
-    newMenuTip: 'Novo…',
-    activityToastsOn: 'Alertas de atividade ativados — clique para silenciar',
-    activityToastsOff: 'Alertas de atividade desativados — clique para ativar',
-    allGateways: 'Todos os gateways',
-    currentGateway: 'Gateway atual',
-    groupChats: 'Chats em grupo',
-    emptyTitle: 'Nenhum bot ainda',
-    emptyDesc: 'Crie seu primeiro bot.',
-    noMatchQuery: (query: string) => `Nenhum bot ou chat em grupo corresponde a “${query}”`,
-    noMatchQueryOn: (query: string, gateway: string) => `Nenhum bot ou chat em grupo corresponde a “${query}” em ${gateway}`,
-    noMatchFiltersOn: (gateway: string) => `Nenhum bot ou chat em grupo corresponde a estes filtros em ${gateway}`,
-    noMatchFilters: 'Nenhum bot ou chat em grupo corresponde a estes filtros.',
-    clearFilters: 'Limpar filtros',
-    filterRoster: (activeCount: number) => (activeCount ? `Filtros (${activeCount} ativos)` : 'Filtrar lista'),
-    allHidden: 'Todos os bots estão ocultos',
-    allHiddenDesc: 'Eles continuam trabalhando e mantêm o histórico.',
-    showHidden: 'Mostrar bots ocultos',
-    noHiddenMatch: 'Nenhum bot oculto corresponde a estes filtros.',
-    hiddenFromRoster: 'Oculto da lista',
-    pinned: 'Fixado',
-    needsAttention: 'precisa de atenção',
-    needsInput: 'Precisa da sua resposta',
-    botsAndGroups: 'Bots e chats em grupo',
-    botsOnly: 'Somente bots',
-    groupsOnly: 'Somente chats em grupo',
-    anyActivity: 'Qualquer atividade',
-    activeNow: 'Ativo agora',
-    recentlyActive: 'Ativo recentemente',
-    older: 'Mais antigos',
-    gatewayRemoved: 'Gateway removido',
-    onDemand: 'Sob demanda',
-    ready: 'Pronto',
-    statusUnknown: 'Status desconhecido',
-    unavailable: 'Indisponível',
-    retryNow: 'Tentar agora',
-    rosterUnavailable: (reason: string) =>
-      `Lista indisponível: ${reason}. Se o gateway for anterior a profiles.list, atualize o Hermes e reinicie o gateway.`,
-    waitingForGateway:
-      'Aguardando a conexão com o gateway… (gateways remotos podem levar alguns segundos; as tentativas são automáticas)'
-  },
-
-  sections: {
-    newSection: 'Nova seção',
-    newTitle: 'Nova seção',
-    renameTitle: 'Renomear seção',
-    nameLabel: 'Nome da seção',
-    namePlaceholder: 'ex.: Clientes',
-    create: 'Criar',
-    rename: 'Renomear…',
-    moveUp: 'Mover para cima',
-    moveDown: 'Mover para baixo',
-    unassigned: 'Sem seção',
-    options: name => `opções da seção ${name}`,
-    headingTip: 'Solte bots aqui · clique duas vezes para renomear',
-    emptyHint: 'Arraste bots para cá',
-    moveTo: 'Mover para a seção',
-    newSectionEllipsis: 'Nova seção…',
-    removeFromSection: 'Remover da seção',
-    deleted: (name, count) =>
-      count === 0
-        ? `“${name}” excluída`
-        : `“${name}” excluída — ${count} ${count === 1 ? 'bot movido' : 'bots movidos'} para Sem seção`,
-    undo: 'Desfazer'
-  },
-  bot: {
-    pinToTop: 'Fixar no topo',
-    unpin: 'Desafixar',
-    pinnedToast: name => `“${name}” fixado no topo`,
-    unpinnedToast: name => `“${name}” desafixado`,
-    hide: 'Ocultar',
-    unhide: 'Mostrar',
-    hiddenToast: name => `“${name}” ocultado`,
-    unhiddenToast: name => `“${name}” visível novamente`,
-    groupsMenu: groups => `Grupos: ${groups}`,
-    manageGroups: 'Gerenciar grupos',
-    metadataLoadFailed: 'Não foi possível carregar os metadados do bot.',
-    loadFailed: 'Não foi possível carregar o bot.',
-    groupsLoadFailed: 'Não foi possível carregar os grupos.',
-    thisDevice: 'Este dispositivo',
-    attentionFallback: 'Atenção pendente',
-    attentionProviderAuth: 'Autenticação do provedor expirada — reconecte',
-    attentionQuota: 'Cota do provedor esgotada',
-    attentionMissingConfig: 'Configuração ausente — complete o cadastro',
-    attentionBlocked: 'Bloqueado — veja o bot',
-    openChatFailedTitle: botName => `Não abriu o chat de ${botName}`,
-    openChatFailedMessage: 'Não foi possível abrir o chat do bot.',
-    openGateways: 'Abrir gateways',
-    openNeedsUpdateTitle: 'Precisa de atualização',
-    openNeedsUpdateMessage: connectionLabel => `Atualize ${connectionLabel} e tente de novo.`,
-    openUnreachableTitle: 'Inacessível',
-    openUnreachableMessage: 'O gateway deste bot não está acessível agora.',
-    newTitle: 'Novo bot',
-    editTitle: 'Editar perfil',
-    editMenu: 'Editar…',
-    helpPromptPlaceholder: 'No que este bot deve ajudar?',
-    descriptionHint: 'Deixe em branco para gerar a partir do nome e da descrição do bot.',
-    newChatWith: 'Nova conversa com este bot',
-    openBotChat: 'Abrir chat do bot',
-    duplicate: 'Duplicar',
-    duplicateFailed: 'Falha ao duplicar',
-    deleteTitle: 'Excluir bot e perfil?',
-    removeFromAllGroups: 'Remover de todos os grupos',
-    createFirstHint: 'Abra o painel Bots e clique em “Novo bot”.',
-    createFailed: 'Ainda não foi possível criar o perfil',
-    advanced: 'Avançado',
-    advancedHint: 'Avançado — modelo, skills, conjuntos de ferramentas, SOUL.md',
-    advancedFailed: 'Falha na configuração avançada',
-    openAnotherChatUnsupported: 'Atualize o Hermes Desktop para abrir outro chat do bot.',
-    remoteConnectionsUnsupported: 'Atualize o Hermes Desktop para conversar com bots de outras conexões.',
-    chatEmpty: 'Diga alguma coisa para começar.',
-    kickoff: 'Oi! Me conte sobre você!'
-  },
-  avatar: {
-    classicShapes: 'Formas clássicas',
-    blobFromName: 'Rosto blob — criado a partir do nome do bot',
-    unlockFollowsName: 'Desbloquear — o rosto volta a acompanhar o nome do bot',
-    randomize: 'Sortear',
-    tabBot: 'Bot',
-    tabGenerate: 'Gerar',
-    upload: 'Enviar imagem',
-    tabPet: 'Pet',
-    removeImage: 'Remover imagem — usar forma',
-    removeBackToShape: 'Remover — voltar ao avatar de forma',
-    describePlaceholder: 'Descreva seu avatar…',
-    describeHint: 'Deixe em branco para gerar automaticamente a partir do nome/título/descrição + lista do agent-messaging.',
-    matchTheName: 'Combinar com o nome',
-    pickPet: 'Escolha um pet para ser a foto de perfil deste bot.',
-    petLoadFailed: 'Não foi possível carregar esse pet — tente outro.',
-    imageTooLarge: 'Imagem grande demais (máx. 15MB).',
-    generationFailed: 'Falha ao gerar o avatar',
-    savedLocally: 'Visual salvo localmente; falha ao salvar remotamente',
-    savedLocallyDescriptionFailed: 'Visual salvo localmente; falha ao atualizar a descrição',
-    generate: 'Gerar',
-    generating: 'Gerando…'
-  },
-  group: {
-    noMembersToSend: group => `${group} não tem membros para envio — adicione um bot ou reabra a sala se os membros ainda estão carregando.`,
-    you: 'Você',
-    availableCount: (available, total) => `${available} de ${total} disponíveis`,
-    newTitle: 'Novo chat em grupo',
-    manageDesc: 'Um bot pode participar de vários chats em grupo. As participações são sincronizadas em todas as máquinas.',
-    manageTitle: 'Gerenciar grupos',
-    settingsTitle: 'Configurações do grupo',
-    settingsDesc: 'Renomeie o grupo ou defina uma imagem para a sala. Os membros e o histórico serão mantidos.',
-    nameLabel: 'Nome do grupo',
-    searchToAdd: 'Buscar bots para adicionar',
-    searchToAddPlaceholder: 'Buscar bots para adicionar…',
-    removeFromSelection: 'Remover da seleção',
-    disbandTitle: 'Desfazer chat em grupo?',
-    deleteTitle: 'Excluir chat em grupo?',
-    deleteAction: 'Excluir',
-    composerPlaceholder: 'Diga alguma coisa — todos os bots deste grupo ouvem a sala.',
-    slashCommandsUnsupported: 'Comandos slash não são suportados em chats em grupo. Abra o chat individual do bot para usá-los.',
-    attachHint: 'Anexar arquivos — todos os bots que responderem poderão vê-los',
-    newThread: 'Novo tópico',
-    reply: 'Responder',
-    replyInThread: 'Responder no tópico',
-    replyInThreadPlaceholder: 'Responder no tópico…',
-    openThread: 'Abrir este tópico',
-    collapseThread: 'Recolher tópico',
-    collapseThreadLabel: 'Recolher este tópico',
-    activity: 'Atividade',
-    noActivityYet: 'Nenhuma atividade nesta rodada ainda.',
-    showActivity: 'Mostrar atividade da sala',
-    hideActivity: 'Ocultar atividade da sala',
-    stop: 'Parar',
-    stopHint: 'Parar esta execução — interrompe o membro da vez e segura os demais',
-    allHeldStatus: (count: number) => `Todos os ${count} bots estão pausados`,
-    heldMembersStatus: (members: string) => `Pausados: ${members}`,
-    holdReleaseHint: 'Mencione um bot pausado ou envie @all resume para liberá-los.',
-    needsYourInput: 'Um bot deste chat em grupo precisa da sua resposta',
-    pictureGenerationFailed: 'Falha ao gerar a imagem do grupo',
-    nameTaken: (name: string) => `Já existe um grupo chamado “${name}”.`,
-    memberCount: (count: number) => `${count} bots`,
-    settingsHint: (group: string) => `Configurações do grupo — renomeie ${group} ou defina uma imagem para a sala`,
-    settingsLabel: (group: string) => `Configurações do grupo ${group}`,
-    disbandHint: (group: string) => `Desfazer o chat em grupo ${group}`,
-    disbandLabel: (group: string) => `Desfazer ${group}`,
-    disbandAction: 'Desfazer',
-    disbanding: 'Desfazendo…',
-    disbandDone: 'Desfeito',
-    disbanded: (group: string) => `“${group}” desfeito`,
-    disbandDescPrefix: 'Isso remove o grupo ',
-    disbandDescSuffix: (count: number) =>
-      ` dos seus ${count} bots e limpa o histórico compartilhado da sala. Os bots e suas sessões individuais nesse grupo serão mantidos.`,
-    stopped: (group: string) => `${group} foi interrompido — as rodadas restantes ficam suspensas até você retomar`,
-    removeAttachment: 'Remover anexo',
-    threadFallback: 'Tópico',
-    replyCount: (replies: number) => `${replies} ${replies === 1 ? 'resposta' : 'respostas'}`,
-    dropToThread: 'Solte para anexar a esta resposta do tópico',
-    dropToRoom: 'Solte para anexar — todos os bots que responderem poderão ver',
-    waitingForAnswer: 'Aguardando sua resposta…',
-    memberThinking: (name: string) => `${name} está pensando…`,
-    roomWorking: 'A sala está trabalhando…',
-    messageRoom: (group: string) => `Enviar mensagem para ${group}`,
-    newThreadPlaceholder: (group: string) => `Novo tópico em ${group}… (@name para direcionar, @everyone para todos)`,
-    everyoneMeta: 'Todos os bots da sala',
-    commandApproval: 'aprovação de comando',
-    answerFailed: (handle: string, error: string) => `Não foi possível enviar a resposta para @${handle}: ${error}`,
-    wantsToRunCommand: (handle: string) => `@${handle} quer executar um comando:`,
-    asks: (handle: string) => `@${handle} pergunta:`,
-    answerTo: (member: string) => `Responder a @${member}`
-  },
-  tools: {
-    skillsHub: 'Central de skills do Hermes',
-    filterSkills: 'Filtrar skills…',
-    searchHub: 'Buscar na central (comunidade + fontes conhecidas)…',
-    noMcpServers: 'Nenhum servidor MCP configurado ou disponível no catálogo.'
-  },
-  cron: {
-    filterHint:
-      'Há tarefas agendadas neste perfil, mas nenhuma está marcada para este bot. Nomeie uma tarefa como "[bot:<name>] …" para mostrá-la aqui ou veja todas em Cron abaixo.',
-    needsRosterFirst: 'Este bot precisa aparecer na lista primeiro.',
-    staleNotice: 'Não foi possível atualizar as tarefas agendadas. Mostrando a última lista disponível.',
-    readFailure: 'A lista pode continuar lá — foi uma falha de leitura, não uma exclusão.',
-    createDesc: (bot: string) => `Uma tarefa recorrente que ${bot} executa conforme um agendamento. As execuções ficam no próprio histórico de conversa.`,
-    instruction: 'Instrução',
-    whenToRun: 'Quando executar',
-    dayOfMonth: 'Dia do mês',
-    sendResultsTo: 'Enviar resultados para',
-    runHistoryOnly: 'Somente histórico de execuções',
-    botChatTarget: (bot: string) => `Chat de ${bot} (o bot responde)`,
-    continuity: 'Continuidade: cada execução vê a saída da anterior (remove duplicatas e continua de onde parou)',
-    onceIn: (when: string) => `Uma vez (${when})`,
-    everyNDays: (days: number) => `A cada ${days} dias`,
-    everyNHours: (hours: number) => `A cada ${hours}h`,
-    everyNMinutes: (minutes: number) => `A cada ${minutes}m`,
-    freqOnce: 'Uma vez, daqui a…',
-    freqHourly: 'A cada hora',
-    freqDaily: 'Todos os dias',
-    freqWeekdays: 'Dias úteis',
-    freqWeekly: 'Toda semana',
-    freqMonthly: 'Todo mês',
-    freqInterval: 'Intervalo',
-    freqAdvanced: 'Avançado…',
-    unitMinutes: 'minuto(s)',
-    unitHours: 'hora(s)',
-    unitDays: 'dia(s)',
-    runsOnce: (count: number, unit: string) => `Executa uma vez, daqui a ${count} ${unit}`,
-    runsHourly: 'Executa no início de cada hora',
-    runsDaily: (time: string) => `Executa todos os dias às ${time}`,
-    runsWeekdays: (time: string) => `Executa de segunda a sexta às ${time}`,
-    runsWeekly: (day: string, time: string) => `Executa toda ${day} às ${time}`,
-    runsMonthly: (day: string, time: string) => `Executa no dia ${day} de cada mês às ${time}`,
-    runsInterval: (count: number, unit: string) => `Executa a cada ${count} ${unit}`,
-    runsRaw: 'Agendamento bruto — a cada Nm/Nh/Nd ou cron de 5 campos',
-    timesTotal: (count: number) => `, ${count} vez(es) no total`
-  },
-}
-
 const ja: BotsMessages = {
-  paneTitle: 'ボット',
+  editor: {
+    fullConfigHint: 'すべての設定を使うには新しいゲートウェイが必要です（Hermes 更新後に再起動してください）。',
+    liveCapabilities: '機能（即時適用 — スキル、ツール、MCP）',
+    editSoul: 'SOUL.md（人格 + エージェント間メッセージプロトコル）',
+    remoteCapabilitiesHint:
+      'リモート機能には新しいデスクトップアプリが必要です。モデルと SOUL の変更は保存するまで適用されません。',
+    skillsEnabled: (enabled, total) => `スキル（${enabled}/${total} 有効）`,
+    toolsetsEnabled: (enabled, total) => `ツールセット（${enabled}/${total} 有効 — すべて解除すると既定値に戻ります）`,
+    mcpServers: 'MCP サーバー',
+    providerCustom: 'プロバイダー（カスタム）',
+    modelCustom: 'モデル（カスタム）',
+    backToDropdowns: '← 選択リストに戻る',
+    inheritLaunch: '継承（起動プロファイル）',
+    enterManually: '✏️ 手動入力…',
+    gatewayDefault: 'ゲートウェイの既定値',
+    modelNameExample: '例：モデル名',
+    modelSwitchFailed: 'モデルの切り替えに失敗しました',
+    newDescription:
+      '独自のメモリ、スキル、チャットを持つ名前付きの仲間です。他のエージェントとメッセージをやり取りできます。',
+    name: '名前',
+    title: '表示名',
+    description: '説明',
+    createOn: '作成先',
+    general: '一般',
+    capabilities: '機能',
+    skills: 'スキル',
+    tools: 'ツール',
+    cloneFrom: '複製元のプロファイル',
+    freshProfile: '新規プロファイル（同梱スキル）',
+    inheritedModel: '起動時のプロファイルから継承',
+    soul: 'SOUL.md（任意 — 生成された人格を置き換えます）',
+    shareKeys: 'メインプロファイルとキー・アカウントを共有',
+    shareKeysOn: target => `${target} の default プロファイルとキー・アカウントを共有`,
+    shareKeysHint:
+      'サブスクリプション、OAuth ログイン、API キーをコピーせず共有するため、トークン更新で互いに無効になりません。チェックを外すと独立したスナップショットをコピーします。',
+    needsModel:
+      'まだ使用できるモデルプロバイダーがないため、自己紹介をスキップしました。「詳細設定」でプロバイダーとモデルを選んでください。',
+    configureModel: 'モデルを設定',
+    createEmpty: '空のプロファイルを作成（同梱スキルを除外）',
+    nameTakenHint: 'その名前は使用済みです。機能を設定する前に別の名前を選んでください。',
+    nameFirstHint:
+      '先にボットに名前を付けてください。このタブを開くと下書きプロファイルが作成されます（キャンセルすると破棄されます）。',
+    newerDesktop: 'スキルには新しい Hermes Desktop が必要です。',
+    newerGateway: '機能カタログには新しいゲートウェイが必要です（Hermes 更新後に再起動してください）。',
+    emptySkillsHint: '「空のプロファイルを作成」が選択されているため、同梱スキルはインストールされません。',
+    defaultToolsHint: 'すべて選択するか、何も選択しない場合は、既定のツールセット動作を維持します。',
+    catalog: 'カタログ',
+    catalogInstalled: 'カタログ · インストール済み',
+    mcpHint:
+      '設定済みサーバーはメインプロファイルからコピーされます。カタログは同梱 MCP メニューです。API キーが必要な項目は先に設定を行います（認証情報はキー共有設定に従います）。',
+    creating: '作成中…',
+    createBot: 'ボットを作成',
+    auto: '自動',
+    autoHint: '自動 — 名前から決定',
+    unlock: 'ロック解除',
+    lockFace: '顔を固定',
+    lockedHint: '顔を固定しました。名前を変えても変化しません。',
+    unlockedHint: '顔は名前に合わせて変わります。',
+    noImageModel:
+      '画像モデルがありません。有効にした直後や Hermes 更新後の場合は、Ctrl+K →「ゲートウェイを再起動」で再起動してください。',
+    checkingImage: '画像バックエンドを確認中…',
+    chooseImage: '画像を選択…',
+    editDescription: (name, profile) => `${name}（${profile}）の外観と役割。`,
+    nameTaken: name => `「${name}」というエージェントはすでに存在します。`,
+    nameTakenOn: (name, target) => `${target} には「${name}」というエージェントがすでに存在します。`,
+    currentConnection: name => `${name}（現在）`,
+    remoteHint: target =>
+      `エージェントは ${target} に作成され、接続先のボットとして一覧に表示されます。チャットはそのマシンに送られます。`,
+    cloneFromOn: target => `複製元のプロファイル（${target} 上）`,
+    catalogHint: source => `${source} のカタログです。未選択のスキルは作成後に無効になります。`,
+    sectionsFailed: sections => `一部の設定に失敗しました: ${sections}`,
+    updated: name => `${name} を更新しました`,
+    created: name => `ボット「${name}」を作成しました`,
+    createdOn: (name, target) => `${target} にボット「${name}」を作成しました`
+  },
   roster: {
     search: 'ボットとグループチャットを検索',
     searchPlaceholder: 'ボットとグループチャットを検索…',
     newBotOrGroup: '新しいボットまたはグループチャット',
-    newMenuTip: '新規…',
-    activityToastsOn: 'アクティビティ通知はオンです — クリックして消音',
-    activityToastsOff: 'アクティビティ通知はオフです — クリックして有効化',
-    allGateways: 'すべてのゲートウェイ',
-    currentGateway: '現在のゲートウェイ',
     groupChats: 'グループチャット',
     emptyTitle: 'ボットはまだありません',
     emptyDesc: '最初のボットを作成しましょう。',
@@ -859,7 +1007,6 @@ const ja: BotsMessages = {
     noMatchFiltersOn: gateway => `${gateway} にこれらのフィルタに一致するボットやグループチャットはありません`,
     noMatchFilters: 'これらのフィルタに一致するボットやグループチャットはありません。',
     clearFilters: 'フィルタをクリア',
-    filterRoster: activeCount => (activeCount ? `フィルタ（${activeCount} 件有効）` : '一覧をフィルタ'),
     allHidden: 'すべてのボットが非表示です',
     allHiddenDesc: '非表示でも動作を続け、履歴も残ります。',
     showHidden: '非表示のボットを表示',
@@ -916,6 +1063,7 @@ const ja: BotsMessages = {
     descriptionHint: '空欄のままにすると、ボットの名前と説明から生成します。',
     newChatWith: 'このボットと新しいチャット',
     openBotChat: 'ボットチャットを開く',
+    openingChat: 'チャットを開いています…',
     pinToTop: '先頭にピン留め',
     unpin: 'ピン留めを解除',
     pinnedToast: name => `${name}を先頭にピン留めしました`,
@@ -1060,12 +1208,117 @@ const ja: BotsMessages = {
     answerTo: member => `@${member}に回答`
   },
   tools: {
+    installHint: name => `「${name}」をインストールして上の一覧に追加`,
+    installed: name => `スキル「${name}」をインストールしました`,
+    installFailed: name => `「${name}」のインストールに失敗しました`,
+    searchHint: 'コミュニティと主要なソースを検索中 — 約 10 秒かかる場合があります…',
+    resizeHint: '角をドラッグしてサイズを変更できます。',
+    addServerFailed: 'サーバーを追加できませんでした',
+    noTarget: '対象プロファイルがありません',
+    setKeyFailed: key => `${key} の設定に失敗しました`,
+    configured: name => `${name} を設定しました`,
+    authenticated: name => `${name} の認証が完了しました`,
+    testFailed: '設定後のサーバーテストに失敗しました',
+    completeSignIn: 'ブラウザーでサインインを完了してください…',
+    needsSetup: keys => `設定が必要（${keys}）— アプリ内で設定するにはゲートウェイを再起動してください`,
+    setUpDone: '設定済み ✓',
+    saveTest: '保存してテスト',
+    authorizing: '認証中…',
+    working: '処理中…',
+    setupFailed: '設定に失敗しました',
+    signIn: 'サインイン…',
+    setUp: '設定…',
     skillsHub: 'Hermes スキルハブ',
     filterSkills: 'スキルを絞り込み…',
     searchHub: 'ハブを検索（コミュニティと既知のソース）…',
     noMcpServers: '設定済みまたはカタログ内の MCP サーバーはありません。'
   },
+  screen: {
+    title: '画面',
+    menu: '画面を開く',
+    unsupportedTitle: 'このホストにはボット画面がありません',
+    unsupportedBody:
+      'ボット画面は Linux のゲートウェイホストで動作します。このボットはホスト自身のディスプレイを使います。',
+    notInstalledTitle: '画面パッケージが不足しています',
+    notInstalledBody:
+      'このボットに画面を与えるには、ゲートウェイホストに TigerVNC と Xfce コアが必要です。ホストで実行:',
+    installHint:
+      'Hermes を実行しているユーザーとしてゲートウェイホスト上で実行されます。sudo は Hermes 経由で一度だけ求められます。',
+    install: 'ホストにインストール',
+    installing: 'インストール中…',
+    installCancelled: 'インストールを中止しました: sudo パスワードが入力されませんでした。',
+    installFailed: 'インストールに失敗しました。上のログを確認するか、ホストでコマンドを直接実行してください。',
+    noPackageManager: 'ゲートウェイホストに対応するパッケージマネージャー (apt, dnf, pacman) が見つかりません。',
+    portalTitle: 'スクリーン',
+    portalOpen: '開く',
+    heroStopped: '画面は停止中',
+    heroNotInstalled: 'このホストには未インストール',
+    heroConnecting: '画面を確認中…',
+    heroStale: '最終表示 — 画面に接続できません',
+    heroSuppressed: '他の人が操作中は非表示',
+    heroOpenLive: 'ライブで開く',
+    heroInstall: 'インストール',
+    heroStart: '開始',
+    portalWatching: 'ライブ · ボットが操作中',
+    portalYouControl: 'ライブ · あなたが操作中',
+    portalOtherControls: 'ライブ · 別のビューアーが操作中',
+    portalStopped: '停止中',
+    portalNotInstalled: 'ホストに未インストール',
+    portalUnsupported: 'このホストでは利用できません',
+    portalUnavailable: 'Screen を使うにはボットの Hermes を更新してください',
+    portalUnavailableManaged: 'この管理された Hermes リリースではまだ Screen を利用できません',
+    unavailableTitle: 'Screen には新しい Hermes が必要です',
+    autoOpenMenu: 'ボットが画面を使い始めたら Screen を開く',
+    autoOpenOnToast: name => `${name} がデスクトップを使い始めると Screen が開きます`,
+    autoOpenOffToast: name => `${name} の Screen は手動で開くまで閉じたままです`,
+    stoppedTitle: '画面はオフです',
+    stoppedBody: 'このボットのデスクトップを起動すると、動作を見守り、必要なときに操作を引き継げます。',
+    placementSandbox: backend => `画面は ${backend} サンドボックス内（ターミナルと同じ場所）で動作します`,
+    imageSwitchTitle: '新しいサンドボックスイメージがあります',
+    imageSwitchBody: (current, target) =>
+      `サンドボックスはまだ ${current} で動作しており、デスクトップがありません。${target} に切り替えると、ボットが次にターミナルを使うときにコンテナが再作成されます。/root と /workspace のファイルはこのマシンに残り、コンテナ内にインストールしたパッケージは必要に応じて再インストールされます。`,
+    imageSwitchApprove: 'イメージを切り替える',
+    imageSwitchKeep: '現在のイメージを使い続ける',
+    start: '画面を起動',
+    attaching: '画面に接続中…',
+    streamLost: '画面ストリームが終了しました',
+    reconnect: '再接続',
+    takeOver: '引き継ぐ',
+    handBack: '戻す',
+    handBackForce: '強制的に戻す',
+    handBackForceHint: 'もう存在しないビューア（再読み込み後など）が保持しているリースを解放します。',
+    openNeedsUpdate: 'ボットの画面を開くには Hermes Desktop を更新してください。',
+    youControl: 'あなたが操作中',
+    otherControls: '別のビューアが操作中',
+    agentControls: 'ボットが操作中',
+    controlTaken: '別のビューアが操作を引き継ぎました。閲覧のみ。'
+  },
   cron: {
+    untitled: '無題のジョブ',
+    nameNul: 'ジョブ名に NUL (U+0000) は使用できません。',
+    instructionNul: 'ジョブの指示に NUL (U+0000) は使用できません。',
+    minutesFromNow: '分後',
+    hoursFromNow: '時間後',
+    daysFromNow: '日後',
+    stopAfter: '実行上限',
+    runsHint: '回（空欄で無制限）',
+    detailDescription: 'このジョブの実行内容と次回の実行日時。',
+    status: '状態',
+    active: '有効',
+    paused: '一時停止',
+    schedule: 'スケジュール',
+    rawSchedule: 'スケジュール（元の値）',
+    repeat: '繰り返し',
+    nextRun: '次回実行',
+    overdueSince: '実行予定超過',
+    lastRun: '前回実行',
+    lastResult: '前回の結果',
+    workdir: '作業ディレクトリ',
+    succeeded: '成功',
+    failed: '失敗',
+    deliveryFailed: '実行済みですが、配信に失敗しました',
+    blockedConfig: '設定によりブロック（未実行）',
+    legacyUnsafe: '安全のため一時停止中です。この旧形式のジョブを削除して作り直してから実行してください。',
     filterHint:
       'このプロファイルには定期実行ジョブがありますが、このボット向けのタグが付いたものはありません。ジョブ名を「[bot:<名前>] …」にするとここに表示されます。下のCronでも確認できます。',
     needsRosterFirst: 'このボットは先に名簿に表示される必要があります。',
@@ -1107,16 +1360,79 @@ const ja: BotsMessages = {
 }
 
 const zh: BotsMessages = {
-  paneTitle: '机器人',
+  editor: {
+    fullConfigHint: '完整配置需要更新网关（更新 Hermes 后请重启网关）。',
+    liveCapabilities: '功能（立即生效 — 技能、工具、MCP）',
+    editSoul: 'SOUL.md（人格 + 智能体消息协议）',
+    remoteCapabilitiesHint: '远程功能需要更新桌面应用。模型和 SOUL 的更改会在保存后生效。',
+    skillsEnabled: (enabled, total) => `技能（已启用 ${enabled}/${total}）`,
+    toolsetsEnabled: (enabled, total) => `工具集（已启用 ${enabled}/${total} — 全部取消勾选可恢复默认值）`,
+    mcpServers: 'MCP 服务器',
+    providerCustom: '提供商（自定义）',
+    modelCustom: '模型（自定义）',
+    backToDropdowns: '← 返回下拉选项',
+    inheritLaunch: '继承（启动配置文件）',
+    enterManually: '✏️ 手动输入…',
+    gatewayDefault: '网关默认值',
+    modelNameExample: '例如：模型名称',
+    modelSwitchFailed: '模型切换失败',
+    newDescription: '拥有独立记忆、技能和聊天的具名队友，可以与你的其他智能体互发消息。',
+    name: '名称',
+    title: '显示名称',
+    description: '描述',
+    createOn: '创建位置',
+    general: '常规',
+    capabilities: '能力',
+    skills: '技能',
+    tools: '工具',
+    cloneFrom: '从配置档案克隆',
+    freshProfile: '新配置档案（内置技能）',
+    inheritedModel: '继承启动时的配置档案',
+    soul: 'SOUL.md（可选，将替换生成的人格）',
+    shareKeys: '与主配置档案共享密钥和账户',
+    shareKeysOn: target => `与 ${target} 上的 default 配置档案共享密钥和账户`,
+    shareKeysHint:
+      '订阅、OAuth 登录和 API 密钥保持共享而非复制，令牌刷新不会使另一方失效。取消勾选则创建隔离的快照副本。',
+    needsModel: '它还没有可用的模型提供商，因此跳过了自我介绍。请在“高级”中选择提供商和模型。',
+    configureModel: '配置模型',
+    createEmpty: '创建空配置（跳过内置技能）',
+    nameTakenHint: '此名称已被占用，请先选择其他名称再配置能力。',
+    nameFirstHint: '请先为机器人命名，打开此标签页时将创建草稿配置档案（取消时会丢弃）。',
+    newerDesktop: '技能功能需要更新的 Hermes Desktop。',
+    newerGateway: '能力目录需要更新的网关（更新 Hermes 后请重启网关）。',
+    emptySkillsHint: '已勾选“创建空配置”，不会安装内置技能。',
+    defaultToolsHint: '全部勾选或全部不选将保留默认工具集行为。',
+    catalog: '目录',
+    catalogInstalled: '目录 · 已安装',
+    mcpHint:
+      '已配置的服务器从主配置档案复制；目录条目来自内置 MCP 菜单。需要 API 密钥的条目先进行设置（凭据遵循共享密钥设置）。',
+    creating: '正在创建…',
+    createBot: '创建机器人',
+    auto: '自动',
+    autoHint: '自动 — 由名称决定',
+    unlock: '解锁',
+    lockFace: '锁定外观',
+    lockedHint: '外观已锁定，重命名不会改变外观。',
+    unlockedHint: '外观随名称变化。',
+    noImageModel: '没有可用的图像模型。如果刚启用模型或更新了 Hermes，请重启网关：Ctrl+K →“重启网关”。',
+    checkingImage: '正在检查图像后端…',
+    chooseImage: '选择图像…',
+    editDescription: (name, profile) => `${name}（${profile}）的外观和职责。`,
+    nameTaken: name => `名为“${name}”的智能体已存在。`,
+    nameTakenOn: (name, target) => `${target} 上已存在名为“${name}”的智能体。`,
+    currentConnection: name => `${name}（当前）`,
+    remoteHint: target => `智能体将在 ${target} 上创建，并作为连接机器人显示在名册中。聊天将路由到该机器。`,
+    cloneFromOn: target => `从配置档案克隆（位于 ${target}）`,
+    catalogHint: source => `目录来自 ${source}，未勾选的技能将在创建后禁用。`,
+    sectionsFailed: sections => `部分设置失败：${sections}`,
+    updated: name => `已更新 ${name}`,
+    created: name => `已创建机器人“${name}”`,
+    createdOn: (name, target) => `已在 ${target} 上创建机器人“${name}”`
+  },
   roster: {
     search: '搜索机器人和群聊',
     searchPlaceholder: '搜索机器人和群聊…',
     newBotOrGroup: '新建机器人或群聊',
-    newMenuTip: '新建…',
-    activityToastsOn: '活动通知已开启 — 点击静音',
-    activityToastsOff: '活动通知已关闭 — 点击开启',
-    allGateways: '所有网关',
-    currentGateway: '当前网关',
     groupChats: '群聊',
     emptyTitle: '还没有机器人',
     emptyDesc: '创建你的第一个机器人。',
@@ -1125,7 +1441,6 @@ const zh: BotsMessages = {
     noMatchFiltersOn: gateway => `${gateway} 上没有机器人或群聊匹配这些筛选条件`,
     noMatchFilters: '没有机器人或群聊匹配这些筛选条件。',
     clearFilters: '清除筛选',
-    filterRoster: activeCount => (activeCount ? `筛选（${activeCount} 个已启用）` : '筛选列表'),
     allHidden: '所有机器人都已隐藏',
     allHiddenDesc: '它们会继续运行，并保留各自的历史。',
     showHidden: '显示已隐藏的机器人',
@@ -1178,6 +1493,7 @@ const zh: BotsMessages = {
     descriptionHint: '留空则根据机器人的名称和描述生成。',
     newChatWith: '与此机器人开新聊天',
     openBotChat: '打开机器人聊天',
+    openingChat: '正在打开聊天…',
     pinToTop: '置顶',
     unpin: '取消置顶',
     pinnedToast: name => `已将 ${name} 置顶`,
@@ -1319,12 +1635,114 @@ const zh: BotsMessages = {
     answerTo: member => `回答 @${member}`
   },
   tools: {
+    installHint: name => `安装“${name}”并添加到上方列表`,
+    installed: name => `技能“${name}”已安装`,
+    installFailed: name => `安装“${name}”失败`,
+    searchHint: '正在搜索社区和常用来源 — 可能需要约 10 秒…',
+    resizeHint: '拖动角落可调整大小。',
+    addServerFailed: '无法添加服务器',
+    noTarget: '没有目标配置文件',
+    setKeyFailed: key => `无法设置 ${key}`,
+    configured: name => `${name} 已配置`,
+    authenticated: name => `${name} 已验证身份`,
+    testFailed: '配置后的服务器测试失败',
+    completeSignIn: '请在浏览器中完成登录…',
+    needsSetup: keys => `需要设置（${keys}）— 重启网关以启用应用内设置`,
+    setUpDone: '已设置 ✓',
+    saveTest: '保存并测试',
+    authorizing: '正在授权…',
+    working: '正在处理…',
+    setupFailed: '设置失败',
+    signIn: '登录…',
+    setUp: '设置…',
     skillsHub: 'Hermes 技能中心',
     filterSkills: '筛选技能…',
     searchHub: '搜索技能中心（社区和常见来源）…',
     noMcpServers: '未配置 MCP 服务器，目录中也没有。'
   },
+  screen: {
+    title: '屏幕',
+    menu: '打开屏幕',
+    unsupportedTitle: '此主机没有机器人屏幕',
+    unsupportedBody: '机器人屏幕在 Linux 网关主机上运行。此机器人使用主机自身的显示器。',
+    notInstalledTitle: '缺少屏幕软件包',
+    notInstalledBody: '网关主机需要 TigerVNC 和 Xfce 核心组件才能为此机器人提供屏幕。在主机上运行:',
+    installHint: '在网关主机上以运行 Hermes 的用户身份执行；sudo 只会通过 Hermes 询问一次。',
+    install: '安装到主机',
+    installing: '正在安装…',
+    installCancelled: '安装已取消：未提供 sudo 密码。',
+    installFailed: '安装失败。请查看上方日志，或在主机上手动运行该命令。',
+    noPackageManager: '网关主机上未找到受支持的包管理器（apt、dnf、pacman）。',
+    portalTitle: '屏幕',
+    portalOpen: '打开',
+    heroStopped: '屏幕已关闭',
+    heroNotInstalled: '此主机未安装',
+    heroConnecting: '正在检查屏幕…',
+    heroStale: '最后画面 — 屏幕无法访问',
+    heroSuppressed: '有人控制时隐藏',
+    heroOpenLive: '实时打开',
+    heroInstall: '安装',
+    heroStart: '启动',
+    portalWatching: '直播 · 机器人控制中',
+    portalYouControl: '直播 · 你在控制',
+    portalOtherControls: '直播 · 其他查看者控制中',
+    portalStopped: '已停止',
+    portalNotInstalled: '主机未安装',
+    portalUnsupported: '此主机不可用',
+    portalUnavailable: '更新机器人的 Hermes 以使用屏幕',
+    portalUnavailableManaged: '此托管 Hermes 版本尚不支持屏幕',
+    unavailableTitle: '屏幕需要更新版的 Hermes',
+    autoOpenMenu: '机器人使用屏幕时自动打开',
+    autoOpenOnToast: name => `${name} 开始使用桌面时会自动打开屏幕`,
+    autoOpenOffToast: name => `${name} 的屏幕将保持关闭，直到你手动打开`,
+    stoppedTitle: '屏幕已关闭',
+    stoppedBody: '启动此机器人的桌面，观看它的操作，并在需要时接管。',
+    placementSandbox: backend => `屏幕运行在 ${backend} 沙箱内，与终端同处`,
+    imageSwitchTitle: '有新的沙箱镜像',
+    imageSwitchBody: (current, target) =>
+      `沙箱仍在运行 ${current}，其中没有桌面。切换到 ${target} 后，机器人下次使用终端时会重建容器：/root 和 /workspace 中的文件保留在本机，容器内安装的软件包会按需重新安装。`,
+    imageSwitchApprove: '切换镜像',
+    imageSwitchKeep: '保留当前镜像',
+    start: '启动屏幕',
+    attaching: '正在连接屏幕…',
+    streamLost: '屏幕流已结束',
+    reconnect: '重新连接',
+    takeOver: '接管',
+    handBack: '交还',
+    handBackForce: '强制交还',
+    handBackForceHint: '释放已不在场的查看者（例如重新加载后）持有的控制权。',
+    openNeedsUpdate: '更新 Hermes Desktop 以打开机器人屏幕。',
+    youControl: '你正在控制',
+    otherControls: '另一位查看者正在控制',
+    agentControls: '机器人正在控制',
+    controlTaken: '另一位查看者已接管控制。仅可观看。'
+  },
   cron: {
+    untitled: '未命名任务',
+    nameNul: '任务名称不能包含 NUL (U+0000)。',
+    instructionNul: '任务指令不能包含 NUL (U+0000)。',
+    minutesFromNow: '分钟后',
+    hoursFromNow: '小时后',
+    daysFromNow: '天后',
+    stopAfter: '运行上限',
+    runsHint: '次（留空则持续运行）',
+    detailDescription: '此任务的内容和下次运行时间。',
+    status: '状态',
+    active: '运行中',
+    paused: '已暂停',
+    schedule: '计划',
+    rawSchedule: '计划（原始值）',
+    repeat: '重复',
+    nextRun: '下次运行',
+    overdueSince: '逾期起始时间',
+    lastRun: '上次运行',
+    lastResult: '上次结果',
+    workdir: '工作目录',
+    succeeded: '成功',
+    failed: '失败',
+    deliveryFailed: '已运行，但发送失败',
+    blockedConfig: '配置阻止了运行（未执行）',
+    legacyUnsafe: '为安全起见已暂停：请删除并重新创建此旧任务，然后再运行。',
     filterHint:
       '此配置档案中有定时任务，但没有一个标记给这个机器人。将任务命名为“[bot:<名称>] …”即可显示在这里，也可以在下方的 Cron 中查看。',
     needsRosterFirst: '这个机器人需要先出现在名册中。',
@@ -1366,16 +1784,79 @@ const zh: BotsMessages = {
 }
 
 const zhHant: BotsMessages = {
-  paneTitle: '機器人',
+  editor: {
+    fullConfigHint: '完整設定需要更新閘道（更新 Hermes 後請重新啟動閘道）。',
+    liveCapabilities: '功能（立即生效 — 技能、工具、MCP）',
+    editSoul: 'SOUL.md（人格 + 智慧代理訊息協定）',
+    remoteCapabilitiesHint: '遠端功能需要更新桌面應用程式。模型和 SOUL 的變更會在儲存後生效。',
+    skillsEnabled: (enabled, total) => `技能（已啟用 ${enabled}/${total}）`,
+    toolsetsEnabled: (enabled, total) => `工具集（已啟用 ${enabled}/${total} — 全部取消勾選可還原預設值）`,
+    mcpServers: 'MCP 伺服器',
+    providerCustom: '供應商（自訂）',
+    modelCustom: '模型（自訂）',
+    backToDropdowns: '← 返回下拉選項',
+    inheritLaunch: '繼承（啟動設定檔）',
+    enterManually: '✏️ 手動輸入…',
+    gatewayDefault: '閘道預設值',
+    modelNameExample: '例如：模型名稱',
+    modelSwitchFailed: '模型切換失敗',
+    newDescription: '擁有獨立記憶、技能和聊天的具名隊友，可以與你的其他智慧代理互傳訊息。',
+    name: '名稱',
+    title: '顯示名稱',
+    description: '描述',
+    createOn: '建立位置',
+    general: '一般',
+    capabilities: '功能',
+    skills: '技能',
+    tools: '工具',
+    cloneFrom: '從設定檔複製',
+    freshProfile: '新設定檔（內建技能）',
+    inheritedModel: '繼承啟動時的設定檔',
+    soul: 'SOUL.md（選填，將取代產生的人格）',
+    shareKeys: '與主要設定檔共用金鑰和帳戶',
+    shareKeysOn: target => `與 ${target} 上的 default 設定檔共用金鑰和帳戶`,
+    shareKeysHint:
+      '訂閱、OAuth 登入和 API 金鑰保持共用而非複製，權杖更新不會使另一方失效。取消勾選則建立隔離的快照副本。',
+    needsModel: '它還沒有可用的模型提供者，因此略過了自我介紹。請在「進階」中選擇提供者和模型。',
+    configureModel: '設定模型',
+    createEmpty: '建立空白設定（略過內建技能）',
+    nameTakenHint: '此名稱已被使用，請先選擇其他名稱再設定功能。',
+    nameFirstHint: '請先為機器人命名，開啟此分頁時將建立草稿設定檔（取消時會捨棄）。',
+    newerDesktop: '技能功能需要更新的 Hermes Desktop。',
+    newerGateway: '功能目錄需要更新的閘道（更新 Hermes 後請重新啟動閘道）。',
+    emptySkillsHint: '已勾選「建立空白設定」，不會安裝內建技能。',
+    defaultToolsHint: '全部勾選或全部不選將保留預設工具集行為。',
+    catalog: '目錄',
+    catalogInstalled: '目錄 · 已安裝',
+    mcpHint:
+      '已設定的伺服器從主要設定檔複製；目錄項目來自內建 MCP 選單。需要 API 金鑰的項目先進行設定（憑證遵循共用金鑰設定）。',
+    creating: '正在建立…',
+    createBot: '建立機器人',
+    auto: '自動',
+    autoHint: '自動 — 由名稱決定',
+    unlock: '解鎖',
+    lockFace: '鎖定外觀',
+    lockedHint: '外觀已鎖定，重新命名不會改變外觀。',
+    unlockedHint: '外觀隨名稱變化。',
+    noImageModel: '沒有可用的影像模型。如果剛啟用模型或更新了 Hermes，請重新啟動閘道：Ctrl+K →「重新啟動閘道」。',
+    checkingImage: '正在檢查影像後端…',
+    chooseImage: '選擇影像…',
+    editDescription: (name, profile) => `${name}（${profile}）的外觀和職責。`,
+    nameTaken: name => `名為「${name}」的智慧代理已存在。`,
+    nameTakenOn: (name, target) => `${target} 上已存在名為「${name}」的智慧代理。`,
+    currentConnection: name => `${name}（目前）`,
+    remoteHint: target => `智慧代理將在 ${target} 上建立，並作為連線機器人顯示在名冊中。聊天將路由到該機器。`,
+    cloneFromOn: target => `從設定檔複製（位於 ${target}）`,
+    catalogHint: source => `目錄來自 ${source}，未勾選的技能將在建立後停用。`,
+    sectionsFailed: sections => `部分設定失敗：${sections}`,
+    updated: name => `已更新 ${name}`,
+    created: name => `已建立機器人「${name}」`,
+    createdOn: (name, target) => `已在 ${target} 上建立機器人「${name}」`
+  },
   roster: {
     search: '搜尋機器人和群組聊天',
     searchPlaceholder: '搜尋機器人和群組聊天…',
     newBotOrGroup: '新增機器人或群組聊天',
-    newMenuTip: '新增…',
-    activityToastsOn: '活動通知已開啟 — 點擊靜音',
-    activityToastsOff: '活動通知已關閉 — 點擊開啟',
-    allGateways: '所有閘道',
-    currentGateway: '目前閘道',
     groupChats: '群組聊天',
     emptyTitle: '還沒有機器人',
     emptyDesc: '建立你的第一個機器人。',
@@ -1384,7 +1865,6 @@ const zhHant: BotsMessages = {
     noMatchFiltersOn: gateway => `${gateway} 上沒有機器人或群組聊天符合這些篩選條件`,
     noMatchFilters: '沒有機器人或群組聊天符合這些篩選條件。',
     clearFilters: '清除篩選',
-    filterRoster: activeCount => (activeCount ? `篩選（${activeCount} 個已啟用）` : '篩選清單'),
     allHidden: '所有機器人都已隱藏',
     allHiddenDesc: '它們會繼續運作，並保留各自的歷史。',
     showHidden: '顯示已隱藏的機器人',
@@ -1437,6 +1917,7 @@ const zhHant: BotsMessages = {
     descriptionHint: '留空則依機器人的名稱和描述產生。',
     newChatWith: '與此機器人開新聊天',
     openBotChat: '開啟機器人聊天',
+    openingChat: '正在開啟聊天…',
     pinToTop: '釘選到頂端',
     unpin: '取消釘選',
     pinnedToast: name => `已將 ${name} 釘選到頂端`,
@@ -1578,12 +2059,114 @@ const zhHant: BotsMessages = {
     answerTo: member => `回覆 @${member}`
   },
   tools: {
+    installHint: name => `安裝「${name}」並新增至上方清單`,
+    installed: name => `技能「${name}」已安裝`,
+    installFailed: name => `安裝「${name}」失敗`,
+    searchHint: '正在搜尋社群和常用來源 — 可能需要約 10 秒…',
+    resizeHint: '拖曳角落可調整大小。',
+    addServerFailed: '無法新增伺服器',
+    noTarget: '沒有目標設定檔',
+    setKeyFailed: key => `無法設定 ${key}`,
+    configured: name => `${name} 已設定`,
+    authenticated: name => `${name} 已驗證身分`,
+    testFailed: '設定後的伺服器測試失敗',
+    completeSignIn: '請在瀏覽器中完成登入…',
+    needsSetup: keys => `需要設定（${keys}）— 重新啟動閘道以啟用應用程式內設定`,
+    setUpDone: '已設定 ✓',
+    saveTest: '儲存並測試',
+    authorizing: '正在授權…',
+    working: '正在處理…',
+    setupFailed: '設定失敗',
+    signIn: '登入…',
+    setUp: '設定…',
     skillsHub: 'Hermes 技能中心',
     filterSkills: '篩選技能…',
     searchHub: '搜尋技能中心（社群和常見來源）…',
     noMcpServers: '未設定 MCP 伺服器，目錄中也沒有。'
   },
+  screen: {
+    title: '螢幕',
+    menu: '開啟螢幕',
+    unsupportedTitle: '此主機沒有機器人螢幕',
+    unsupportedBody: '機器人螢幕在 Linux 閘道主機上執行。此機器人使用主機自身的顯示器。',
+    notInstalledTitle: '缺少螢幕套件',
+    notInstalledBody: '閘道主機需要 TigerVNC 與 Xfce 核心元件才能為此機器人提供螢幕。在主機上執行:',
+    installHint: '在閘道主機上以執行 Hermes 的使用者身分執行；sudo 只會透過 Hermes 詢問一次。',
+    install: '安裝到主機',
+    installing: '安裝中…',
+    installCancelled: '安裝已取消：未提供 sudo 密碼。',
+    installFailed: '安裝失敗。請查看上方日誌，或在主機上手動執行該指令。',
+    noPackageManager: '閘道主機上找不到受支援的套件管理器（apt、dnf、pacman）。',
+    portalTitle: '螢幕',
+    portalOpen: '開啟',
+    heroStopped: '螢幕已關閉',
+    heroNotInstalled: '此主機未安裝',
+    heroConnecting: '正在檢查螢幕…',
+    heroStale: '最後畫面 — 螢幕無法連線',
+    heroSuppressed: '有人控制時隱藏',
+    heroOpenLive: '即時開啟',
+    heroInstall: '安裝',
+    heroStart: '啟動',
+    portalWatching: '直播 · 機器人控制中',
+    portalYouControl: '直播 · 您在控制',
+    portalOtherControls: '直播 · 其他檢視者控制中',
+    portalStopped: '已停止',
+    portalNotInstalled: '主機未安裝',
+    portalUnsupported: '此主機不可用',
+    portalUnavailable: '更新機器人的 Hermes 以使用螢幕',
+    portalUnavailableManaged: '此託管 Hermes 版本尚不支援螢幕',
+    unavailableTitle: '螢幕需要較新版的 Hermes',
+    autoOpenMenu: '機器人使用螢幕時自動開啟',
+    autoOpenOnToast: name => `${name} 開始使用桌面時會自動開啟螢幕`,
+    autoOpenOffToast: name => `${name} 的螢幕將保持關閉，直到你手動開啟`,
+    stoppedTitle: '螢幕已關閉',
+    stoppedBody: '啟動此機器人的桌面，觀看它的操作，並在需要時接手。',
+    placementSandbox: backend => `畫面在 ${backend} 沙箱內執行，與終端同處`,
+    imageSwitchTitle: '有新的沙箱映像',
+    imageSwitchBody: (current, target) =>
+      `沙箱仍在執行 ${current}，其中沒有桌面。切換到 ${target} 後，機器人下次使用終端時會重建容器：/root 和 /workspace 中的檔案保留在本機，容器內安裝的套件會按需重新安裝。`,
+    imageSwitchApprove: '切換映像',
+    imageSwitchKeep: '保留目前映像',
+    start: '啟動螢幕',
+    attaching: '正在連線至螢幕…',
+    streamLost: '螢幕串流已結束',
+    reconnect: '重新連線',
+    takeOver: '接手',
+    handBack: '交還',
+    handBackForce: '強制交還',
+    handBackForceHint: '釋放已不在場的檢視者（例如重新載入後）持有的控制權。',
+    openNeedsUpdate: '更新 Hermes Desktop 以開啟機器人螢幕。',
+    youControl: '你正在控制',
+    otherControls: '另一位檢視者正在控制',
+    agentControls: '機器人正在控制',
+    controlTaken: '另一位檢視者已接手控制。僅可觀看。'
+  },
   cron: {
+    untitled: '未命名工作',
+    nameNul: '工作名稱不能包含 NUL (U+0000)。',
+    instructionNul: '工作指令不能包含 NUL (U+0000)。',
+    minutesFromNow: '分鐘後',
+    hoursFromNow: '小時後',
+    daysFromNow: '天後',
+    stopAfter: '執行上限',
+    runsHint: '次（留空則持續執行）',
+    detailDescription: '此工作的內容和下次執行時間。',
+    status: '狀態',
+    active: '啟用中',
+    paused: '已暫停',
+    schedule: '排程',
+    rawSchedule: '排程（原始值）',
+    repeat: '重複',
+    nextRun: '下次執行',
+    overdueSince: '逾期起始時間',
+    lastRun: '上次執行',
+    lastResult: '上次結果',
+    workdir: '工作目錄',
+    succeeded: '成功',
+    failed: '失敗',
+    deliveryFailed: '已執行，但傳送失敗',
+    blockedConfig: '設定阻止了執行（未執行）',
+    legacyUnsafe: '基於安全考量已暫停：請刪除並重新建立此舊工作，然後再執行。',
     filterHint:
       '此設定檔中有排程工作，但沒有任何一個標記給這個機器人。將工作命名為「[bot:<名稱>] …」即可顯示在這裡，也可以在下方的 Cron 中查看。',
     needsRosterFirst: '這個機器人需要先出現在名冊中。',
@@ -1625,7 +2208,7 @@ const zhHant: BotsMessages = {
 }
 
 /** Registered via `ctx.i18n.register` at plugin load (disposer tracked). */
-export const BOTS_LOCALES: PluginLocaleBundles = { 'pt-br': ptBr, en, ja, zh, 'zh-hant': zhHant }
+export const BOTS_LOCALES: PluginLocaleBundles = { en, ja, zh, 'zh-hant': zhHant }
 
 // Bind the message SHAPE to a plugin translator: string leaves resolve now,
 // function leaves forward their args through t(path, …).

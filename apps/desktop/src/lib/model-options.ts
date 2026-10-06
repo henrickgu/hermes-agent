@@ -9,15 +9,31 @@ export type ModelOptionsResponse = ModelOptionsResult
 
 type CatalogProviderIdentity = Pick<ModelOptionProvider, 'aliases' | 'name' | 'slug'>
 
-function findCatalogProvider(
-  providers: ModelOptionProvider[] | undefined,
-  provider: string
-): ModelOptionProvider | undefined {
-  if (!providers?.length || !provider) {
+/** True when `currentProvider` is this catalog row — slug, display name, or
+ *  a custom-provider alias (`custom:<key>` vs the bare config key, #87035). */
+export function catalogProviderMatches(provider: CatalogProviderIdentity, currentProvider: string): boolean {
+  if (!currentProvider) {
+    return false
+  }
+
+  return (
+    provider.slug === currentProvider ||
+    provider.name === currentProvider ||
+    (provider.aliases?.includes(currentProvider) ?? false)
+  )
+}
+
+/** The catalog row for `currentProvider`, matched the same way as
+ *  `catalogProviderMatches` (so a saved `custom:<key>` finds its row). */
+export function findCatalogProvider<T extends CatalogProviderIdentity>(
+  providers: readonly T[] | undefined,
+  currentProvider: string
+): T | undefined {
+  if (!providers?.length || !currentProvider) {
     return undefined
   }
 
-  return providers.find(row => catalogProviderMatches(row, provider))
+  return providers.find(row => catalogProviderMatches(row, currentProvider))
 }
 
 function catalogHasModel(providers: ModelOptionProvider[] | undefined, model: string): boolean {
@@ -179,20 +195,6 @@ interface ModelOptionsRequest {
 }
 
 
-/** True when `currentProvider` is this catalog row — slug, display name, or
- *  a custom-provider alias (`custom:<key>` vs the bare config key, #87035). */
-export function catalogProviderMatches(provider: CatalogProviderIdentity, currentProvider: string): boolean {
-  if (!currentProvider) {
-    return false
-  }
-
-  return (
-    provider.slug === currentProvider ||
-    provider.name === currentProvider ||
-    (provider.aliases?.includes(currentProvider) ?? false)
-  )
-}
-
 /** The catalog's option support for the current pick, or undefined while the
  *  catalog is loading / doesn't say. Callers treat undefined as "assume
  *  reasoning" so controls never flicker away during the fetch. */
@@ -201,7 +203,7 @@ export function currentModelCapabilities(
   provider: string,
   model: string
 ): ModelCapabilities | undefined {
-  return options?.providers?.find(row => catalogProviderMatches(row, provider))?.capabilities?.[model]
+  return findCatalogProvider(options?.providers ?? [], provider)?.capabilities?.[model]
 }
 
 // A picked (provider, model) pair is never retargeted from catalog membership.
@@ -210,6 +212,60 @@ export function currentModelCapabilities(
 // soft-accepts them. Diffing the pick against the catalog silently swapped
 // `deepseek-v4.1-flash` for the row's `-0731` sibling. The only authority on a
 // pick's validity is the gateway's switch result.
+
+/** The single, deliberate exception to the sticky-pick rule above: the virtual
+ *  `moa` provider. Its catalog row vanishes entirely once no MoA preset is
+ *  enabled (`hermes_cli/inventory.py` filters it out of explicit-only
+ *  catalogs), so a persisted manual pick pointing at it leaves the composer
+ *  pill reading `Model · moa: default` forever (#90244). For this one provider
+ *  — and only with a populated catalog in hand — row absence is authoritative:
+ *  the pick reseeds from the profile default. Every other provider keeps the
+ *  sticky behavior; an unloaded/empty catalog never clobbers anything. */
+export function moaPickRemoved(
+  options: { providers?: ModelOptionProvider[] | null } | null | undefined,
+  provider: string,
+  model: string
+): boolean {
+  if (!model.trim() || provider.trim().toLowerCase() !== 'moa') {
+    return false
+  }
+
+  const providers = options?.providers
+
+  if (!providers || providers.length === 0) {
+    return false
+  }
+
+  const row = providers.find(p => (p.slug || p.name || '').toLowerCase() === 'moa')
+
+  return !(row?.models ?? []).includes(model)
+}
+
+/** A bare provider slug is the pre-migration spelling of a custom entry. The
+ *  catalog aliases `custom:<key>` with the bare config key (#87035), so a pick
+ *  still carrying `nvidia` and a profile default of `custom:nvidia` name the
+ *  SAME endpoint — the pick's spelling is simply stale, not a distinct choice.
+ *  Shipping the bare slug resolves the NATIVE provider instead of the custom
+ *  entry, silently dropping the entry's `extra_body` (e.g.
+ *  `thinking: {type: adaptive}`) that the user configured (#81922).
+ *
+ *  Only a bare slug can be superseded: a pick that already names a provider
+ *  class (`custom:<other>`, `moa`, `openai-codex`) is a different endpoint and
+ *  keeps the sticky behavior. The bare slug must be the default's own key, so
+ *  an unrelated manual pick (`anthropic` while the default is `custom:nvidia`)
+ *  is never clobbered. */
+export function customDefaultSupersedesPick(pickProvider: string, defaultProvider: string): boolean {
+  const pick = (pickProvider || '').trim().toLowerCase()
+  const fallback = (defaultProvider || '').trim().toLowerCase()
+
+  if (!pick || pick === fallback || !fallback.startsWith('custom:')) {
+    return false
+  }
+
+  const key = fallback.slice('custom:'.length).trim()
+
+  return key.length > 0 && pick === key
+}
 
 interface ModelOptionsRequest {
   /** When false, include ambient/unconfigured providers (onboarding/setup

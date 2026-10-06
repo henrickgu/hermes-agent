@@ -27,9 +27,7 @@ from __future__ import annotations
 
 import sys
 import threading
-import time
 import types
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -53,7 +51,7 @@ from gateway.platforms.base import (
     build_session_key,
 )
 from gateway.platforms.event import MessageEvent, MessageType
-from gateway.run import GatewayRunner, _AGENT_PENDING_SENTINEL  # noqa: E402
+from gateway.run import GatewayRunner  # noqa: E402
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -190,8 +188,9 @@ class TestBusyHandlerDemotesInterruptForSubagents:
             await runner._handle_active_session_busy_message(event, sk)
 
         parent.interrupt.assert_called_once_with("please stop")
+
         content = adapter._send_with_retry.call_args.kwargs.get("content", "")
-        assert "Interrompendo" in content
+        assert "Interrupting current task" in content
         assert "Subagent" not in content
 
     @pytest.mark.asyncio
@@ -214,9 +213,9 @@ class TestBusyHandlerDemotesInterruptForSubagents:
         content = adapter._send_with_retry.call_args.kwargs.get("content", "")
         # The vanilla queue copy — NOT the #30170 "Subagent working" copy,
         # because the user explicitly asked for queue mode.
-        assert "Na fila para a próxima resposta" in content
-        assert "Respondo quando a tarefa atual terminar" in content
-        assert "Subagente trabalhando" not in content
+        assert "Queued for the next turn" in content
+        assert "once the current task finishes" in content
+        assert "Subagent working" not in content
 
     @pytest.mark.asyncio
     async def test_steer_mode_still_routes_through_running_agent_steer(

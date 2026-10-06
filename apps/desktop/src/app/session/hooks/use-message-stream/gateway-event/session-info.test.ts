@@ -10,6 +10,8 @@ import {
 } from '@/lib/model-pick-pending'
 import { persistString } from '@/lib/storage'
 import {
+  $activeSessionId,
+  $currentBranch,
   $currentCwd,
   $currentFastMode,
   $currentModel,
@@ -22,6 +24,7 @@ import {
   getCurrentModelSource,
   noteModelSelectionInUse,
   releaseWorkspaceCwdOwner,
+  setCurrentBranch,
   setCurrentCwd,
   setCurrentFastMode,
   setCurrentModel,
@@ -42,6 +45,7 @@ let lastUpdateSessionStateMock = vi.fn()
 
 function sessionInfoEvent({
   activeSessionId,
+  branch,
   cwd = '',
   explicitSid = '',
   storedSessionId = '',
@@ -51,6 +55,7 @@ function sessionInfoEvent({
   provider
 }: {
   activeSessionId: null | string
+  branch?: string
   cwd?: string
   explicitSid?: string
   storedSessionId?: string
@@ -81,6 +86,7 @@ function sessionInfoEvent({
     isActiveEvent: !!sessionId && sessionId === activeSessionId,
     occurredAt: Date.now() / 1000,
     payload: {
+      branch,
       cwd,
       stored_session_id: storedSessionId,
       ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
@@ -98,12 +104,14 @@ describe('handleSessionInfoEvent workspace ownership', () => {
     $selectedStoredSessionId.set(null)
     $workspaceCwdOwner.set(null)
     setCurrentCwd('')
+    setCurrentBranch('')
   })
 
   afterEach(() => {
     $selectedStoredSessionId.set(null)
     $workspaceCwdOwner.set(null)
     setCurrentCwd('')
+    setCurrentBranch('')
   })
 
   // #55831 / the "workspace pane visible with no agent selected" report: with
@@ -192,6 +200,43 @@ describe('handleSessionInfoEvent workspace ownership', () => {
     expect($workspaceCwdOwner.get()).toBe('selected-session')
   })
 
+  // #92888: a background Kanban worker's runtime update reaches the pane's
+  // active-runtime path while the default Bot Chat stays selected. It names the
+  // worker's own stored session and its PR worktree; neither the path nor the
+  // branch may move onto the composer, while the selected chat's own update
+  // still publishes both.
+  it("keeps another session's worktree cwd and branch off the selected chat's composer", () => {
+    $selectedStoredSessionId.set('default-bot-chat')
+    setCurrentCwd('/repo/main-checkout')
+    setCurrentBranch('main')
+
+    handleSessionInfoEvent(
+      sessionInfoEvent({
+        activeSessionId: 'runtime-1',
+        branch: 'kanban/pr-42',
+        cwd: '/repo/.worktrees/pr-42',
+        explicitSid: 'runtime-1',
+        storedSessionId: 'kanban-worker'
+      })
+    )
+
+    expect($currentCwd.get()).toBe('/repo/main-checkout')
+    expect($currentBranch.get()).toBe('main')
+
+    handleSessionInfoEvent(
+      sessionInfoEvent({
+        activeSessionId: 'runtime-1',
+        branch: 'feature/mine',
+        cwd: '/repo/main-checkout',
+        explicitSid: 'runtime-1',
+        storedSessionId: 'default-bot-chat'
+      })
+    )
+
+    expect($currentBranch.get()).toBe('feature/mine')
+    expect($workspaceCwdOwner.get()).toBe('default-bot-chat')
+  })
+
   it('keeps runtime state identity when a heartbeat only restates cached fields', () => {
     const original = {
       ...createClientSessionState('stored-1'),
@@ -231,6 +276,80 @@ describe('handleSessionInfoEvent workspace ownership', () => {
     expect(next).toBe(original)
   })
 })
+
+// #93942 scenario B: a mid-conversation model/provider switch rebuilds the
+// runtime, which then speaks under a NEW session_id. Without the re-bind the
+// pane keeps listening on the dead id and every later event of the same
+// conversation fails the isActiveEvent gate until a full resume.
+describe('handleSessionInfoEvent rebuilt-runtime re-bind', () => {
+  function rebuiltRuntimeInfo(storedSessionId: unknown, oldState?: Partial<ClientSessionState>): GatewayEventContext {
+    const ctx = sessionInfoEvent({
+      activeSessionId: 'runtime-old',
+      cwd: '',
+      explicitSid: 'runtime-new',
+      storedSessionId: 'stored-1'
+    })
+
+    ctx.payload = { ...ctx.payload, stored_session_id: storedSessionId } as typeof ctx.payload
+
+    if (oldState) {
+      ctx.deps.sessionStateByRuntimeIdRef.current.set('runtime-old', {
+        ...createClientSessionState('stored-1'),
+        ...oldState
+      })
+    }
+
+    return ctx
+  }
+
+  beforeEach(() => {
+    $selectedStoredSessionId.set('stored-1')
+    $activeSessionId.set('runtime-old')
+  })
+
+  afterEach(() => {
+    $selectedStoredSessionId.set(null)
+    $activeSessionId.set(null)
+  })
+
+  it('adopts the rebuilt runtime id when its lineage matches the open conversation', () => {
+    const ctx = rebuiltRuntimeInfo('stored-1', { busy: false })
+
+    handleSessionInfoEvent(ctx)
+
+    expect($activeSessionId.get()).toBe('runtime-new')
+    expect(ctx.deps.activeSessionIdRef.current).toBe('runtime-new')
+    expect($selectedStoredSessionId.get()).toBe('stored-1')
+  })
+
+  it.each([
+    ['busy', { busy: true }],
+    ['awaiting a response', { awaitingResponse: true }],
+    ['streaming', { streamId: 'stream-1' }]
+  ] as const)('refuses to hijack the pane while the old runtime is %s', (_label, oldState) => {
+    const ctx = rebuiltRuntimeInfo('stored-1', oldState)
+
+    handleSessionInfoEvent(ctx)
+
+    expect($activeSessionId.get()).toBe('runtime-old')
+    expect(ctx.deps.activeSessionIdRef.current).toBe('runtime-old')
+  })
+
+  it.each([
+    ['an empty', ''],
+    ['a missing', undefined],
+    ['a different conversation', 'stored-other']
+  ])('does not re-bind on %s stored_session_id', (_label, storedSessionId) => {
+    const ctx = rebuiltRuntimeInfo(storedSessionId)
+
+    handleSessionInfoEvent(ctx)
+
+    expect($activeSessionId.get()).toBe('runtime-old')
+    expect(ctx.deps.activeSessionIdRef.current).toBe('runtime-old')
+
+  })
+})
+
 
 // REGRESSÃO (flash medium→ultra no draft): a conversa A roda em ultra; o usuário
 // abre um draft novo. O draft pinta medium (config default) e DEVE CONTINUAR medium
@@ -484,5 +603,7 @@ describe('v16 pendingModelPick reconcile', () => {
     expect(getCurrentModelSource()).toBe('manual')
     // The tile's slice received the state patch (updateSessionState ran).
     expect(lastUpdateSessionStateMock).toHaveBeenCalled()
+
   })
+
 })
