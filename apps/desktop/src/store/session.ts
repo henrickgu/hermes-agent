@@ -65,6 +65,15 @@ const COMPOSER_FAST_KEY = 'hermes.desktop.composer.fast'
 const LAST_MODEL_KEY = 'hermes.desktop.composer.last-model'
 const LAST_PROVIDER_KEY = 'hermes.desktop.composer.last-provider'
 const LAST_SCOPE_KEY = 'hermes.desktop.composer.last-scope'
+// v20: the effort the pair was used WITH — SAME provenance. All four sticky
+// keys are read/written through `composerSelectionKey()` and must live and die
+// together under one scope. Since v14 these four were kept BARE (written and
+// read without the composer scope), which is self-consistent but leaves the
+// whole sticky — pair AND level — global to the entire localStorage area: a
+// pick made under one backend could seed a New Session opened under another,
+// and the level the pair was used with was not recorded at all until v20.
+// Scoping them puts the sticky on the same per-backend boundary the composer's
+// model/provider keys have used all along.
 const LAST_EFFORT_KEY = 'hermes.desktop.composer.last-effort'
 // Last-known profile default (`agent.reasoning_effort`), mirrored to storage so
 // the composer's FIRST paint on boot matches what the gateway will conclude
@@ -1578,18 +1587,37 @@ export const noteModelSelectionInUse = (model: string, provider: string, scope?:
     return
   }
 
-  persistString(LAST_MODEL_KEY, model)
-  persistString(LAST_PROVIDER_KEY, provider)
-  // v14b: the gateway scope the pair was used under. A forced reseed from a
-  // DIFFERENT gateway (profile/gateway swap) legitimately owns its own default;
-  // the sticky only wins when the New Session lands on the same scope.
-  persistString(LAST_SCOPE_KEY, scope ?? composerSelectionScope ?? '')
+  // ALL FOUR sticky keys share ONE namespace: the composer scope. They were
+  // bare since v14 — self-consistent, but global to the whole localStorage area,
+  // so a pick under one backend replayed as another backend's New Session seed.
+  // `null` scope means the exact owner is temporarily unknown (reconnect blip):
+  // paint may continue, but nothing is written through a stale backend's key.
+  const modelKey = composerSelectionKey(LAST_MODEL_KEY)
+  const providerKey = composerSelectionKey(LAST_PROVIDER_KEY)
+  const scopeKey = composerSelectionKey(LAST_SCOPE_KEY)
+  const effortKey = composerSelectionKey(LAST_EFFORT_KEY)
+
+  if (modelKey !== null) {
+    persistString(modelKey, model)
+  }
+
+  if (providerKey !== null) {
+    persistString(providerKey, provider)
+  }
+
+  if (scopeKey !== null) {
+    // v14b: the gateway scope the pair was used under. A forced reseed from a
+    // DIFFERENT gateway (profile/gateway swap) legitimately owns its own
+    // default; the sticky only wins when the New Session lands on the same scope.
+    persistString(scopeKey, scope ?? composerSelectionScope ?? '')
+  }
+
   // v20: the effort the pair was used WITH travels with the sticky — the New
   // Session seeds its pill from it (same provenance as the pair). Undefined
   // keeps whatever was last stored (callers that don't know the level — e.g.
   // the pick reconciler before session.info reports it — must not erase it).
-  if (typeof effort === 'string' && effort.trim()) {
-    persistString(LAST_EFFORT_KEY, effort.trim())
+  if (effortKey !== null && typeof effort === 'string' && effort.trim()) {
+    persistString(effortKey, effort.trim())
   }
 }
 
@@ -1631,12 +1659,14 @@ export const computeLastUsedSelection = (): {
   scope: string
   effort: string
 } => {
-  const model = storedString(LAST_MODEL_KEY) ?? ''
-  const provider = storedString(LAST_PROVIDER_KEY) ?? ''
+  // All four sticky keys read through the SAME composer scope the writer uses,
+  // so the sticky is per-backend instead of global to the localStorage area.
+  const model = storedComposerString(LAST_MODEL_KEY) ?? ''
+  const provider = storedComposerString(LAST_PROVIDER_KEY) ?? ''
+  const scope = storedComposerString(LAST_SCOPE_KEY) ?? ''
 
-  const scope = storedString(LAST_SCOPE_KEY) ?? ''
   // v20: the effort the pair was used WITH — same provenance, travels together.
-  const effort = storedString(LAST_EFFORT_KEY) ?? ''
+  const effort = storedComposerString(LAST_EFFORT_KEY) ?? ''
 
   return model && provider ? { model, provider, scope, effort } : { model: '', provider: '', scope: '', effort: '' }
 }

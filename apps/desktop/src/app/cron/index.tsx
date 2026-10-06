@@ -52,6 +52,7 @@ import { $cronFocusJobId, $cronJobs, invalidateCronJobsRequests, setCronFocusJob
 import { $changeEventsAvailable, $cronChangeTick } from '@/store/live-sync'
 import { notify, notifyError } from '@/store/notifications'
 import { $profileScope, ALL_PROFILES } from '@/store/profile'
+import { $defaultReasoningEffort } from '@/store/session'
 
 import { useRefreshHotkey } from '../hooks/use-refresh-hotkey'
 import {
@@ -78,7 +79,9 @@ import { mutateAndRefreshCronJobs, refreshCronJobs, triggerAndRefreshCronJobs } 
 import {
   cronEditorUpdates,
   cronModelChoiceValue,
+  jobEffortDisplay,
   jobIsScriptOnly,
+  jobPinnedEffort,
   lastErrorSummary,
   parseCronDeliveryTargets,
   parseCronModelChoiceValue,
@@ -792,11 +795,30 @@ interface CronJobDetailProps {
 }
 
 function CronJobDetail({ busy, c, job, onEdit, onOpenSession, onPauseResume, onTrigger }: CronJobDetailProps) {
+  const { t } = useI18n()
   const state = jobState(job)
   const isPaused = state === 'paused'
   const deliver = jobDeliver(job)
   const prompt = jobPrompt(job)
   const modelOverride = jobModel(job)
+  const effort = jobPinnedEffort(job)
+  // Effective effort the scheduler will use, resolved by the pure helper: the
+  // per-job pin, else the profile default ($defaultReasoningEffort, mirrored
+  // from `agent.reasoning_effort`), else the built-in medium. The row always
+  // renders for LLM jobs — an inherited level shows with a suffix so it never
+  // reads as pinned. Script-only jobs get no row (no LLM, no effort).
+  const profileDefaultEffort = useStore($defaultReasoningEffort)
+  // Raw levels ('high') read as identifiers; surface the translated scale label
+  // when the level is on it, else show the value verbatim (unknown/custom wire name).
+  const effortOptions = t.shell.modelOptions as unknown as Record<string, string | ((v: never) => string)>
+
+  const effortDisplay = jobEffortDisplay(job, {
+    profileDefaultEffort,
+    suffix: c.effortProfileDefaultSuffix,
+    labelFor: level => (typeof effortOptions[level] === 'string' ? effortOptions[level] as string : level)
+  })
+
+  const effortLabelValue = effortDisplay ? effortDisplay.label : ''
 
   return (
     <PanelDetail>
@@ -825,7 +847,9 @@ function CronJobDetail({ busy, c, job, onEdit, onOpenSession, onPauseResume, onT
               value: formatTime(job.next_run_at)
             },
             { label: c.deliverLabel, value: c.deliveryLabels[deliver] ?? deliver },
-            ...(modelOverride ? [{ label: c.modelLabel, value: modelOverride }] : [])
+            ...(modelOverride ? [{ label: c.modelLabel, value: modelOverride }] : []),
+            // Script-only jobs run no LLM, so an effort row would be a lie there.
+            ...(jobIsScriptOnly(job) ? [] : [{ label: c.effortLabel, value: effortLabelValue }])
           ]}
         />
 
