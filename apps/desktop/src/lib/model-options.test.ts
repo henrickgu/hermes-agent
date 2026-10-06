@@ -293,6 +293,8 @@ describe('customDefaultSupersedesPick', () => {
     expect(customDefaultSupersedesPick('nvidia', 'openai-codex')).toBe(false)
     expect(customDefaultSupersedesPick('', 'custom:nvidia')).toBe(false)
     expect(customDefaultSupersedesPick('nvidia', 'custom:')).toBe(false)
+  })
+})
 
 describe('reconcileSelectionAfterCatalogRefresh', () => {
   const zhipu = { name: '智谱2', slug: 'zhipu', models: ['glm-4.5-air', 'glm-5-turbo'] }

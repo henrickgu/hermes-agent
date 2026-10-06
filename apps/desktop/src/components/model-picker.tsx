@@ -11,7 +11,6 @@ import {
   readCachedModelOptions,
   requestModelOptions
 } from '@/lib/model-options'
-import { modelSearchText } from '@/lib/model-search-text'
 import { currentPickerSelection } from '@/lib/model-status-label'
 import { accountResetMs, formatReset, modelResetMs } from '@/lib/provider-limit'
 import { foldIncludes, normalize } from '@/lib/text'

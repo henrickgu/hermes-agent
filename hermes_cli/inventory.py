@@ -545,7 +545,7 @@ def _apply_capabilities(rows: list[dict], *, metadata_config: dict | None = None
     its trimmed scale. The aggregator's ``supported_efforts`` is still NOT forwarded on its own: it
     under-reports levels that work. The two are not in conflict — one reads what the route ADVERTISES,
     the other what it ACCEPTS; the effort menu wants the latter."""
-    from hermes_cli.models import model_supports_fast_mode
+    from hermes_cli.models import model_supports_ultrafast, resolve_fast_mode_overrides
 
     try:
         from agent.models_dev import get_model_capabilities

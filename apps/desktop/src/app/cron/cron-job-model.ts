@@ -45,7 +45,6 @@ export function jobEffortDisplay(
 
   return { level: effective, label: inputs.labelFor(effective) + inputs.suffix, isProfileDefault: true }
 }
-}
 
 export type CronEditorValidationError = 'prompt' | 'prompt_and_schedule' | 'schedule'
 
