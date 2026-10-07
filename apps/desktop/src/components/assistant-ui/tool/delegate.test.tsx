@@ -29,6 +29,7 @@ function view(): SessionView {
     $fast: atom(false),
     $reasoningEffort: atom(''),
     $reasoningEffortPending: atom(false),
+    $modelSwitchPending: atom(false),
     $reasoningEffortWire: atom('')
   } satisfies SessionView
 }

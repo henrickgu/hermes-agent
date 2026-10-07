@@ -1254,6 +1254,20 @@ const ptBr: KanbanMessages = {
   metaCreatedBy: 'Criada por',
   metaCreated: 'Criada',
   metaWorkerPid: 'PID do worker',
+  blockKindTip: kind =>
+    kind === 'needs_input'
+      ? 'O worker pediu entrada humana.'
+      : kind === 'capability'
+        ? 'O worker bateu numa limitação de capacidade que não consegue ultrapassar.'
+        : kind === 'transient'
+          ? 'O worker falhou por um erro transitório.'
+          : 'O worker reportou uma dependência que precisa esperar.',
+  blockReason: 'Tipo de bloqueio',
+  blockRecurrences: 'Reincidências de bloqueio',
+  blockRecurrencesTip: 'Vezes que esta tarefa bloqueou de novo pelo mesmo motivo após um desbloqueio humano.',
+  consecutiveFailures: 'Falhas consecutivas',
+  lastFailureError: 'Última falha',
+  unblockedMessage: id => `${id} desbloqueado. A tarefa está pronta para o próximo ciclo.`,
   readyUnassignedTitle: 'Pronto, mas sem responsável — este cartão nunca vai executar.',
   readyUnassignedBody:
     'O despachante só assume cartões Prontos que tenham um responsável. Escolha um perfil no campo Responsável acima (ou defina um responsável padrão nas configurações de orquestração) e ele executa em até um minuto.',

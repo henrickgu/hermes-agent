@@ -5008,8 +5008,6 @@ export interface Translations {
     focusLabel: string
     terminalDeck: string
     quadLabel: string
-    zoomOut: string
-    zoomIn: string
     copied: string
     copy: string
     failedEmbed: (label: string) => string

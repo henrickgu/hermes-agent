@@ -6134,8 +6134,6 @@ export const en: Translations = {
     openImage: 'Open image',
     downloadImage: 'Download image',
     savingImage: 'Saving image',
-    zoomIn: 'Zoom in',
-    zoomOut: 'Zoom out',
     resetZoom: 'Reset zoom',
     imagePreviewFailed: 'Image preview failed',
     imageAttach: 'Image attach',

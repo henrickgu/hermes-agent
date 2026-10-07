@@ -18,6 +18,7 @@ import {
   modelPresetServiceTier,
   setModelPreset
 } from '@/store/model-presets'
+import { notifyError } from '@/store/notifications'
 import {
   $defaultReasoningEffort,
   getCurrentComposerScope,

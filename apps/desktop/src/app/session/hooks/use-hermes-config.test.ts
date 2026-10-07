@@ -9,9 +9,9 @@ import { $showReasoning, setShowReasoningFromConfig } from '@/store/reasoning-di
 import {
   $currentCwd,
   $currentFastMode,
-  $currentReasoningEffort,
   $currentServiceTier,
   $defaultReasoningEffort,
+  $draftReasoningEffort,
   markComposerSelectionManual,
   setCurrentCwd,
   setCurrentFastMode,

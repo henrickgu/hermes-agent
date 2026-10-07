@@ -22,14 +22,14 @@ import {
   setSessionArchived
 } from '@/hermes'
 import { createClientSessionState } from '@/lib/chat-runtime'
+import { persistString } from '@/lib/storage'
 import { $clarifyRequests, clearClarifyRequest, setClarifyRequest } from '@/store/clarify'
 import { clearSessionDraft, stashSessionDraft, takeSessionDraft } from '@/store/composer'
 import { $backgroundStatusBySession, type ComposerStatusItem } from '@/store/composer-status'
 import {
   activeGatewayConnectionId,
   requestGatewayForAgent,
-  requestGatewayForProfile,
-  retainGatewayForAgent
+  requestGatewayForProfile
 } from '@/store/gateway'
 import { $goalsBySession, type SessionGoal } from '@/store/goals'
 import { $pinnedSessionIds } from '@/store/layout'
@@ -40,7 +40,6 @@ import {
   $newChatProfile,
   $newChatRoute,
   $profiles,
-  ensureGatewayAgent,
   ensureGatewayProfile
 } from '@/store/profile'
 import { $projectScope, ALL_PROJECTS } from '@/store/project-scope'
@@ -64,6 +63,7 @@ import {
   $sessions,
   $sessionStartedAt,
   $turnStartedAt,
+  _resetSessionOwnerHintsForTests,
   getSessionOwnerHint,
   knownSessionOwner,
   sessionMatchesStoredId,
@@ -88,25 +88,21 @@ import {
   setSessionOwnerHint,
   setSessions,
   setSessionStartedAt,
-  setTurnStartedAt,
-  setUnlistedSessionOwnerRows
+  setTurnStartedAt
 } from '@/store/session'
 import { $removedSessionIds, $sessionMutationsInFlight } from '@/store/session-removal'
 import { requestForSessionProfile, type SessionProfileRoute } from '@/store/session-request-router'
 import {
+  $sessionStates,
   $sessionTiles,
   clearAllSessionStates,
   dropSessionState,
-  knownOwnerForSession,
   publishSessionState,
-  requestForOwnedSession,
   sessionTileOwnerRoute
 } from '@/store/session-states'
-import { persistString } from '@/lib/storage'
 import { $sessionSeenCounts, $unreadFinishedMarkers } from '@/store/session-unread'
 import { $subagentsBySession, type SubagentProgress } from '@/store/subagents'
 import { $retainedTodosBySession, $todosBySession, clearSessionTodos } from '@/store/todos'
-import { loadTranscriptTail, saveTranscriptTail } from '@/store/transcript-tail-cache'
 
 import sessionResumeActiveTurn from '../../../../../../tests/fixtures/session-resume-active-turn.json'
 import { deferred } from '../../../test/deferred'
@@ -220,6 +216,7 @@ const updateSessionStateSpy = vi.fn(
           yolo: false
         } as unknown as ClientSessionState)
     )
+
     states.set(id, next)
 
     return next
@@ -5915,6 +5912,7 @@ describe('openNewSessionTile workspace target', () => {
     const slice = (updateSessionStateSpy as unknown as { states: Map<string, ClientSessionState> }).states.get(
       RUNTIME_SESSION_ID
     )
+
     expect(slice?.reasoningEffort).toBe(expected)
   })
 
@@ -5945,6 +5943,7 @@ describe('openNewSessionTile workspace target', () => {
     const sliceB = (updateSessionStateSpy as unknown as { states: Map<string, ClientSessionState> }).states.get(
       RUNTIME_SESSION_ID
     )
+
     expect(sliceB?.reasoningEffort).toBe('high')
   })
 })

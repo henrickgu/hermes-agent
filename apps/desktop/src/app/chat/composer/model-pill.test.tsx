@@ -146,6 +146,7 @@ describe('ModelPill pending-switch badge', () => {
       $provider: atom('openai-codex'),
       $reasoningEffortWire: atom(''),
       $reasoningEffort: atom('high'),
+      $reasoningEffortPending: atom(false),
       $runtimeId: atom('discord-runtime'),
       $storedId: atom('discord-stored'),
       $turnStartedAt: atom<number | null>(Date.now())

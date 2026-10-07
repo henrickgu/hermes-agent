@@ -83,6 +83,7 @@ function view(sessionId: string): SessionView {
     $busy: atom(false),
     $cwd: atom(''),
     $fast: atom(false),
+    $modelSwitchPending: atom(false),
     $lastVisibleIsUser: atom(false),
     $messages: atom([]),
     $messagesEmpty: atom(false),

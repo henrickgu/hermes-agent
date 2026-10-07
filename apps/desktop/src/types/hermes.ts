@@ -279,7 +279,7 @@ export interface CustomEndpoint {
   model: string
   models: string[]
   name: string
-  source?: string
+  source?: string | null
 }
 
 export interface CustomEndpointsResponse {
@@ -533,11 +533,11 @@ export interface ModelPricing {
   /** True when the model costs nothing (free tier eligible). */
   free: boolean
   /** Sale: rounded percent off list when gateway sends pricing.original. */
-  discount_percent?: number
+  discount_percent?: number | null
   /** Sale: formatted pre-discount input $/Mtok ("was"). */
-  was_input?: string
+  was_input?: string | null
   /** Sale: formatted pre-discount output $/Mtok ("was"). */
-  was_output?: string
+  was_output?: string | null
 }
 
 export interface ModelPickerMetadata {
@@ -554,17 +554,17 @@ export interface ModelPickerMetadata {
 }
 
 export interface ModelOptionProvider {
-  is_current?: boolean
+  is_current?: boolean | null
   models?: string[]
   name: string
   slug: string
-  total_models?: number
-  warning?: string
+  total_models?: number | null
+  warning?: string | null
   /** Curated shortlist (one flagship per lab) the picker shows by default for
    *  aggregator providers that serve dozens of models across many labs. Empty
    *  for providers with no manifest entry — the picker falls back to top-N.
    *  The rest of `models` stays reachable via search / Edit Models. */
-  featured_models?: string[]
+  featured_models?: string[] | null
   /** True when the provider has usable credentials. False for canonical
    *  providers surfaced by `include_unconfigured` that the user hasn't set up
    *  yet — render these with a setup affordance instead of hiding them. */
@@ -572,38 +572,38 @@ export interface ModelOptionProvider {
   /** Auth flow for an unconfigured provider: "api_key" can be activated inline
    *  by pasting `key_env`; anything else (oauth_*, external, aws_sdk, …) needs
    *  the `hermes model` CLI / onboarding OAuth flow. */
-  auth_type?: string
+  auth_type?: string | null
   /** Env var to paste an API key into, for unconfigured `api_key` providers. */
-  key_env?: string
+  key_env?: string | null
   /** True for providers defined via the user's `providers:` config block. */
   is_user_defined?: boolean | null
   /** User-defined providers only: every accepted identity for this endpoint
    *  (bare config key, `custom:<key>`, normalized display name, …). A session's
    *  `model.options` reports the canonical `custom:<key>` form, so "is this row
    *  the current provider?" must check membership here, not slug equality. */
-  aliases?: string[]
+  aliases?: string[] | null
   /** OpenAI-compatible endpoint for a user-defined provider. The backend
    *  exposes this as `api_url`; model assignments send it back as `base_url`
    *  so switching providers does not discard the selected local endpoint. */
-  api_url?: string
+  api_url?: string | null
   /** Rich facts projected from Hermes' existing models.dev registry. Unknown
    *  models are omitted rather than guessed or maintained in a second catalog. */
   metadata?: Record<string, ModelPickerMetadata>
   /** Per-model pricing keyed by model id (present when the picker requested
    *  pricing and the provider supports live pricing). */
-  pricing?: Record<string, ModelPricing>
+  pricing?: Record<string, ModelPricing> | null
   /** Nous only: whether the current account is on the free plan. Set by
    *  pricing for a signed-in account — NOT the same thing as `free_tier_row`,
    *  which marks the no-account route. */
-  free_tier?: boolean
+  free_tier?: boolean | null
   /** True for the free-tier route's own provider row (no account behind it).
    *  Never match this row by `name` — the label is copy and can change. */
   free_tier_row?: boolean | null
   /** Nous only: paid models a free-tier user cannot select (shown disabled). */
-  unavailable_models?: string[]
+  unavailable_models?: string[] | null
   /** Per-model option support, keyed by model id (present when the picker
    *  requested capabilities). Lets the UI gate fast/reasoning controls. */
-  capabilities?: Record<string, ModelCapabilities>
+  capabilities?: Record<string, ModelCapabilities> | null
   /** Campos extra do contrato upstream (contrato gerado é aberto). */
   [key: string]: unknown
 }
@@ -612,12 +612,12 @@ export interface ModelCapabilities {
   /** False when the route rejects a reasoning disable ("mandatory" in the
    *  provider catalog), so the Thinking toggle must not be offered. Absent
    *  when the catalog doesn't say. */
-  can_disable_reasoning?: boolean
+  can_disable_reasoning?: boolean | null
   fast: boolean
   /** The route's own verified effort vocabulary (agent.reasoning_effort's
    *  clamping tables). Absent when unknown — the UI then offers the full
    *  scale. Levels are wire names (`max`), not UI labels. */
-  native_efforts?: string[]
+  native_efforts?: string[] | null
   reasoning: boolean
 }
 

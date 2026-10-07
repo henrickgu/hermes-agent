@@ -287,6 +287,7 @@ export function useModelControls({
           // v17: this is a RESTORE of the last-used pair, not a user pick —
           // provenance must say so or session.create treats it as manual.
           setCurrentModelSource('sticky_seed')
+
           // v20: the sticky's effort seeds the pill when the level was recorded
           // with the pair ("last used" = model + level). Presets keep winning —
           // this only fills the unpinned case, matching draft-init's order.
@@ -333,8 +334,10 @@ export function useModelControls({
       const visibleEffort =
         (liveSessionId ? ($sessionStates.get()[liveSessionId]?.reasoningEffort ?? '') : '') ||
         ($draftReasoningEffort.get() || '')
+
       const authoritativeEffort = visibleEffort || previous.effort
       previous = { ...previous, effort: authoritativeEffort }
+
       const catalogProviders = (
         queryClient.getQueryData<ModelOptionsResponse>(
           modelOptionsQueryKey(cacheProfile || $activeGatewayProfile.get(), liveSessionId, cacheOwnerConnectionId)
@@ -358,7 +361,7 @@ export function useModelControls({
 
       const carried = carryReasoningEffort(
         sourceEffort,
-        findRow(target.provider)?.capabilities?.[target.model]?.native_efforts
+        findRow(target.provider)?.capabilities?.[target.model]?.native_efforts ?? undefined
       )
 
       if (!carried) {

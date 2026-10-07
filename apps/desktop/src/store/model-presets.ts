@@ -6,11 +6,13 @@ import { notifyError } from './notifications'
 import {
   $activeSessionId,
   $currentFastMode,
+  $currentReasoningEffort,
+  $currentServiceTier,
   setCurrentFastMode,
   setCurrentReasoningEffort,
   setCurrentServiceTier
 } from './session'
-import { patchSessionSliceEffort, $sessionStates, sessionTileDelegate } from './session-states'
+import { $sessionStates, patchSessionSliceEffort, sessionTileDelegate } from './session-states'
 
 const STORAGE_KEY = 'hermes.desktop.model-presets'
 const pendingWrites = new Map<string, Promise<unknown>>()

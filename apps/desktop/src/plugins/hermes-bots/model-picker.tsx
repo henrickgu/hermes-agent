@@ -66,7 +66,7 @@ function boundedModelOptionsFetch<T>(fetch: Promise<T>, settleMs = MODEL_OPTIONS
 interface ModelProviderOption {
   aliases?: null | string[]
   models?: Array<string | { id?: string; name?: string }>
-  name?: string
+  name: string
   slug: string
 }
 interface ModelOptionsResult {
