@@ -161,7 +161,13 @@ def _set_model(rid, params, key, value, session):
         # turn) on the old model: checkmark shows the pick, requests keep the old
         # model. The stash crosses the boundary in the turn frame and the child's
         # turn thread applies it (_apply_pending_model_switch).
-        if session.get("running") or session.get("_compute_host_active"):
+        # `_session_uses_compute_host` (not the bare flag): a crashed host leaves
+        # `_compute_host_active` stale, and the bare read deferred every pick
+        # forever while the in-process path sat ready. Resolved from the server
+        # namespace (bind_module publishes it there) like every split module.
+        from tui_gateway import server as _srv
+
+        if session.get("running") or _srv._session_uses_compute_host(session):
             return _stash_pending_model_switch(rid, key, value, session, confirmed, parsed_flags, sid=sid)
         explicit_provider = parsed_flags.explicit_provider
         failed_agent_init = session.get("agent") is None and session.get("agent_error") is not None

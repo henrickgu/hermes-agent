@@ -328,7 +328,11 @@ def _apply_model_switch(
         raw_input=model_input, current_provider=current_provider, current_model=current_model,
         current_base_url=current_base_url, current_api_key=current_api_key, is_global=persist_global,
         explicit_provider=explicit_provider, user_providers=user_provs,
-        custom_providers=custom_provs)
+        custom_providers=custom_provs,
+        # Dry-run (queued mid-turn pick): skip network metadata lookups — the
+        # RPC worker must not block seconds on a cold models.dev fetch while a
+        # turn streams; the real switch at turn start re-resolves everything.
+        metadata_allow_network=not resolve_only)
     if not result.success:
         raise ValueError(result.error_message or "model switch failed")
     restore_snapshot = _snapshot_agent_model_runtime(agent) if (one_turn and agent) else None

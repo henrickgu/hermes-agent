@@ -433,6 +433,10 @@ class ModelCapabilities(Result):
     ultrafast: bool = False
     reasoning: bool
     can_disable_reasoning: bool | None = None
+    #: The route's own verified effort vocabulary (agent.reasoning_effort's
+    #: clamping tables). Absent when unknown — the UI then offers the full
+    #: scale. Levels are wire names (`max`), not UI labels.
+    native_efforts: list[str] | None = None
 
 
 class ProviderLimit(Result):

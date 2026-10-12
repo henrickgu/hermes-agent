@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ChatBarState } from '@/app/chat/composer/types'
 import { I18nProvider } from '@/i18n'
 import { $hudMode } from '@/store/hud'
+import { $draftReasoningEffort } from '@/store/session'
 import { applyWakeStartResult, applyWakeStatus, resetWakeWordState } from '@/store/wake-word'
 
 import { ComposerControls } from './controls'
@@ -59,6 +60,7 @@ async function expectShortcutTooltip(label: string, shortcut: string) {
 afterEach(() => {
   cleanup()
   $hudMode.set(false)
+  $draftReasoningEffort.set('')
 })
 
 // The HUD is a Spotlight bar a few hundred pixels wide: the voice controls
@@ -142,12 +144,13 @@ describe('narrow tiles', () => {
 
 describe('separate model and reasoning controls', () => {
   it('renders reasoning effort beside the model as its own control', () => {
+    // ReasoningPill reads this surface's session view, not the legacy model prop.
+    $draftReasoningEffort.set('high')
     renderControls({
       state: {
         ...state,
         model: {
           ...state.model,
-          reasoningEffort: 'high',
           reasoningMenuContent: <div>Reasoning choices</div>
         }
       }

@@ -1299,7 +1299,7 @@ export async function saveOnboardingLocalEndpoint(
 
     return { ok: true }
   } catch (error) {
-    notifyError(error, 'Could not save local endpoint')
+    notifyError(error, translateNow('onboarding.saveEndpointFailed'))
 
     return { ok: false, message: errMessage(error) }
   }
@@ -1354,7 +1354,7 @@ export async function setOnboardingModel(model: string, providerSlug: string, la
       return
     }
 
-    notifyError(error, 'Could not change model')
+    notifyError(error, translateNow('onboarding.changeModelFailed'))
     const current = $desktopOnboarding.get().flow
 
     if (current.status === 'confirming_model') {

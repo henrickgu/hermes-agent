@@ -4098,6 +4098,8 @@ export interface Translations {
     retryFirstBuild: string
     firstBuildUnstarted: string
     restoreFailedTitle: string
+    changeModelFailed: string
+    saveEndpointFailed: string
     welcomeChatTitle: string
     welcomeChatUnstarted: string
     headerTitle: string

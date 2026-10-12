@@ -244,7 +244,7 @@ def build_model_options_payload(
         picker_hints=True, canonical_order=True, pricing=True, pricing_cache_only=not refresh,
         capabilities=True, featured=True, for_picker=True, fast_custom_probe=False,
         refresh=refresh, probe_custom_providers=refresh, probe_current_custom_provider=not refresh,
-        non_blocking_catalogs=not refresh,
+        non_blocking_catalogs=not refresh, force_fresh_nous_tier=refresh,
     )
     _apply_limits(payload["providers"])
     _apply_usage(payload["providers"])
@@ -535,6 +535,22 @@ def _reasoning_catalog_reader(slug: str):
     return read
 
 
+def _picker_metadata_from_info(info: Any) -> dict[str, Any]:
+    """Project the existing models.dev record into the optional picker contract."""
+    return {
+        "context_window": info.context_window,
+        "max_input_tokens": info.max_input,
+        "max_output_tokens": info.max_output,
+        "supports_tools": bool(info.tool_call),
+        "supports_vision": bool(info.supports_vision()),
+        "supports_pdf": bool(info.supports_pdf()),
+        "supports_audio_input": bool(info.supports_audio_input()),
+        "structured_output": bool(info.structured_output),
+        "input_modalities": list(info.input_modalities),
+        "output_modalities": list(info.output_modalities),
+    }
+
+
 def _apply_capabilities(rows: list[dict], *, metadata_config: dict | None = None) -> None:
     """Attach ``{model: {fast, reasoning, ...}}`` per row. ``reasoning`` defaults True when the catalog is
     silent (the dial is a no-op on models that ignore it; hiding it from a capable model is worse). A
@@ -553,6 +569,11 @@ def _apply_capabilities(rows: list[dict], *, metadata_config: dict | None = None
         get_model_capabilities = None  # type: assignment
 
     try:
+        from agent.models_dev import get_model_info
+    except Exception:
+        get_model_info = None  # type: assignment
+
+    try:
         from agent.reasoning_effort import supported_efforts_for
     except Exception:
         supported_efforts_for = None  # type: assignment
@@ -560,8 +581,25 @@ def _apply_capabilities(rows: list[dict], *, metadata_config: dict | None = None
     for row in rows:
         slug = row.get("slug") or ""
         caps: dict[str, dict[str, Any]] = {}
+        metadata: dict[str, dict[str, Any]] = {}
         read_reasoning_catalog = _reasoning_catalog_reader(slug.lower())
         for model in row.get("models") or []:
+            # Share the cache-only lookup between rich facts and native efforts.
+            # Reuse the payload's config snapshot, rather than reloading it per model.
+            info = None
+            if get_model_info is not None and slug:
+                info_kwargs = {"config": metadata_config} if metadata_config is not None else {}
+                try:
+                    info = get_model_info(slug, model, **info_kwargs)
+                    if info is None and "/" in model:
+                        info = get_model_info("openrouter", model, **info_kwargs)
+                except Exception:
+                    info = None
+            if info is not None:
+                try:
+                    metadata[model] = _picker_metadata_from_info(info)
+                except Exception:
+                    pass  # Optional facts must not prevent the model from being selectable.
             reasoning = True
             if get_model_capabilities is not None and slug:
                 try:
@@ -584,6 +622,17 @@ def _apply_capabilities(rows: list[dict], *, metadata_config: dict | None = None
                     verified = None
                 if verified:
                     entry["native_efforts"] = list(verified)
+                else:
+                    # The existing models.dev lookup is the second source when
+                    # the transport tables do not know this route's vocabulary.
+                    ro = getattr(info, "reasoning_options", None) if info else None
+                    if isinstance(ro, list):
+                        for spec in ro:
+                            if isinstance(spec, dict) and spec.get("type") == "effort":
+                                values = spec.get("values")
+                                if isinstance(values, list) and values:
+                                    entry["native_efforts"] = [v for v in values if isinstance(v, str)]
+                                break
 
             if reasoning and read_reasoning_catalog is not None:
                 try:
@@ -600,6 +649,7 @@ def _apply_capabilities(rows: list[dict], *, metadata_config: dict | None = None
             caps[model] = entry
 
         row["capabilities"] = caps
+        row["metadata"] = metadata
 
 
 # Newest N models per lab an aggregator row features by default (older tail behind search/show-all);
@@ -893,7 +943,16 @@ def _apply_pricing(rows: list[dict], *, force_fresh_nous_tier: bool = False, cac
             # it would lock the only row a free-tier install can select.
             continue
         try:
-            pricing_kwargs = {"cached_only": True} if cached_only else {}
+            # `cached_only=False` alone is NOT a refresh: every fetcher still
+            # prefers its resident cache, so "Refresh Models" rebuilt the model
+            # ids but served stale prices until a gateway restart. Plumb the
+            # intent through — `force_fresh_nous_tier` (set by refresh=True in
+            # build_model_options_payload) is exactly the "user asked for fresh
+            # data" signal the pricing fetchers need.
+            pricing_kwargs = (
+                {"cached_only": True} if cached_only
+                else {"force_refresh": bool(force_fresh_nous_tier)}
+            )
             if slug.startswith("custom:"):
                 pricing_kwargs["base_url"] = str(row.get("api_url") or "")
             raw_pricing = get_pricing_for_provider(slug, **pricing_kwargs) or {}

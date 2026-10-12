@@ -28,10 +28,21 @@ def _turn_isolation_enabled(cfg: dict | None = None) -> bool:
 
 def _session_uses_compute_host(session: dict, cfg: dict | None = None) -> bool:
     # Routes lazy sessions whose AIAgent was never built in-process; already-built
-    # sessions keep the in-process path unless a prior isolated turn marked host ownership.
-    return _turn_isolation_enabled(cfg) and (
-        bool(session.get("_compute_host_active"))
-        or (session.get("agent") is None and session.get("agent_ready") is not None))
+    # sessions keep the in-process path unless a prior isolated turn marked host
+    # ownership. The flag alone is not proof the child still exists: a host that
+    # crashed into its respawn cap leaves `_compute_host_active` stale on every
+    # idle session, routing prompts at a supervisor with no process. `is_running`
+    # self-heals the route the moment the host is really gone (and a respawned
+    # host re-registers sessions through the turn path).
+    if not _turn_isolation_enabled(cfg):
+        return False
+    if not session.get("_compute_host_active"):
+        return session.get("agent") is None and session.get("agent_ready") is not None
+    with contextlib.suppress(Exception):
+        if _compute_host_supervisor is not None and not _compute_host_supervisor.is_running:
+            session.pop("_compute_host_active", None)
+            return False
+    return True
 
 
 def _get_compute_host_supervisor(cfg: dict | None = None):
@@ -248,6 +259,14 @@ def _on_compute_host_turn_done(rid: str, sid: str, session: dict, frame: dict) -
         session["last_active"] = time.time()
         _clear_inflight_turn(session)
         session.pop("_compute_host_open_request", None)
+        # The isolated turn ended in a host-side crash (process exited / crash
+        # loop gave up): the child that owned this session's agent is gone, so
+        # `_compute_host_active` must not survive it — it routes every later
+        # pick to the deferred stash, hides the live agent from the RPC
+        # surface, and sends interrupts to a supervisor with no child. Fall
+        # back to the in-process path; a later isolated turn re-marks it.
+        if frame.get("type") == "turn.error" and frame.get("reason") == "crash":
+            session.pop("_compute_host_active", None)
     # The isolated turn carried the queued model switch to the compute host, whose
     # turn thread applied it. Clear the server-side stash so it isn't re-forwarded
     # (kept on error so the fail-open in-process path can still apply it).
@@ -277,7 +296,9 @@ def _submit_prompt_to_compute_host(
     # dispatch lifetime token, installed before a fast child can send activity.
     turn_id = frame["turn_id"] = frame["request_id"] = uuid.uuid4().hex
     with session["history_lock"]:
+        previous_host_active = bool(session.get("_compute_host_active"))
         session["_compute_host_turn_id"] = turn_id
+        session["_compute_host_active"] = True
         session.pop("_compute_host_activity_ns", None)
 
     def _complete(done: dict) -> None:
@@ -297,9 +318,12 @@ def _submit_prompt_to_compute_host(
             if session.get("_compute_host_turn_id") == turn_id:
                 session.pop("_compute_host_turn_id", None)
                 session.pop("_compute_host_activity_ns", None)
+                if not previous_host_active:
+                    session.pop("_compute_host_active", None)
         return _err(rid, 5019, f"compute-host dispatch failed: {exc}")
     with session["history_lock"]:
-        session["_compute_host_active"] = True
+        # Ownership was installed before dispatch: a fast completion can release
+        # it before submit_turn returns, and must not have its decision overwritten.
         if image_paths is None:
             session["attached_images"] = []
     return _ok(rid, {"status": "streaming", "turn_isolation": True})

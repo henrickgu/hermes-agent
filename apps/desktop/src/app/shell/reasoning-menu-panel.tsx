@@ -51,6 +51,7 @@ export function ReasoningMenuPanel(props: ModelMenuHostProps) {
       )}
       isActive
       model={model}
+      nativeEfforts={caps?.native_efforts ?? undefined}
       onSelectModel={nextModel => controller.select(nextModel, provider)}
       onSetOptions={patch => controller.setOptions(patch, row)}
       provider={provider}

@@ -2,7 +2,7 @@ import type { ModelOptionProvider, ModelPricing } from '@hermes/shared'
 import { fuzzyRank, modelSearchText } from '@hermes/shared'
 import { useStore } from '@nanostores/react'
 import { useQuery } from '@tanstack/react-query'
-import { type ReactElement, useMemo, useRef, useState } from 'react'
+import { type ReactElement, useEffect, useMemo, useRef, useState } from 'react'
 
 import { useI18n } from '@/i18n'
 import {
@@ -87,14 +87,26 @@ export function ModelPickerDialog({
   const [slugEntry, setSlugEntry] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
 
+  // A fresh open starts a fresh query: the dialog stays mounted app-wide
+  // (closed included), so without this the previous session's search and
+  // custom-slug mode survived Esc and reappeared on the next Ctrl+L —
+  // hiding the catalog behind a stale "Custom model" group.
+  useEffect(() => {
+    if (open) {
+      setSearch('')
+      setSlugEntry(false)
+    }
+  }, [open])
+
   const modelOptions = useQuery({
     queryKey: modelOptionsQueryKey(profile, sessionId, ownerConnectionId),
-    queryFn: () => requestModelOptions({ gateway: gw, profile, request, sessionId }),
+    queryFn: () => requestModelOptions({ gateway: gw, ownerConnectionId, profile, request, sessionId }),
     enabled: open,
     // Paint the last known catalog (localStorage) instantly — across restarts
     // too — while the live fetch revalidates behind it. Null on first ever
-    // open (nothing cached) keeps the real loading state.
-    placeholderData: () => readCachedModelOptions() ?? undefined
+    // open (nothing cached) keeps the real loading state. Scoped to this
+    // picker's profile/owner so another backend's cache never paints here.
+    placeholderData: () => readCachedModelOptions(true, profile, ownerConnectionId) ?? undefined
   })
 
   // Live load state for the managed local server: which model is loading
@@ -217,6 +229,7 @@ export function ModelPickerDialog({
               loading={loading}
               loadingModels={loadingModels}
               offerCustom={slugEntry}
+              onRetry={() => void modelOptions.refetch()}
               onSelectCustomModel={selectCustomModel}
               onSelectModel={selectModel}
               owner={owner}
@@ -253,6 +266,7 @@ function ModelResults({
   loadingModels,
   onSelectModel,
   onSelectCustomModel,
+  onRetry,
   offerCustom,
   search
 }: {
@@ -266,6 +280,8 @@ function ModelResults({
   loadingModels: Record<string, LocalModelLoadProgress>
   onSelectModel: (provider: ModelOptionProvider, model: string) => void
   onSelectCustomModel: (provider: ModelOptionProvider, model: string) => void
+  /** Re-run the catalog fetch after a failure — the error branch's way out. */
+  onRetry: () => void
   /** Offer the typed id as a custom model even while catalog rows match. */
   offerCustom: boolean
   search: string
@@ -283,6 +299,12 @@ function ModelResults({
         <InlineNotice kind="error" title={copy.loadFailed}>
           {error}
         </InlineNotice>
+        {/* Close-and-reopen was the only way out; a transient network blip or
+            a restarting gateway left the picker dead until the user guessed
+            that re-opening revalidates. Offer the retry it always implied. */}
+        <Button className="mt-2" onClick={onRetry} size="sm" variant="outline">
+          {t.common.retry}
+        </Button>
       </div>
     )
   }

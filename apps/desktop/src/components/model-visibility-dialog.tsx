@@ -67,7 +67,7 @@ export function ModelVisibilityDialog({
 
   const modelOptions = useQuery({
     queryKey: modelOptionsQueryKey(profile, sessionId, ownerConnectionId),
-    queryFn: (): Promise<ModelOptionsResult> => requestModelOptions({ gateway: gw, profile, sessionId }),
+    queryFn: (): Promise<ModelOptionsResult> => requestModelOptions({ gateway: gw, ownerConnectionId, profile, sessionId }),
     enabled: open
   })
 

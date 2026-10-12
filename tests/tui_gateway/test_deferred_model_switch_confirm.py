@@ -140,7 +140,9 @@ class TestUnguardedPickStillDefers:
         monkeypatch.setattr(server, "_session_profile_runtime_scope", _scope)
         _config_set_model(UNGUARDED_MODEL)
 
-        assert entered == [running_session]
+        # The request decorator may also enter a profile-only scope before the
+        # stash enters the concrete session's scope. The latter is the invariant.
+        assert any(scope is running_session for scope in entered)
 
     def test_stashes_the_pick_for_the_next_turn(self, running_session):
         _config_set_model(UNGUARDED_MODEL)

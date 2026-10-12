@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import threading
 import time
+from types import SimpleNamespace
 
 from tui_gateway import server
 
@@ -40,6 +41,21 @@ def test_config_set_model_defers_on_compute_host_session(monkeypatch):
     server._sessions["sid-cfgset"] = session
     build_calls = []
     monkeypatch.setattr(server, "_start_agent_build", lambda *a, **k: build_calls.append(a))
+    monkeypatch.setattr(server, "_turn_isolation_enabled", lambda _cfg=None: True)
+    monkeypatch.setattr(server, "_compute_host_supervisor", SimpleNamespace(is_running=True))
+
+    def _resolve_only(*_args, **kwargs):
+        assert kwargs.get("resolve_only") is True
+        return {
+            "value": "anthropic/claude-sonnet-4.6",
+            "model": "anthropic/claude-sonnet-4.6",
+            "provider": "anthropic",
+            "confirm_required": False,
+        }
+
+    # Exercise the real routing/stash code without relying on the user's
+    # credentials; canonical resolution has its own dry-run regression test.
+    monkeypatch.setattr(server, "_apply_model_switch", _resolve_only)
     try:
         resp = server.handle_request(
             {"id": "1", "method": "config.set",

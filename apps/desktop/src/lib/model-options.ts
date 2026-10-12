@@ -1,6 +1,5 @@
 import type { ModelCapabilities, ModelOptionProvider, ModelOptionsResult } from '@hermes/shared'
 
-
 import { getGlobalModelOptions, type HermesGateway } from '@/hermes'
 
 /** Compat: a leva custom chamava o contrato de `ModelOptionsResponse`;
@@ -190,6 +189,10 @@ interface ModelOptionsRequest {
   /** Profile for the REST recovery path. Must match the catalog owner so a
    *  secondary tile does not fall back to the launch profile's models. */
   profile?: null | string
+  /** The owner connection the catalog belongs to — the same dimension
+   *  `modelOptionsQueryKey` uses. Scopes the localStorage fallback cache so
+   *  one backend's catalog never serves as another's stale fallback. */
+  ownerConnectionId?: null | string
   refresh?: boolean
   sessionId?: null | string
 }
@@ -267,23 +270,6 @@ export function customDefaultSupersedesPick(pickProvider: string, defaultProvide
   return key.length > 0 && pick === key
 }
 
-interface ModelOptionsRequest {
-  /** When false, include ambient/unconfigured providers (onboarding/setup
-   *  surfaces). Chat pickers default to true so only explicitly configured
-   *  providers are listed (#56974). */
-  explicitOnly?: boolean
-  gateway?: HermesGateway
-  /** Owner-routed RPC. When set, catalog reads hit this dispatcher instead of
-   *  `gateway.request` — a tile's model menu must not query the ambient
-   *  chrome socket (#93892). */
-  request?: <T>(method: string, params?: Record<string, unknown>) => Promise<T>
-  /** Profile for the REST recovery path. Must match the catalog owner so a
-   *  secondary tile does not fall back to the launch profile's models. */
-  profile?: null | string
-  refresh?: boolean
-  sessionId?: null | string
-}
-
 export function modelOptionsQueryKey(
   profile: null | string | undefined,
   sessionId?: null | string,
@@ -314,7 +300,26 @@ interface CatalogCacheEntry {
   data: ModelOptionsResponse
 }
 
-function catalogCacheSlot(explicitOnly: boolean): 'explicit' | 'full' {
+/** The cache slot a catalog belongs to. Scoped by profile AND owner
+ *  connection — the same dimensions as `modelOptionsQueryKey` — because
+ *  profile names are not unique across sources and a single bare
+ *  'explicit'/'full' slot let one backend's catalog serve as another's
+ *  fallback (the exact cross-contamination the REST recovery path refuses
+ *  to do). The unsuffixed legacy slot is read once for continuity, then
+ *  never written again. */
+function catalogCacheSlot(explicitOnly: boolean, profile?: null | string, ownerConnectionId?: null | string): string {
+  const profileKey = (profile ?? '').trim() || 'default'
+  const ownerKey = (ownerConnectionId ?? '').trim()
+
+  return explicitOnly
+    ? `explicit.${profileKey}${ownerKey ? `@${ownerKey}` : ''}`
+    : `full.${profileKey}${ownerKey ? `@${ownerKey}` : ''}`
+}
+
+/** The slot name used before per-profile scoping — still readable (one
+ *  migration read) so the first open after the update keeps its instant
+ *  paint instead of starting cold. */
+function legacyCatalogCacheSlot(explicitOnly: boolean): 'explicit' | 'full' {
   return explicitOnly ? 'explicit' : 'full'
 }
 
@@ -329,9 +334,17 @@ function readCatalogStore(): Record<string, CatalogCacheEntry> {
 }
 
 /** Last good catalog for `explicitOnly`, when fresh enough to serve. */
-export function readCachedModelOptions(explicitOnly = true): ModelOptionsResponse | null {
+export function readCachedModelOptions(
+  explicitOnly = true,
+  profile?: null | string,
+  ownerConnectionId?: null | string
+): ModelOptionsResponse | null {
   try {
-    const entry = readCatalogStore()[catalogCacheSlot(explicitOnly)]
+    const store = readCatalogStore()
+
+    const entry =
+      store[catalogCacheSlot(explicitOnly, profile, ownerConnectionId)] ??
+      store[legacyCatalogCacheSlot(explicitOnly)]
 
     if (!entry?.data || Date.now() - entry.at > CATALOG_CACHE_TTL_MS) {
       return null
@@ -347,7 +360,12 @@ export function readCachedModelOptions(explicitOnly = true): ModelOptionsRespons
   }
 }
 
-function cacheModelOptions(explicitOnly: boolean, data: ModelOptionsResponse): void {
+function cacheModelOptions(
+  explicitOnly: boolean,
+  data: ModelOptionsResponse,
+  profile?: null | string,
+  ownerConnectionId?: null | string
+): void {
   // Never pin an empty/broken catalog: it would defeat the selective
   // recovery path in requestModelOptions and placeholder a picker with
   // nothing selectable.
@@ -358,7 +376,7 @@ function cacheModelOptions(explicitOnly: boolean, data: ModelOptionsResponse): v
   try {
     const store = readCatalogStore()
 
-    store[catalogCacheSlot(explicitOnly)] = { at: Date.now(), data }
+    store[catalogCacheSlot(explicitOnly, profile, ownerConnectionId)] = { at: Date.now(), data }
     localStorage.setItem(CATALOG_CACHE_KEY, JSON.stringify(store))
   } catch {
     // Quota / serialization — cache is best-effort.
@@ -473,7 +491,9 @@ export async function requestModelOptions(
   try {
     live = await fetchModelOptions(req)
   } catch (err) {
-    const cached = cacheFallbackAllowed ? readCachedModelOptions(explicitOnly) : null
+    const cached = cacheFallbackAllowed
+      ? readCachedModelOptions(explicitOnly, req.profile, req.ownerConnectionId)
+      : null
 
     if (cached) {
       return cached
@@ -483,12 +503,14 @@ export async function requestModelOptions(
   }
 
   if (hasSelectableModels(live)) {
-    cacheModelOptions(explicitOnly, live)
+    cacheModelOptions(explicitOnly, live, req.profile, req.ownerConnectionId)
 
     return live
   }
 
-  const cached = cacheFallbackAllowed ? readCachedModelOptions(explicitOnly) : null
+  const cached = cacheFallbackAllowed
+    ? readCachedModelOptions(explicitOnly, req.profile, req.ownerConnectionId)
+    : null
 
   if (cached) {
     return cached

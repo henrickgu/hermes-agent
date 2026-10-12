@@ -15127,14 +15127,27 @@ def test_clear_pending_without_sid_clears_all():
 
 def test_config_set_model_defers_while_running(monkeypatch):
     """/model via config.set queues the pick during an in-flight turn instead
-    of rejecting or racing the worker thread."""
-    seen = {"called": False}
+    of rejecting or racing the worker thread. The stash's canonical dry-run
+    (_apply_model_switch with resolve_only=True) IS allowed to run — it is what
+    resolves aliases and fires the expensive-model confirm — but it must not
+    pay for network metadata lookups while a turn streams."""
+    seen = {"network": None, "calls": 0}
 
-    def _fake_apply(sid, session, raw, **_kwargs):
-        seen["called"] = True
-        return {"value": raw, "warning": ""}
+    def _stub_switch_model(*args, **kwargs):
+        seen["calls"] += 1
+        seen["network"] = kwargs.get("metadata_allow_network", True)
+        # Synthetic success: the dry-run only reads route fields off the result.
+        return types.SimpleNamespace(
+            success=True,
+            new_model="anthropic/claude-sonnet-4.6",
+            target_provider="anthropic",
+            api_key="sk-new",
+            base_url="https://api.anthropic.com",
+            api_mode="anthropic_messages",
+            warning_message="",
+        )
 
-    monkeypatch.setattr(server, "_apply_model_switch", _fake_apply)
+    monkeypatch.setattr("hermes_cli.model_switch.switch_model", _stub_switch_model)
 
     server._sessions["sid"] = _session(running=True)
     try:
@@ -15149,13 +15162,14 @@ def test_config_set_model_defers_while_running(monkeypatch):
                 },
             }
         )
-        assert not resp.get("error")
+        assert not resp.get("error"), resp.get("error")
         result = resp["result"]
         assert result["deferred"] is True
         assert result["value"] == "anthropic/claude-sonnet-4.6"
-        assert not seen["called"], (
-            "_apply_model_switch ran mid-turn — would race the worker thread "
-            "reading agent.model / agent.client; it must defer to turn start"
+        assert seen["calls"] >= 1, "the canonical dry-run must run (alias/confirm resolution)"
+        assert seen["network"] is False, (
+            "the mid-turn dry-run paid for network metadata lookups — it must not "
+            "block the RPC worker on a cold models.dev fetch while a turn streams"
         )
         pending = server._sessions["sid"].get("pending_model_switch")
         assert pending and pending["raw"] == "anthropic/claude-sonnet-4.6"

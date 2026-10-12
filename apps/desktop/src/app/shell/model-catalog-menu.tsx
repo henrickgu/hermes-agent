@@ -67,7 +67,6 @@ import { $collapsedProviders, toggleCollapsedProvider } from '@/store/provider-c
 import { $defaultReasoningEffort } from '@/store/session'
 import type { LocalModelLoadProgress, LocalRuntimeJob } from '@/types/hermes'
 
-import { metadataSummary, ModelDetailsSubmenu } from './model-details-submenu'
 import { type FastControl, ModelEditSubmenu, resolveFastControl } from './model-edit-submenu'
 import { ModelMenuRowIcon, useModelMenuRowDecoration } from './model-menu-row-decorations'
 
@@ -243,7 +242,7 @@ export function ModelCatalogMenu({
     // Gateway-first even with no session: a connected (possibly remote)
     // gateway owns the model catalog, including virtual providers the local
     // REST fallback can't know about (#53817).
-    queryFn: (): Promise<ModelOptionsResult> => requestModelOptions({ gateway, profile, request, sessionId })
+    queryFn: (): Promise<ModelOptionsResult> => requestModelOptions({ gateway, ownerConnectionId, profile, request, sessionId })
   })
 
   const loading = modelOptions.isPending && !modelOptions.data
@@ -447,7 +446,10 @@ export function ModelCatalogMenu({
 
     controller.applyPreset(
       {
-        effort: (caps?.reasoning ?? true) ? (preset.effort ?? defaultEffort) : undefined,
+        // Only the SPEED dimension rides a switch: the effort carry-over owns
+        // the level. Re-sending a remembered effort here raced the carry write
+        // (two unordered `config.set reasoning` calls) and the pill could
+        // settle on a level the user never picked in either direction.
         ...(controller.allowSpeed !== false ? { serviceTier: tier, fast: tier !== 'normal' } : {})
       },
       { model: family.id, provider: provider.slug }
@@ -738,7 +740,7 @@ export function ModelCatalogMenu({
         </DropdownMenuItem>
       ) : groups.length === 0 &&
         favoriteRows.length === 0 &&
-        moaPresets.length === 0 &&
+        shownMoaPresets.length === 0 &&
         shownDownloads.length === 0 &&
         !customSlug ? (
         <DropdownMenuItem className={dropdownMenuRow} disabled>
@@ -1171,6 +1173,7 @@ function ModelFamilyRow({
         fastControl={fastControl}
         isActive={isCurrent}
         model={family.id}
+        nativeEfforts={caps?.native_efforts ?? undefined}
         onSelectModel={nextModel => controller.select(nextModel, provider.slug)}
         onSetOptions={patch =>
           controller.setOptions(patch, { isActive: isCurrent, model: family.id, provider: provider.slug })

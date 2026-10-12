@@ -4854,6 +4854,8 @@ export const en: Translations = {
     retryFirstBuild: 'Retry first build',
     firstBuildUnstarted: 'The first build could not be started.',
     restoreFailedTitle: 'Could not restore your profile',
+    changeModelFailed: 'Could not change model',
+    saveEndpointFailed: 'Could not save local endpoint',
     welcomeChatTitle: 'Welcome chat needs attention',
     welcomeChatUnstarted: 'The welcome chat could not start.',
     headerTitle: "Let's get you setup with Hermes Agent",

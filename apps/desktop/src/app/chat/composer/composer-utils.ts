@@ -22,7 +22,7 @@ export const COMPOSER_STACK_BREAKPOINT_PX = 320
 // gave up, which is the one thing progressive collapse is supposed to avoid.
 // At 560 the label goes while the input still has ~276px, and the ~110px the
 // chevron frees is spent keeping the row single for another stretch.
-export const COMPOSER_COMPACT_PILL_PX = 560
+export const COMPOSER_COMPACT_PILL_PX = 440
 
 // The ladder keeps going below the stack breakpoint — a pane can be far
 // narrower than even the stacked controls row. Both rungs are budgeted

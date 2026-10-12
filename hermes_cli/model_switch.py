@@ -1709,12 +1709,16 @@ def _build_switch_result(st: _Switch) -> ModelSwitchResult:
     if opencode_provider_family(st.target_provider) is not None and isinstance(st.base_url, str):
         st.base_url = normalize_opencode_base_url(st.target_provider, st.api_mode, st.base_url)
 
-    capabilities = get_model_capabilities(st.target_provider, st.new_model, allow_network=True)
+    capabilities = get_model_capabilities(
+        st.target_provider, st.new_model,
+        allow_network=getattr(st, "metadata_allow_network", True))
     from agent.native_compaction import resolve_native_compaction_capabilities
     runtime_capabilities = resolve_native_compaction_capabilities(
         model=st.new_model, base_url=st.base_url, provider=st.target_provider,
         is_codex_backend=st.target_provider.strip().lower() == "openai-codex")
-    model_info = get_model_info(st.target_provider, st.new_model, allow_network=True)
+    model_info = get_model_info(
+        st.target_provider, st.new_model,
+        allow_network=getattr(st, "metadata_allow_network", True))
 
     warnings = [w for w in (st.validation.get("message"), _check_hermes_model_warning(st.new_model)) if w]
 
@@ -1740,18 +1744,27 @@ def _build_switch_result(st: _Switch) -> ModelSwitchResult:
 def switch_model(
     raw_input: str, current_provider: str, current_model: str, current_base_url: str = "",
     current_api_key: str = "", is_global: bool = False, explicit_provider: str = "",
-    user_providers: dict = None, custom_providers: list | None = None) -> ModelSwitchResult:
+    user_providers: dict = None, custom_providers: list | None = None,
+    metadata_allow_network: bool = True,
+) -> ModelSwitchResult:
     """Core model-switching pipeline shared between CLI and gateway.
 
     Route (PATH A with ``--provider``, else PATH B) -> credentials -> validation -> result; each
     step returns a failure :class:`ModelSwitchResult` to stop the chain, or ``None`` to continue.
     ``user_providers`` / ``custom_providers`` are the config.yaml ``providers:`` dict and
-    ``custom_providers:`` list."""
+    ``custom_providers:`` list.
+
+    ``metadata_allow_network``: whether the trailing metadata lookups (models.dev
+    capabilities/info) may hit the network. The DRY-RUN path (``resolve_only`` in the
+    gateway's stash) passes False — a pick queued mid-turn must not block the RPC worker
+    for seconds on a cold catalog fetch when no consumer of that metadata exists before
+    the real switch at turn start, which re-resolves everything it needs."""
     st = _Switch(
         raw_input=raw_input, current_provider=current_provider, current_model=current_model,
         current_base_url=current_base_url, current_api_key=current_api_key, is_global=is_global,
         explicit_provider=explicit_provider, user_providers=user_providers, custom_providers=custom_providers,
         new_model=raw_input.strip(), target_provider=current_provider)
+    st.metadata_allow_network = metadata_allow_network
     route = _route_explicit_provider if explicit_provider else _route_from_model_input
     for step in (route, _resolve_switch_credentials, _validate_switch):
         fail = step(st)
