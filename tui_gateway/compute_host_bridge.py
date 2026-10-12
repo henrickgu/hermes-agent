@@ -27,22 +27,45 @@ def _turn_isolation_enabled(cfg: dict | None = None) -> bool:
 
 
 def _session_uses_compute_host(session: dict, cfg: dict | None = None) -> bool:
+    """Whether ``session``'s turns are served by the compute-host child. PURE predicate: it never
+    mutates the session. Read-only callers may already hold the session's (non-reentrant)
+    ``history_lock``, and a read landing between dispatch and the child's start/respawn must not
+    release ownership the live child still holds. The one stale-flag release lives in
+    ``_release_stale_compute_host_ownership`` (the ``_set_model`` route)."""
     # Routes lazy sessions whose AIAgent was never built in-process; already-built
-    # sessions keep the in-process path unless a prior isolated turn marked host
-    # ownership. The flag alone is not proof the child still exists: a host that
-    # crashed into its respawn cap leaves `_compute_host_active` stale on every
-    # idle session, routing prompts at a supervisor with no process. `is_running`
-    # self-heals the route the moment the host is really gone (and a respawned
-    # host re-registers sessions through the turn path).
+    # sessions keep the in-process path unless a prior isolated turn marked host ownership.
     if not _turn_isolation_enabled(cfg):
         return False
-    if not session.get("_compute_host_active"):
-        return session.get("agent") is None and session.get("agent_ready") is not None
-    with contextlib.suppress(Exception):
-        if _compute_host_supervisor is not None and not _compute_host_supervisor.is_running:
-            session.pop("_compute_host_active", None)
+    if session.get("_compute_host_active"):
+        if session.get("_compute_host_turn_id"):
+            # A dispatch owns this session: the replacement child may still be starting, so a
+            # supervisor that is not running yet is NOT evidence of a dead host.
+            return True
+        # An idle child can die without a pending turn completion callback. Report the host as
+        # gone without clearing the flag — the mutating route owns that decision.
+        supervisor = _compute_host_supervisor
+        return supervisor is None or bool(supervisor.is_running())
+    return session.get("agent") is None and session.get("agent_ready") is not None
+
+
+def _release_stale_compute_host_ownership(session: dict) -> bool:
+    """Clear ``_compute_host_active`` on a session whose host child is dead AND idle, so a model
+    pick on it takes the in-process path instead of deferring to a host that will never answer.
+
+    Runs under ``history_lock``, and only when no dispatch owns the session (an installed
+    ``_compute_host_turn_id`` means the child is starting/respawning: ownership stays). It cannot
+    live inside ``_session_uses_compute_host`` — that predicate is called from read-only paths that
+    may already hold the non-reentrant ``history_lock``. A crash still clears the flag in
+    ``_on_compute_host_turn_done``. Returns whether the flag was released."""
+    with session["history_lock"]:
+        if (session.get("running") or not session.get("_compute_host_active")
+                or session.get("_compute_host_turn_id")):
             return False
-    return True
+        supervisor = _compute_host_supervisor
+        if supervisor is None or supervisor.is_running():
+            return False
+        session.pop("_compute_host_active", None)
+        return True
 
 
 def _get_compute_host_supervisor(cfg: dict | None = None):

@@ -6,6 +6,7 @@ from types import SimpleNamespace
 import pytest
 
 from tui_gateway import server
+from tui_gateway.host_supervisor import HostSupervisor
 
 
 def _session(**extra):
@@ -23,13 +24,17 @@ def _session(**extra):
 
 
 @pytest.mark.parametrize("alive", [True, False])
-def test_host_ownership_checks_the_live_supervisor(monkeypatch, alive):
-    session = _session()
+def test_host_ownership_checks_the_live_supervisor_without_releasing_the_pin(monkeypatch, tmp_path, alive):
+    session = _session(running=False, agent=object())
+    supervisor = HostSupervisor(registry_path=tmp_path / "host.json",
+                                expected_build_sha="test", autostart=False)
+    supervisor._proc = SimpleNamespace(poll=lambda: None if alive else 1)
+    assert supervisor.is_running() is alive
     monkeypatch.setattr(server, "_turn_isolation_enabled", lambda _cfg=None: True)
-    monkeypatch.setattr(server, "_compute_host_supervisor", SimpleNamespace(is_running=alive))
+    monkeypatch.setattr(server, "_compute_host_supervisor", supervisor)
 
     assert server._session_uses_compute_host(session) is alive
-    assert bool(session.get("_compute_host_active")) is alive
+    assert session["_compute_host_active"] is True
 
 
 @pytest.mark.parametrize(
