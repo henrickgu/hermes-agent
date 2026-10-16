@@ -18,6 +18,7 @@ import {
   $currentProvider,
   $currentReasoningEffortWire,
   computeLastUsedSelection,
+  getCurrentComposerScope,
   getCurrentModelSource,
   noteModelSelectionInUse,
   setCurrentModel,
@@ -29,10 +30,11 @@ import {
 import * as SessionStates from '@/store/session-states'
 
 import { deferred } from '../../../test/deferred'
+
 import { handleSessionInfoEvent } from './use-message-stream/gateway-event/session-info'
 import type { GatewayEventContext } from './use-message-stream/gateway-event/types'
-
 import { useModelControls } from './use-model-controls'
+import { useSessionStateCache } from './use-session-state-cache'
 
 /**
  * v16b tests: a minimal `session.info` context for the reconciler — the same
@@ -490,6 +492,127 @@ describe('useModelControls', () => {
     })
     expect($currentModel.get()).toBe('muse-spark-1.2-contributor')
     expect($currentProvider.get()).toBe('opencode-go')
+  })
+
+  it('gives the approved retry a fresh reconciliation window after a lost response', async () => {
+    $activeSessionId.set('session-1')
+    setCurrentModel('fable-5')
+    setCurrentProvider('nous')
+    setPrimaryRuntimeProvider(() => 'session-1')
+
+    const firstReply = deferred<Record<string, unknown>>()
+    const retryReply = deferred<Record<string, unknown>>()
+    const answer = deferred<boolean>()
+    const requestGateway = vi.fn().mockReturnValueOnce(firstReply.promise).mockReturnValueOnce(retryReply.promise)
+    confirmMock.mockReturnValueOnce(answer.promise)
+    let controls!: Controls
+    render(<Harness onReady={value => (controls = value)} requestGateway={requestGateway} />)
+
+    const original = controls.selectModel({ model: 'guarded-model', provider: 'openai' })
+    const originalSeq = consumePendingModelPick('session-1')!.seq
+    firstReply.resolve({ confirm_required: true })
+    await original
+    // A rejected, not-yet-approved request is not a model the backend may adopt.
+    expect(consumePendingModelPick('session-1')).toBeUndefined()
+
+    await act(async () => answer.resolve(true))
+    await waitFor(() => expect(requestGateway).toHaveBeenCalledTimes(2))
+    const approved = consumePendingModelPick('session-1')!
+    expect(approved.seq).toBeGreaterThan(originalSeq)
+    await act(async () => retryReply.reject(new Error('response lost')))
+    expect(consumePendingModelPick('session-1')?.seq).toBe(approved.seq)
+
+    handleSessionInfoEvent(sessionInfoEventForModelConfirm({
+      activeSessionId: 'session-1', explicitSid: 'session-1', model: 'guarded-model', provider: 'openai'
+    }))
+    expect($currentModel.get()).toBe('guarded-model')
+    expect($currentProvider.get()).toBe('openai')
+  })
+
+  it.each([false, true])('persists an approved retry only after backend confirmation through the real cache (applied=%s)', async applied => {
+    $activeSessionId.set('session-1')
+    setCurrentModel('fable-5')
+    setCurrentProvider('nous')
+    noteModelSelectionInUse('fable-5', 'nous', getCurrentComposerScope())
+    vi.spyOn(SessionStates.$focusedRuntimeId, 'get').mockReturnValue('session-1')
+    vi.spyOn(SessionStates.$openStoredSessionIds, 'get').mockReturnValue(new Set(['stored-1']))
+    const cacheOptions = {
+      activeSessionId: 'session-1',
+      selectedStoredSessionId: 'stored-1',
+      busyRef: { current: false },
+      setAwaitingResponse: vi.fn(),
+      setBusy: vi.fn(),
+      setMessages: vi.fn()
+    }
+    const { result: cache } = renderHook(() => useSessionStateCache(cacheOptions))
+    act(() => cache.current.updateSessionState('session-1', state => ({
+      ...state, model: 'fable-5', provider: 'nous'
+    }), 'stored-1'))
+    // Exercise the production delegate -> cache -> view -> sticky path,
+    // not the suite's default updateSession spy.
+    tile.delegate = {
+      updateSession: (id: string, update: (state: ClientSessionState) => ClientSessionState) =>
+        cache.current.updateSessionState(id, update)
+    }
+    const retry = deferred<Record<string, unknown>>()
+    const answer = deferred<boolean>()
+    const requestGateway = vi.fn().mockResolvedValueOnce({ confirm_required: true }).mockReturnValueOnce(retry.promise)
+    confirmMock.mockReturnValueOnce(answer.promise)
+    let controls!: Controls
+    render(<Harness onReady={value => (controls = value)} requestGateway={requestGateway} />)
+    await controls.selectModel({ model: 'guarded-model', provider: 'openai' })
+    await act(async () => answer.resolve(true))
+    await waitFor(() => expect(requestGateway).toHaveBeenCalledTimes(2))
+    expect(computeLastUsedSelection()).toMatchObject({ model: 'fable-5', provider: 'nous' })
+    expect($currentModel.get()).toBe('fable-5')
+    if (applied) {
+      await act(async () => retry.resolve({}))
+      await waitFor(() => expect($currentModel.get()).toBe('guarded-model'))
+      expect(computeLastUsedSelection()).toMatchObject({ model: 'guarded-model', provider: 'openai' })
+    } else {
+      await act(async () => retry.reject(new Error('model refused')))
+      await waitFor(() => expect(notifyError).toHaveBeenCalled())
+      expect(computeLastUsedSelection()).toMatchObject({ model: 'fable-5', provider: 'nous' })
+      expect($currentModel.get()).toBe('fable-5')
+    }
+  })
+
+  it('does not repaint a newer confirmed pick after a late busy reply', async () => {
+    $activeSessionId.set('session-1')
+    setCurrentModel('fable-5')
+    setCurrentProvider('nous')
+    const older = deferred<Record<string, unknown>>()
+    const newer = deferred<Record<string, unknown>>()
+    const requestGateway = vi.fn().mockReturnValueOnce(older.promise).mockReturnValueOnce(newer.promise)
+    let controls!: Controls
+    render(<Harness onReady={value => (controls = value)} requestGateway={requestGateway} />)
+    const first = controls.selectModel({ model: 'older-model', provider: 'xai' })
+    const second = controls.selectModel({ model: 'newer-model', provider: 'openai' })
+    newer.resolve({})
+    await second
+    older.reject(new Error('session busy — /interrupt the current turn before switching models'))
+    await expect(first).resolves.toBe(false)
+    expect($currentModel.get()).toBe('newer-model')
+    expect($currentProvider.get()).toBe('openai')
+    expect(computeLastUsedSelection()).toMatchObject({ model: 'newer-model', provider: 'openai' })
+  })
+
+  it('does not repaint another chat after a late busy reply', async () => {
+    $activeSessionId.set('session-1')
+    setCurrentModel('fable-5')
+    setCurrentProvider('nous')
+    const reply = deferred<Record<string, unknown>>()
+    const requestGateway = vi.fn().mockReturnValue(reply.promise)
+    let controls!: Controls
+    render(<Harness onReady={value => (controls = value)} requestGateway={requestGateway} />)
+    const first = controls.selectModel({ model: 'older-model', provider: 'xai' })
+    $activeSessionId.set('session-2')
+    setCurrentModel('other-chat-model')
+    setCurrentProvider('other-provider')
+    reply.reject(new Error('session busy — /interrupt the current turn before switching models'))
+    await expect(first).resolves.toBe(false)
+    expect($currentModel.get()).toBe('other-chat-model')
+    expect($currentProvider.get()).toBe('other-provider')
   })
 
   it('keeps the current model when the guarded switch is declined (#112458)', async () => {

@@ -15,6 +15,7 @@ import {
 } from '@/lib/model-options'
 import {
   clearPendingModelPickIfSeqMatches,
+  consumePendingModelPick,
   pendingModelPickSeqMatches,
   registerPendingModelPick
 } from '@/lib/model-pick-pending'
@@ -44,6 +45,8 @@ import {
 } from '@/store/session'
 import { $sessionStates, patchSessionSliceEffort, sessionTileDelegate } from '@/store/session-states'
 import type { ModelOptionsResponse } from '@/types/hermes'
+
+import { beginModelPick, isPickSuperseded, type ModelPickSnapshot, settleModelPick } from './model-pick-ledger'
 
 interface ModelControlsOptions {
   cacheOwnerConnectionId?: string
@@ -421,17 +424,20 @@ export function useModelControls({
       const liveSessionId = 'sessionId' in selection ? (selection.sessionId ?? null) : primaryRuntimeId
       const touchesPrimary = !liveSessionId || liveSessionId === primaryRuntimeId
 
-      const prevModel = touchesPrimary ? $currentModel.get() : ($sessionStates.get()[liveSessionId!]?.model ?? '')
+      const readSnapshot = (): ModelPickSnapshot => {
+        const tileState = touchesPrimary ? undefined : $sessionStates.get()[liveSessionId!]
 
-      const prevProvider = touchesPrimary
-        ? $currentProvider.get()
-        : ($sessionStates.get()[liveSessionId!]?.provider ?? '')
+        return {
+          model: touchesPrimary ? $currentModel.get() : (tileState?.model ?? ''),
+          provider: touchesPrimary ? $currentProvider.get() : (tileState?.provider ?? ''),
+          reasoningEffortWire: touchesPrimary
+            ? $currentReasoningEffortWire.get()
+            : (tileState?.reasoningEffortWire ?? ''),
+          source: getCurrentModelSource()
+        }
+      }
 
-      const prevWire = touchesPrimary
-        ? $currentReasoningEffortWire.get()
-        : ($sessionStates.get()[liveSessionId!]?.reasoningEffortWire ?? '')
-
-      const prevSource = getCurrentModelSource()
+      const before = readSnapshot()
       const liveGatewayProfile = cacheProfile || $activeGatewayProfile.get()
 
       // Snapshot the outgoing effort level BEFORE the optimistic paint —
@@ -490,25 +496,25 @@ export function useModelControls({
         updateModelOptionsCache(liveSessionId, provider, model, touchesPrimary && !liveSessionId, liveGatewayProfile)
       }
 
-      const rollbackSelection = () => {
+      const restoreSnapshot = (snapshot: ModelPickSnapshot) => {
         if (touchesPrimary) {
-          setCurrentModel(prevModel)
-          setCurrentProvider(prevProvider)
+          setCurrentModel(snapshot.model)
+          setCurrentProvider(snapshot.provider)
           // The setters withdraw the wire stamp on a change; the old route's stamp is still true.
-          setCurrentReasoningEffortWire(prevWire)
-          setCurrentModelSource(prevSource)
+          setCurrentReasoningEffortWire(snapshot.reasoningEffortWire)
+          setCurrentModelSource(snapshot.source)
         }
 
         if (liveSessionId) {
           sessionTileDelegate()?.updateSession(liveSessionId, state => ({
             ...state,
-            model: prevModel,
-            provider: prevProvider,
-            reasoningEffortWire: prevWire
+            model: snapshot.model,
+            provider: snapshot.provider,
+            reasoningEffortWire: snapshot.reasoningEffortWire
           }))
         }
 
-        cacheSelection(prevProvider, prevModel)
+        cacheSelection(snapshot.provider, snapshot.model)
       }
 
       // v15: no unconditional optimistic paint here. The draft path paints
@@ -524,6 +530,27 @@ export function useModelControls({
         // No live session yet: the pick is pure UI state. session.create reads
         // $currentModel/$currentProvider and applies it as that session's override.
         return true
+      }
+
+      // Overlapping picks on one session settle through the shared ledger: a
+      // failed pick repaints the newest pick still in flight, else the last
+      // confirmed selection — never its own pre-pick snapshot, which may be an
+      // earlier pick's optimistic paint that never applied. A primary session
+      // switch while config.set is in flight means nothing is repainted. The
+      // composer selection generation is deliberately not consulted: effort
+      // steps and preset edits bump it without touching the model.
+      const pickToken = beginModelPick(liveSessionId, before, {
+        ...before,
+        model: selection.model,
+        provider: selection.provider,
+        reasoningEffortWire: ''
+      })
+
+      // The snapshot to repaint after this pick failed to apply, or null to leave the paint alone.
+      const settleUnapplied = () => {
+        const repaint = settleModelPick(liveSessionId, pickToken, false)
+
+        return repaint && !(touchesPrimary && $activeSessionId.get() !== liveSessionId) ? repaint : null
       }
 
       // The PRIMARY profile's main agent lets the gateway decide persistence
@@ -568,7 +595,7 @@ export function useModelControls({
       const carryEffort = () =>
         carryEffortOver(
           liveSessionId,
-          { effort: prevEffort, model: prevModel, provider: prevProvider },
+          { effort: prevEffort, model: before.model, provider: before.provider },
           { model: selection.model, provider: selection.provider }
         )
 
@@ -582,7 +609,20 @@ export function useModelControls({
         const result = await requestSwitch()
 
         if (result?.confirm_required) {
-          rollbackSelection()
+          // A newer pick already owns the pill; asking to confirm this one
+          // would only offer to undo it.
+          const restored = settleUnapplied()
+          // The backend explicitly refused this unapproved request. Only an
+          // approved retry may own a reconciliation window from here.
+          clearPendingModelPickIfSeqMatches(liveSessionId, pendingSeq)
+
+          if (!restored) {
+            return false
+          }
+
+          restoreSnapshot(restored)
+          let retryToken: null | number = null
+          let retrySeq: null | number = null
           // ONE shared applier for guarded switches (#95293): the same
           // confirm flow the Bots editor routes through — never fork this
           // logic per surface.
@@ -590,45 +630,84 @@ export function useModelControls({
             confirmMessage: result.confirm_message,
             model: selection.model,
             failureMessage: copy.modelSwitchFailed,
-            finish: result => {
-              finishSwitch(result)
-              carryEffort()
-            },
-            // Staleness guard — the warning can linger while the user picks
-            // a different model or switches sessions. Clicking Confirm must
-            // not clobber the newer choice: bail if the live state no longer
-            // matches the snapshot this notification was created for.
+            // Staleness guard — the session or model can move on while the
+            // dialog is open. Answering it must not clobber the newer choice:
+            // bail (with a notice) if the live state no longer matches the
+            // snapshot this prompt was created for.
             isStale: () =>
               touchesPrimary
                 ? $activeSessionId.get() !== liveSessionId ||
-                  $currentModel.get() !== prevModel ||
-                  $currentProvider.get() !== prevProvider
+                  $currentModel.get() !== restored.model ||
+                  $currentProvider.get() !== restored.provider
                 : !liveSessionId ||
-                  $sessionStates.get()[liveSessionId]?.model !== prevModel ||
-                  $sessionStates.get()[liveSessionId]?.provider !== prevProvider,
+                  $sessionStates.get()[liveSessionId]?.model !== restored.model ||
+                  $sessionStates.get()[liveSessionId]?.provider !== restored.provider,
+            // The confirmed retry is a fresh pick in the ledger: it joins whatever is still in
+            // flight, becomes the confirmed selection when it applies, and settles like any pick
+            // when it fails — so an older pick failing later cannot restore what it replaced.
             repaint: () => {
-              paintSelection()
-              cacheSelection(selection.provider, selection.model)
+              const retryBefore = readSnapshot()
+              // Register the intended target without publishing it to the
+              // view/cache: syncing an optimistic slice can persist the sticky
+              // indirectly through the focused session's real state cache.
+              retryToken = beginModelPick(liveSessionId, retryBefore, {
+                ...retryBefore,
+                model: selection.model,
+                provider: selection.provider,
+                reasoningEffortWire: '',
+                source: 'manual'
+              })
+              retrySeq = registerPendingModelPick(liveSessionId, selection.model, selection.provider)
             },
             requestConfirmed: () => requestSwitch(true),
-            rollback: rollbackSelection
+            finish: result => {
+              if (retryToken !== null) {
+                settleModelPick(liveSessionId, retryToken, true)
+              }
+
+              finishSwitch(result)
+
+              if (
+                retrySeq !== null && pendingModelPickSeqMatches(liveSessionId, retrySeq) &&
+                !(touchesPrimary && $activeSessionId.get() !== liveSessionId)
+              ) {
+                paintSelection()
+                cacheSelection(selection.provider, selection.model)
+                carryEffort()
+                clearPendingModelPickIfSeqMatches(liveSessionId, retrySeq)
+              }
+            },
+            rollback: () => {
+              const repaint = retryToken === null ? restored : settleModelPick(liveSessionId, retryToken, false)
+
+              if (
+                repaint && retrySeq !== null && pendingModelPickSeqMatches(liveSessionId, retrySeq) &&
+                !(touchesPrimary && $activeSessionId.get() !== liveSessionId)
+              ) {
+                restoreSnapshot(repaint)
+              }
+            }
           })
 
           return false
         }
 
+        const shouldPaint =
+          !isPickSuperseded(liveSessionId, pickToken) &&
+          pendingModelPickSeqMatches(liveSessionId, pendingSeq) &&
+          (!touchesPrimary || $activeSessionId.get() === liveSessionId)
+
+        settleModelPick(liveSessionId, pickToken, true)
         finishSwitch(result)
-        carryEffort()
-        // v16: the switch is CONFIRMED — consume the pending and paint composer
-        // + sticky with the pair the user picked. Failure paths keep composer
-        // and sticky untouched; the pending stays for session.info to reconcile
-        // (backend applied the switch even if the response was lost).
-        // v16b: seq-guard the consumption — if the user already picked AGAIN
-        // (newer seq replaced this entry), a late success must not delete the
-        // NEWER pick's reconciliation window.
-        clearPendingModelPickIfSeqMatches(liveSessionId ?? '', pendingSeq)
-        paintSelection()
-        cacheSelection(selection.provider, selection.model)
+
+        // An older reply must not repaint a newer selection or a different primary session.
+        if (shouldPaint) {
+          paintSelection()
+          cacheSelection(selection.provider, selection.model)
+          carryEffort()
+        }
+
+        clearPendingModelPickIfSeqMatches(liveSessionId, pendingSeq)
 
         return true
       } catch (err) {
@@ -638,6 +717,24 @@ export function useModelControls({
         // what the NEXT turn runs anyway. Current gateways never take this
         // path — they answer `deferred`.
         if (isBusySessionModelSwitch(err)) {
+          const shouldPaint =
+            !isPickSuperseded(liveSessionId, pickToken) &&
+            pendingModelPickSeqMatches(liveSessionId, pendingSeq) &&
+            (!touchesPrimary || $activeSessionId.get() === liveSessionId)
+
+          if (!shouldPaint) {
+            const restored = settleUnapplied()
+
+            if (restored && consumePendingModelPick(liveSessionId)) {
+              restoreSnapshot(restored)
+            }
+
+            clearPendingModelPickIfSeqMatches(liveSessionId, pendingSeq)
+
+            return false
+          }
+
+          settleModelPick(liveSessionId, pickToken, true)
           // The pick stays painted and runs at the next turn — the effort
           // pill must follow it now, or it would show the outgoing model's
           // level against a model that no longer uses it. The switch WAS
@@ -650,28 +747,30 @@ export function useModelControls({
           return true
         }
 
-        // v16b: a transport failure does NOT mean the switch failed — the
-        // backend may have applied it (the repro: response lost, session.info
-        // confirmed glm-5.3 seconds later). Keep the pending registered so the
-        // reconciling session.info commits composer + sticky. Roll back the
-        // OPTIMISTIC composer paint only: the pending is the durable intent.
-        //
-        // v16b race guard: if the session.info confirmation ALREADY consumed
-        // this pick (seq mismatch) while the RPC was hanging, the confirmed
-        // state is authoritative — a late timeout may NOT roll it back. Only
-        // a pick whose pending is still live (nobody confirmed or replaced
-        // it) rolls back. The pending itself SURVIVES the rollback: a lost
-        // response does not mean the switch failed, and the reconciler may
-        // still confirm it later.
-        if (pendingModelPickSeqMatches(liveSessionId ?? '', pendingSeq)) {
-          rollbackSelection()
+        // A transport failure may arrive after session.info already confirmed this pick.
+        // Preserve that authority and the pending reconciliation window for a lost response.
+        const stillPending = pendingModelPickSeqMatches(liveSessionId, pendingSeq)
+
+        const abandoned =
+          isPickSuperseded(liveSessionId, pickToken) || (touchesPrimary && $activeSessionId.get() !== liveSessionId)
+
+        const restored = settleUnapplied()
+
+        // The ledger may need to finish rolling back an older failed pick after
+        // a newer one already failed. A remaining pending entry means there is
+        // still no authoritative session.info confirmation to preserve.
+        if (consumePendingModelPick(liveSessionId) && restored) {
+          restoreSnapshot(restored)
+        }
+
+        if (stillPending && !abandoned) {
           notifyError(err, copy.modelSwitchFailed)
         }
 
         return false
       }
     },
-    [cacheOwnerConnectionId, cacheProfile, copy.modelSwitchFailed, queryClient, requestGateway, updateModelOptionsCache]
+    [cacheOwnerConnectionId, cacheProfile, carryEffortOver, copy.modelSwitchFailed, queryClient, requestGateway, updateModelOptionsCache]
   )
 
   return { applySavedMainModel, followDefaultModel, refreshCurrentModel, selectModel }

@@ -27,8 +27,8 @@ import { useHermesConfig } from './use-hermes-config'
 
 vi.mock('@/hermes', () => ({
   getHermesConfig: vi.fn(),
-  getHermesConfigDefaults: vi.fn().mockResolvedValue({}),
-  setApiRequestProfile: vi.fn()
+  setApiRequestProfile: vi.fn(),
+  getHermesConfigDefaults: vi.fn().mockResolvedValue({})
 }))
 
 const WORKSPACE_CWD_KEY = 'hermes.desktop.workspace-cwd'

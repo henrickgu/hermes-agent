@@ -33,5 +33,10 @@ export const ptModelMenu: Translations['shell']['modelMenu'] = {
   poolUnavailable: 'Entre novamente',
   usageTip: (provider: string) => `${provider} está perto do limite de uso.`,
   usageWindow: (label: string, percent: number, time: null | string) =>
-    time ? `${label}: ${percent}% restante, reinicia ${time}` : `${label}: ${percent}% restante`
+    time ? `${label}: ${percent}% restante, reinicia ${time}` : `${label}: ${percent}% restante`,
+  localSetup: {
+    title: 'Executar localmente · grátis e privado',
+    text: (model, size) => `${model} é compatível com esta máquina · download de ${size}`,
+    action: 'Configurar'
+  }
 }
