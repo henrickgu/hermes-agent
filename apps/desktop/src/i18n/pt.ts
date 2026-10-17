@@ -1005,8 +1005,6 @@ export const ptOverrides = {
       catalogProvenance: (sha) => `Instalado do cat\xE1logo do Hermes${sha ? ` no pin ${sha}` : ""}.`,
       pinnedProvenance: (sha) => `Fixado no commit ${sha}. Atualiza\xE7\xF5es s\xE3o recusadas at\xE9 reinstalar com um pin novo.`,
       pinnedBadge: (sha) => `fixado @ ${sha}`,
-      tierOfficial: 'oficial',
-      tierCommunity: 'comunidade',
       updateToPin: (sha) => `Atualizar para ${sha}`,
       updateFailed: (name) => `N\xE3o foi poss\xEDvel atualizar ${name}`,
       updated: (name) => `${name} atualizado para o pin atual do cat\xE1logo. Reinicie o gateway para aplicar.`,
@@ -3944,6 +3942,7 @@ export const ptOverrides = {
       },
       tier: {
         official: 'oficial',
+        verified: 'verificado',
         community: 'comunidade'
       },
       targetProfile: profile => `Instala no seu perfil ${profile}`,
@@ -4714,7 +4713,15 @@ export const ptOverrides = {
       after: '.'
     }
   },
+  keepAwakeOffer: {
+    title: 'Seu computador suspendeu enquanto o Hermes trabalhava',
+    message: 'O Hermes pode manter o computador ativo enquanto uma tarefa estiver em execução. A tela continuará desligando normalmente e, na bateria, o computador ainda poderá suspender.',
+    action: 'Manter ativo durante o trabalho'
+  },
   promptNotices: {
+    mcpReloadDeferred: 'Esta conversa está ocupada: a alteração do MCP será aplicada após o fim do turno e uma nova recarga do MCP, ou quando você reabrir a conversa',
+    mcpReloadNotInChat: server => `${server} não está ativado nesta conversa`,
+    mcpReloadUnavailable: servers => `Não foi possível conectar: ${servers}`,
     legacySendUnconfirmed:
       'Este servidor não conseguiu confirmar o envio anterior desta mensagem, então ela pode já ter sido executada. Confira a conversa antes de enviá-la novamente.',
     sessionCommands: {

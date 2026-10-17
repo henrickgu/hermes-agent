@@ -1,6 +1,7 @@
 import type { Translations } from './types'
 
 export const ptModelMenu: Translations['shell']['modelMenu'] = {
+  pickDeferred: (model: string) => `${model} será usado a partir da sua próxima mensagem`,
   search: 'Buscar modelos',
   noModels: 'Nenhum modelo encontrado',
   editModels: 'Editar modelos…',
