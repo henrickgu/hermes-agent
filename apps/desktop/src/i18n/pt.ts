@@ -4738,7 +4738,13 @@ export const ptOverrides = {
       queued: preview => `na fila: "${preview}"`,
       queueFailed: 'não foi possível adicionar a mensagem à fila',
       countOne: count => `${count} mensagem na fila`,
-      countOther: count => `${count} mensagens na fila`
+      countOther: count => `${count} mensagens na fila`,
+      queueEditKeptTitle: 'Mensagem da fila não alterada',
+      queueEditKept:
+        'Ela começou a enviar ou foi recusada antes de sua edição ser salva. Seu texto editado está no editor.',
+      queueEditUnconfirmedTitle: 'Edição não confirmada',
+      queueEditUnconfirmed:
+        'O Hermes não conseguiu confirmar sua edição. Salve novamente para repetir a mesma edição; ela nunca é enfileirada duas vezes.'
     }
   },
   skillDeepLink: {
