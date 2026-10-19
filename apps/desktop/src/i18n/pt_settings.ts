@@ -1212,7 +1212,25 @@ export const ptSettings = {
     speedStandard: 'Padrão',
     staleAuxDismiss: 'Não mostrar novamente',
     inheritsFrom: task => `herda de ${task}`,
-    followTask: task => `Seguir ${task}`
+    followTask: task => `Seguir ${task}`,
+    subagents: {
+      inherit: 'Herdar do agente principal',
+      modelOnly: 'Modelo personalizado (usar credenciais do pai)',
+      providerLabel: 'Provedor do subagente',
+      modelLabel: 'Modelo do subagente',
+      direct: 'Sobrescrever com endpoint direto',
+      customProvider: 'Provedor personalizado…',
+      customProviderLabel: 'Provedor personalizado do subagente',
+      parentModel: 'Usar modelo do pai',
+      parentModelWarning:
+        'O provedor escolhido precisa suportar o modelo do pai. Uma rota somente com provedor pode falhar se o modelo for incompatível. Se esse provedor definir um modelo padrão próprio, os subagentes passarão a usá-lo.',
+      directActive:
+        'Um endpoint direto está ativo e tem precedência sobre o provedor salvo. O endpoint e as credenciais dele são mantidos enquanto este modo estiver selecionado.',
+      directClear:
+        'Aplicar esta rota limpa o endpoint direto e a chave armazenada dele. As demais configurações de requisição são mantidas.',
+      catalogFailed: 'Catálogo de modelos indisponível. Informe provedor e modelo manualmente, ou tente novamente.',
+      draftHint: 'As alterações ficam locais até serem aplicadas.'
+    }
   },
   localModels: {
     title: 'Modelos locais',

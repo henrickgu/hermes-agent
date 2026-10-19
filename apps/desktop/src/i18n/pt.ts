@@ -3610,6 +3610,14 @@ export const ptOverrides = {
           title: 'O Hermes travou em um loop',
           body: 'A resposta ficou repetindo os mesmos passos, então o Hermes interrompeu. Tente de novo, ou comece um novo chat se acontecer de novo.'
         },
+        SESSION_OWNER_BUSY: {
+          title: 'O Hermes está ocupado nesta conversa',
+          body: 'Outro turno está em andamento aqui e sua mensagem não pôde entrar na fila dele. Nada foi enviado. Tente de novo quando esse turno terminar.'
+        },
+        SESSION_OWNER_UNCONFIRMED: {
+          title: 'Sua mensagem pode já estar na fila',
+          body: 'O gateway não confirmou sua mensagem a tempo. Se ela entrou na fila, será executada quando o turno anterior terminar ou for resolvido. Confira a conversa antes de enviá-la de novo.'
+        },
         SESSION_NOT_OWNED: {
           title: 'Este chat está aberto em outro lugar',
           body: 'Este chat está aberto em outra janela do Hermes ou em outro terminal. Feche lá e envie sua mensagem de novo, ou comece um novo chat aqui.'
@@ -4722,6 +4730,9 @@ export const ptOverrides = {
     mcpReloadDeferred: 'Esta conversa está ocupada: a alteração do MCP será aplicada após o fim do turno e uma nova recarga do MCP, ou quando você reabrir a conversa',
     mcpReloadNotInChat: server => `${server} não está ativado nesta conversa`,
     mcpReloadUnavailable: servers => `Não foi possível conectar: ${servers}`,
+    compactedTurnUnavailable:
+      'Essa mensagem foi resumida quando a conversa foi compactada, então não dá mais para restaurá-la ou editá-la.',
+    staleTurnUnavailable: 'Essa mensagem não está mais no histórico desta conversa.',
     legacySendUnconfirmed:
       'Este servidor não conseguiu confirmar o envio anterior desta mensagem, então ela pode já ter sido executada. Confira a conversa antes de enviá-la novamente.',
     sessionCommands: {
@@ -4746,6 +4757,11 @@ export const ptOverrides = {
       queueEditUnconfirmed:
         'O Hermes não conseguiu confirmar sua edição. Salve novamente para repetir a mesma edição; ela nunca é enfileirada duas vezes.'
     }
+  },
+  gatewayGroupOpen: {
+    opening: 'Abrindo grupo de gateways…',
+    lookupFailed: 'Não foi possível localizar este grupo no gateway. Tente novamente.',
+    missing: 'Este grupo de gateways não existe mais.'
   },
   skillDeepLink: {
     installTitle: name => `Instalar “${name}”?`,
