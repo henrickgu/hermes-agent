@@ -1029,6 +1029,14 @@ export const ptOverrides = {
       updateConsentBody: (name, sha) =>
         `A nova revisão de ${name} no catálogo (${sha}) adiciona recursos que a versão instalada não possui. Aplique apenas se confiar neles:`,
       updateConsentConfirm: 'Aplicar atualização',
+      updateScanTitle: name => `A varredura de segurança sinalizou ${name}`,
+      updateScanBody: (name, count) =>
+        `A atualização de ${name} recebeu veredito de cautela (${count} ${count === 1 ? 'ocorrência' : 'ocorrências'}). Toda atualização é varrida. Aplique apenas se confiar na origem:`,
+      updateScanMore: count => `+ ${count} mais`,
+      updateScanConfirm: 'Atualizar mesmo assim',
+      updateScanBlocked: name =>
+        `A varredura de segurança bloqueou a atualização de ${name} (veredito perigoso). Não pode ser contornada.`,
+      updatedGit: name => `${name} atualizado para o commit mais recente.`,
       uninstall: 'Desinstalar',
       uninstallTip: (name, profile) => `Desinstalar ${name} de ${profile}`,
       uninstallConfirmTitle: name => `Desinstalar ${name}?`,
@@ -3622,6 +3630,10 @@ export const ptOverrides = {
           title: 'Este chat está aberto em outro lugar',
           body: 'Este chat está aberto em outra janela do Hermes ou em outro terminal. Feche lá e envie sua mensagem de novo, ou comece um novo chat aqui.'
         },
+        cron_session_read_only: {
+          title: 'Este chat pertence a uma tarefa agendada',
+          body: 'Ele executa apenas essa tarefa, então sua mensagem não foi executada. Inicie um novo chat para enviá-la.'
+        },
         disk_full: {
           title: 'Disco cheio',
           body: 'Seu disco está cheio, então o Hermes não conseguiu salvar esta conversa. Libere espaço e tente de novo.'
@@ -4742,6 +4754,10 @@ export const ptOverrides = {
       undidOther: count => `${count} mensagens desfeitas — a mensagem removida está no editor`,
       retryNothing: 'nada para tentar novamente',
       retryUnsupported: '/retry: não é possível repetir mensagens com mídia ou partes de conteúdo desconhecidas',
+      busy: command =>
+        `sessão ocupada — o Hermes ainda está respondendo. Interrompa primeiro a resposta atual (botão Parar, ou Ctrl+C em um terminal) e depois execute /${command}.`,
+      busyCompressing: command =>
+        `sessão ocupada — um /compress está em execução; execute /${command} quando terminar.`,
       steerUsage: 'uso: /steer <instrução>',
       steerQueued: preview => `orientação na fila — será entregue após a próxima chamada de ferramenta: "${preview}"`,
       steerNoActiveTurn: preview => `nenhum turno ativo — na fila para o próximo: "${preview}"`,
@@ -4756,6 +4772,50 @@ export const ptOverrides = {
       queueEditUnconfirmedTitle: 'Edição não confirmada',
       queueEditUnconfirmed:
         'O Hermes não conseguiu confirmar sua edição. Salve novamente para repetir a mesma edição; ela nunca é enfileirada duas vezes.'
+    },
+    desktopCommands: {
+      error: message => `erro: ${message}`,
+      rollbackUsage: 'uso: /rollback [list] | diff <n|hash> | <n|hash> [arquivo] [--all]',
+      checkpointsDisabled: 'Os checkpoints não estão ativados para esta sessão (defina checkpoints.enabled no config.yaml).',
+      checkpointsEmpty: 'Ainda não há checkpoints para este diretório de trabalho.',
+      checkpointsHeader: 'Checkpoints (mais recentes primeiro):',
+      checkpointsHint:
+        'Restaure com /rollback <n> [arquivo] (adicione --all para sobrescrever também suas próprias edições); visualize com /rollback diff <n>.',
+      noDiff: 'Nenhuma mudança desde aquele checkpoint.',
+      rollbackFailed: error => `Falha ao restaurar: ${error}`,
+      unknownError: 'erro desconhecido',
+      restored: hash => (hash ? `Checkpoint ${hash} restaurado.` : 'Checkpoint restaurado.'),
+      rewound: count => `${count} mensagem(ns) retrocedida(s) nesta conversa.`,
+      reopenForRewind: 'Reabra este chat para ver a conversa retrocedida.',
+      agentsEmpty: 'Nenhum subagente ou processo em segundo plano ativo neste chat.',
+      subagentsHeader: count => `Subagentes (${count}):`,
+      subagentFallback: 'subagente',
+      statusRunning: 'em execução',
+      toolCalls: count => `${count} chamadas de ferramenta`,
+      processesHeader: count => `Processos em segundo plano (${count}):`,
+      configHeader: 'Configuração (exibição, aprovações, colar e voz; o restante não é mostrado):',
+      configDefaults: '(padrões)',
+      configFooter: 'Altere as configurações em Ajustes, ou edite o config.yaml com `hermes config edit` no host do gateway.',
+      historyHeader: count => `Histórico da conversa (${count} mensagens):`,
+      historyEmpty: 'Ainda não há mensagens.',
+      historyYou: 'Você',
+      historyHermes: 'Hermes',
+      saveUsage: 'uso: /save [json|md|html] [arquivo] [redact]',
+      saveLegacyRefused:
+        'Não salvo: este gateway não pode exportar uma cópia redigida, com nome ou não-JSON. Atualize o gateway, ou execute /save sem opções para gravar o JSON bruto no host do gateway.',
+      savedOnHost: path => `Salvo no host do gateway: ${path}`,
+      unknownPath: '(caminho desconhecido)',
+      saveUnsupported: 'erro: este build do desktop não consegue salvar arquivos',
+      saveDialogTitle: 'Salvar conversa',
+      savedTo: path => `Conversa salva em ${path}`,
+      saveCancelled: 'Não salvo (cancelado).',
+      exportRemote:
+        'O /export empacota um perfil a partir do host do gateway, que não é esta máquina. Execute `hermes profile export` nesse host.',
+      importRemote:
+        'O /import instala um perfil no host do gateway, que não é esta máquina. Execute `hermes profile import <arquivo>` nesse host.',
+      timestampsUsage: 'uso: /timestamps [on|off|status]',
+      timestampsOn: 'Carimbos de hora: ativados (nesta janela; defina display.timestamps no config.yaml para manter)',
+      timestampsOff: 'Carimbos de hora: desativados (nesta janela; defina display.timestamps no config.yaml para manter)'
     }
   },
   gatewayGroupOpen: {
