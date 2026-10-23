@@ -918,6 +918,126 @@ export const ptOverrides = {
     continue: 'Continuar no Hermes',
     importError: 'Não foi possível importar esta conversa.'
   },
+  catalog: {
+    add: 'Adicionar',
+    added: 'Adicionado',
+    discover: 'Descobrir',
+    featured: 'Destaques',
+    explorePlugins: 'Explorar plugins',
+    exploreSkills: 'Explorar skills',
+    mostStarred: 'Com mais estrelas',
+    newest: 'Mais recentes',
+    recentlyUpdated: 'Atualizados recentemente',
+    alphabetical: 'Nome',
+    sortBy: 'Ordenar por',
+    seeAll: 'Ver tudo',
+    related: 'Parecidos com isto',
+    tags: 'Tags',
+    screenshots: 'Capturas de tela',
+    listView: 'Visão de lista',
+    cardView: 'Visão de cartões',
+    installTitle: (name) => `Instalar “${name}”?`,
+    installDescription: 'Esta skill ficará disponível em novas sessões. Instale apenas de fontes em que você confia.',
+    installTo: 'Instalar em',
+    thisComputer: 'Este computador',
+    installing: 'Instalando…',
+    installComplete: (name) => `“${name}” instalado`,
+    destinationChanged: 'O destino mudou. Feche este diálogo e abra o link de instalação de novo.',
+    installed: 'Instalado',
+    searchSkills: 'Procurar skills',
+    searchPlugins: 'Procurar plugins',
+    allSources: 'Todas as fontes',
+    allCategories: 'Todas as categorias',
+    about: 'Sobre',
+    author: 'Autor',
+    source: 'Fonte',
+    category: 'Categoria',
+    version: 'Versão',
+    platforms: 'Plataformas',
+    requires: 'Requer',
+    tools: 'Ferramentas',
+    hooks: 'Hooks',
+    middleware: 'Middleware',
+    commands: 'Comandos',
+    license: 'Licença',
+    addedDate: 'Adicionado',
+    updatedDate: 'Atualizado',
+    repository: 'Repositório',
+    documentation: 'Documentação',
+    noResults: 'Nenhum resultado',
+    tryAnother: 'Tente outra busca ou limpe os filtros.',
+    clearFilters: 'Limpar filtros',
+    filters: 'Filtros',
+    loadFailed: 'Não foi possível carregar o catálogo',
+    retry: 'Tentar novamente',
+    more: 'Mostrar mais',
+    pinned: 'Commit revisado',
+    snapshotHint: 'Do catálogo do Hermes. Navegar nunca contata os repositórios de origem.',
+    installHint: 'Revise o código antes de instalar. As mudanças valem para novas sessões.',
+    results: (count) => `${count.toLocaleString()} ${count === 1 ? 'resultado' : 'resultados'}`,
+    back: 'Voltar aos resultados',
+    tier: 'Nível',
+    previousSlide: 'Destaque anterior',
+    nextSlide: 'Próximo destaque',
+    slideOf: (index, count) => `${index} de ${count}`,
+    tierLabels: {
+      official: 'Oficial',
+      verified: 'Verificado',
+      community: 'Comunidade'
+    },
+    tiers: {
+      official: {
+        title: 'Plugins oficiais',
+        blurb: 'Construídos e mantidos pela Nous Research.'
+      },
+      verified: {
+        title: 'Plugins verificados',
+        blurb: 'Da empresa por trás da integração, verificados pela Nous.'
+      }
+    },
+    moreToExplore: 'Mais para explorar',
+    moreToExploreBlurb: 'Os cantos menores do catálogo, tudo em um só lugar.',
+    skillsFor: (category) => `Skills de ${category.toLowerCase()}.`,
+    discoverKind: (kind) => `Descobrir ${kind}`,
+    developer: {
+      heading: 'Modo desenvolvedor',
+      title: 'Construa para o Hermes',
+      pitch: 'Construiu uma ferramenta, conector, plugin ou Mod?',
+      pitchFollowUp: 'Quer construir, mas não sabe como?',
+      submit: 'Enviar Mod',
+      docs: 'Documentação para desenvolvedores'
+    },
+    toolsets: {
+      mostUsed: 'Mais usados',
+      mostUsedBlurb: 'Os toolsets que o Hermes mais usa neste perfil.',
+      essentials: 'Essenciais',
+      essentialsBlurb: 'O que a maior parte do trabalho no Hermes roda.',
+      toolCount: (count) => `${count} ${count === 1 ? 'ferramenta' : 'ferramentas'}`,
+      callCount: (count, calls) => `${count} ${calls === 1 ? 'chamada' : 'chamadas'}`,
+      themes: {
+        work: {
+          label: 'Navegar, trabalhar e automatizar',
+          blurb: 'Dirija o navegador e a área de trabalho, edite arquivos, rode código e agende trabalho.'
+        },
+        create: {
+          label: 'Ver, ouvir e criar',
+          blurb: 'Olhe imagens e vídeos, transcreva voz e gere mídia.'
+        },
+        recall: {
+          label: 'Memória e conhecimento',
+          blurb: 'O que o Hermes lembra, e as skills e o histórico que ele consegue buscar.'
+        },
+        connect: {
+          label: 'Conectar e alcançar',
+          blurb: 'Contas, outros agentes, a casa inteligente e buscas além da web.'
+        },
+        more: {
+          label: 'Mais ferramentas',
+          blurb: 'Todo o resto que este perfil pode ativar.'
+        }
+      }
+    }
+  },
   skills: {
     tabSkills: 'Capacidades',
     tabToolsets: 'Ferramentas',
@@ -997,10 +1117,6 @@ export const ptOverrides = {
       toggleFailed: (name) => `N\xE3o foi poss\xEDvel alternar ${name}`,
       legacyBackend: 'Este backend é anterior às alternâncias de plugin por chave — atualize o Hermes para gerenciar aqui.',
       portableBadge: 'portável',
-      catalogTitle: 'Catálogo de plugins',
-      catalogBrowse: 'Ver',
-      catalogHide: 'Ocultar o navegador de catálogo',
-      catalogHint: 'Clique em "+ Adicionar a este Agente" em qualquer plugin — entradas revisadas instalam no commit fixado no perfil selecionado. Plugins agente+desktop inclusos oferecem as duas metades.',
       alreadyInstalled: (name) => `${name} j\xE1 est\xE1 instalado neste perfil.`,
       catalogProvenance: (sha) => `Instalado do cat\xE1logo do Hermes${sha ? ` no pin ${sha}` : ""}.`,
       pinnedProvenance: (sha) => `Fixado no commit ${sha}. Atualiza\xE7\xF5es s\xE3o recusadas at\xE9 reinstalar com um pin novo.`,
@@ -1061,7 +1177,8 @@ export const ptOverrides = {
         required: 'Obrigatório',
         secretSet: '•••••••• (definido)',
         secretStoredAs: env =>
-          `Armazenado no .env do perfil como ${env}, nunca em config.yaml; deixe em branco para manter o valor atual.`
+          `Armazenado no .env do perfil como ${env}, nunca em config.yaml; deixe em branco para manter o valor atual.`,
+        optional: '(opcional)'
       }
     },
     officialCatalog: 'Disponíveis para instalar',
@@ -2463,43 +2580,6 @@ export const ptOverrides = {
     snippetsDesc: 'Escolha um prompt inicial para soltar no composer.',
     dropFiles: 'Solte arquivos para anexar',
     dropSession: 'Solte para vincular este chat',
-    mcpSuggestions: {
-      label: (server) => `Adicionar ${server}`,
-      tip: (keyword) => `Sugerido porque voc\xEA mencionou \u201C${keyword}\u201D \u2014 clique para conectar`,
-      connecting: (server) => `Conectando ${server}\u2026`,
-      cancelTip: 'Clique para cancelar',
-      added: (server) => `${server} adicionado`,
-      addedTip: 'Conectado — suas ferramentas já estão prontas neste chat',
-      connectFailed: (server) => `N\xE3o foi poss\xEDvel conectar ${server}`
-    },
-    skillSuggestions: {
-      label: (skill) => `Usar skill: ${skill}`,
-      tip: (skill) => `Voc\xEA mencionou \u201C${skill}\u201D \u2014 clique para come\xE7ar com essa skill`,
-      done: (skill) => `Adicionado /${skill}`,
-      doneTip: 'A skill carrega quando você enviar'
-    },
-    githubSuggestions: {
-      label: 'Configurar GitHub',
-      tip: 'O GitHub funciona pelas skills do gh CLI aqui — clique para conectar sua conta',
-      done: 'Adicionado /github-auth',
-      doneTip: 'Envie a mensagem e o agente guia você no login do GitHub'
-    },
-    repairSuggestions: {
-      label: (server) => `Reconectar ${server}`,
-      tip: (server) => `Uma chamada de ${server} acabou de falhar com erro de conex\xE3o`,
-      working: (server) => `Reconectando ${server}\u2026`,
-      workingTip: 'Clique para cancelar',
-      done: (server) => `${server} reconectado`,
-      doneTip: 'Credenciais atualizadas estão ativas neste chat',
-      failed: (server) => `N\xE3o foi poss\xEDvel reconectar ${server}`
-    },
-    cronSuggestions: {
-      label: 'Agendar isso',
-      tip: (phrase) => `\u201C${phrase}\u201D parece recorrente \u2014 execute em um agendamento em vez disso`,
-      prefix: 'Configure como tarefa agendada:',
-      done: 'Marcado para agendamento',
-      doneTip: 'Envie e o agente cria a tarefa'
-    },
     snippets: {
       codeReview: {
         label: 'Revisão de código',
@@ -4335,12 +4415,8 @@ export const ptOverrides = {
       'As estatísticas ficam neste computador, a menos que você escolha compartilhar. As estatísticas compartilhadas são enviadas à Nous uma vez por dia com um ID aleatório para este perfil. Exceto por um registro único da instalação do Hermes, contabilizado somente após sua autorização, estatísticas anteriores à autorização nunca são enviadas. Você pode mudar isso nas Configurações a qualquer momento.',
     readDocs: 'Ler todos os detalhes',
     share: 'Compartilhar com a Nous',
-    local: 'Manter neste computador',
     off: 'Não, obrigado',
     saveFailed: 'Não foi possível salvar sua escolha',
-    collectLabel: 'Coletar estatísticas de uso',
-    collectDesc:
-      'Apenas contagens, mantidas neste computador. Nunca suas mensagens, arquivos, caminhos ou textos de erro.',
     sendLabel: 'Compartilhar estatísticas de uso com a Nous',
     sendDesc:
       'Envia estatísticas à Nous uma vez por dia com um ID aleatório para este perfil. Exceto pelo registro único da instalação, estatísticas anteriores à autorização nunca são enviadas. Requer a coleta ativada.',
@@ -4350,7 +4426,6 @@ export const ptOverrides = {
       'Perguntamos novamente porque uma versão anterior podia salvar “Não, obrigado” antes de você ver esta opção.',
     stripChoices: {
       share: 'Compartilhar com a Nous',
-      local: 'Manter neste computador',
       off: 'Não, obrigado'
     },
     stripDetails: 'Detalhes'
@@ -4740,7 +4815,6 @@ export const ptOverrides = {
   },
   promptNotices: {
     mcpReloadDeferred: 'Esta conversa está ocupada: a alteração do MCP será aplicada após o fim do turno e uma nova recarga do MCP, ou quando você reabrir a conversa',
-    mcpReloadNotInChat: server => `${server} não está ativado nesta conversa`,
     mcpReloadUnavailable: servers => `Não foi possível conectar: ${servers}`,
     compactedTurnUnavailable:
       'Essa mensagem foi resumida quando a conversa foi compactada, então não dá mais para restaurá-la ou editá-la.',

@@ -88,7 +88,10 @@ export const CANONICAL_GROUP_LOCALES = {
     groupMessage: 'Mensagem para o grupo',
     attachFiles: 'Anexar arquivos',
     removeAttachment: 'Remover anexo',
-    uploadFailed: 'Falha no envio do arquivo'
+    uploadFailed: 'Falha no envio do arquivo',
+    memberWorking: 'Trabalhando',
+    memberQueued: 'Na fila',
+    groupWorking: 'O grupo está trabalhando…'
   },
   ja: {
     roomStopped: 'グループが停止しました',

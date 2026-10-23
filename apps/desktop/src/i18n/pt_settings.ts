@@ -117,6 +117,8 @@ export const ptSettings = {
     title: 'Plugins do desktop',
     openFolder: 'Abrir pasta de plugins',
     rescan: 'Verificar novamente',
+    enable: 'Ativar',
+    disable: 'Desativar',
     reveal: 'Revelar no gerenciador de arquivos',
     failed: 'falhou',
     kinds: {

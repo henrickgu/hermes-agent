@@ -511,6 +511,7 @@
   "common.expand": ["ar"],
   "common.formatJson": ["ar"],
   "common.tryHint": ["ar"],
+  "composer.addContext": ["ar","de","es","fr","ru","zh","zh-hant"],
   "composer.hiddenQueued": ["ar","ja","ru","zh","zh-hant"],
   "composer.queueResume": ["ar"],
   "composer.queueResumeTip": ["ar"],
