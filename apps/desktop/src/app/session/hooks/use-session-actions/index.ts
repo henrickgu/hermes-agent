@@ -182,6 +182,7 @@ import {
   rememberResolvedResumeOwner,
   resolveResumeOwner
 } from './resume-owner'
+import { backgroundRuntimeOptions, runtimeOwner } from './runtime-owner'
 import { createGatewaySession, desktopSessionCreateParams } from './session-create-request'
 export { desktopSessionCreateParams } from './session-create-request'
 import {
@@ -882,7 +883,7 @@ export function useSessionActions({
         const runtimeStartedAt = Date.now()
         setSessionStartedAt(runtimeStartedAt)
         const yoloArmed = $yoloActive.get()
-        const runtimeInfo = applyRuntimeInfo(created.info)
+        const runtimeInfo = applyRuntimeInfo(created.info, { owner: runtimeOwner(capturedRoute, capturedProfile) })
 
         // v13: same slice seeding as the tile path — the slice must never paint
         // its fallback while the real level is already known.
@@ -1242,15 +1243,15 @@ export function useSessionActions({
         // so the right rail kept showing the previous session's tree when a
         // Project "+" created a session while the main chat was occupied
         // (#76696). Split/side tiles deliberately stay isolated.
-        const runtimeInfo = applyRuntimeInfo(created.info, { foreground: false })
+        const runtimeInfo = applyRuntimeInfo(created.info, backgroundRuntimeOptions(capturedRoute, requestedProfile))
         // v13: seed the slice with the effort THIS create carries (the draft's
         // resolved level) when the response didn't report it (older backends).
         // The pill reads the slice from the first paint — an empty value would
         // fall through to the profile-default/medium fallback and flash when
         // the first session.info landed with the real level.
         const createEffort = runtimeInfo?.reasoningEffort || $draftReasoningEffort.get()
-        const seededRuntimeInfo = { ...runtimeInfo, reasoningEffort: createEffort }
-        updateSessionState(created.session_id, state => ({ ...state, ...seededRuntimeInfo }), stored)
+        const seededRuntimeInfo = runtimeInfo ? { ...runtimeInfo, reasoningEffort: createEffort } : null
+        updateSessionState(created.session_id, state => (seededRuntimeInfo ? { ...state, ...seededRuntimeInfo } : state), stored)
 
         openSessionTile(stored, dir, options?.anchor, options?.before, workspaceScope)
         patchSessionTile(stored, { runtimeId: created.session_id })
@@ -1691,7 +1692,7 @@ export function useSessionActions({
                 ? Boolean(settlePendingClarifyToolCall(cachedViewState.messages, {}, false).streamId)
                 : false
 
-              const runtimeInfo = applyRuntimeInfo(activated.info)
+              const runtimeInfo = applyRuntimeInfo(activated.info, { owner: sessionOwner })
 
               // `omit_messages` means the response carries NO transcript, not
               // an empty one — the cache is the base and the live projection is
@@ -2395,7 +2396,7 @@ export function useSessionActions({
         const clarifyAuthoritativelyAbsent =
           pendingClarifyState.authoritativeAbsent && !$clarifyRequests.get()[resumed.session_id]
 
-        const runtimeInfo = applyRuntimeInfo(resumed.info)
+        const runtimeInfo = applyRuntimeInfo(resumed.info, { owner: sessionOwner })
 
         patchSessionWorkspace(storedSessionId, runtimeInfo?.cwd)
 
@@ -2468,9 +2469,7 @@ export function useSessionActions({
                   streamId: resumedRunning ? inFlightRecovery.streamId : null,
                   turnStartedAt: resumedRunning ? (inFlightRecovery.turnStartedAt ?? resumedTurnStartedAt) : null
                 }
-              : {
-                  turnStartedAt: resumedRunning && resumedTurnStartedAt !== null ? resumedTurnStartedAt : null
-                }),
+              : { turnStartedAt: resumedRunning && resumedTurnStartedAt !== null ? resumedTurnStartedAt : null }),
             ...livePromptStreamId(pendingConnectionProjection, pendingClarifyProjection),
             ...(clearedClarifyProjection
               ? {
@@ -2888,7 +2887,7 @@ export function useSessionActions({
           routedSessionId
         )
 
-        const runtimeInfo = applyRuntimeInfo(branched.info, { foreground: false })
+        const runtimeInfo = applyRuntimeInfo(branched.info, backgroundRuntimeOptions(ownerRoute, profile))
         patchSessionWorkspace(routedSessionId, runtimeInfo?.cwd)
 
         if (runtimeInfo) {
