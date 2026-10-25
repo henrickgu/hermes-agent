@@ -85,7 +85,7 @@ _CLONE_ALL_DEFAULT_EXCLUDE_ROOT: frozenset[str] =  frozenset({
 # duplicate deliveries) the moment its gateway starts. The empty dir is recreated below.
 _CLONE_ALL_HISTORY_EXCLUDE_ROOT: frozenset[str] = frozenset({
     "state.db", "state.db-wal", "state.db-shm", "sessions", "backups", "state-snapshots", "checkpoints",
-    "cron",
+    "cron", "webapp",  # webapp/: the source gateway's sign-in state (credential, native grants, Portal callback)
 })
 
 # Marker written by `hermes profile create --no-skills`. When present at a profile root,
@@ -166,7 +166,7 @@ PROFILE_CREDENTIAL_PATHS = frozenset({
     "teams_pipeline_store.json",    # Graph subscription client_state (webhook shared secret)
     "mcp-tokens",                   # MCP OAuth tokens
     "vault",                        # vault.key + vault.json.enc
-    "browser-profile", "browser_auth", "bot-desktop",  # browser cookies / logins
+    "browser-profile", "browser_auth", "bot-desktop", "webapp",  # browser cookies / logins, Webapp sign-in
     "browser-profiles", "browser_profiles",  # live CDP profiles, Browser Use CLI dir (Cookies, Login Data)
     "pairing", "platforms/pairing", "feishu_comment_pairing.json",
     "whatsapp/session", "platforms/whatsapp/session", "matrix/store", "platforms/matrix/store",
@@ -1354,8 +1354,8 @@ def _bootstrap_profile_dir(profile_dir: Path, source_dir: Optional[Path],
     config files, installed skills (the dashboard's "clone from default" must keep bundled
     AND user-installed skills), and memory/identity files from *source_dir*.
 
-    ``sync_imports`` also copies the source's ``import-sync.json`` (the ``hermes import-agent``
-    manifest) so the clone stays registered against the same external Claude Code / Codex trees
+    ``sync_imports`` also copies the source's ``import-sync.json`` (the manifest the agent-importers
+    plugin's ``hermes import-agent`` writes) so the clone stays registered against the same external trees
     and ``hermes -p <clone> import-agent --sync`` keeps pulling from them. The link is to the
     external tree, never to the source profile: both profiles stay independent islands."""
     profile_dir.mkdir(parents=True, exist_ok=True)
@@ -1376,9 +1376,8 @@ def _bootstrap_profile_dir(profile_dir: Path, source_dir: Optional[Path],
     from hermes_cli.profile_memory_config import active_memory_provider, clone_memory_provider_config
     clone_memory_provider_config(source_dir, profile_dir,
                                  active_memory_provider(_load_yaml_dict(source_dir / "config.yaml")))
-    if sync_imports:
-        from hermes_cli.agent_import_sync import SYNC_MANIFEST_NAME  # lazy: keeps yaml/utils off the hot startup path
-        _clone_file(source_dir, profile_dir, SYNC_MANIFEST_NAME)
+    if sync_imports:  # a plain file at the profile root, written by the agent-importers plugin
+        _clone_file(source_dir, profile_dir, "import-sync.json")
 
 
 def create_profile(
