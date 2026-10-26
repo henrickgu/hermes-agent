@@ -105,7 +105,7 @@ export type {
   SessionInfo,
   SessionMessage,
   SessionMessagesResponse,
-  SessionResumeResult,
+  SessionResumeResult as SessionResumeResponse,
   SessionRuntimeInfo,
   SessionSearchResponse,
   SessionSearchResult,
@@ -134,5 +134,3 @@ export type {
   WebhooksResponse
 } from '@/types/hermes'
 
-/** Compat: a leva upstream chamava o resume de `SessionResumeResponse`. */
-export type SessionResumeResponse = SessionResumeResult

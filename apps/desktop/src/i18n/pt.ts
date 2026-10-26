@@ -3,6 +3,10 @@ import { ptModelMenu } from './pt_model_menu'
 import { ptSettings } from './pt_settings'
 
 export const ptOverrides = {
+  connectorOffer: {
+    body: 'Entre com uma conta Nous gratuita para manter os apps que você conectou, como Gmail ou Slack, na sua conta.',
+    heading: 'Mantenha seus apps conectados',
+  },
   connectors: {
     title: 'Conecte seus apps',
     connect: 'Conectar',
@@ -47,6 +51,11 @@ export const ptOverrides = {
     }
   },
   freeTier: {
+    finishInBrowser: 'Concluir no navegador',
+    openConnectors: 'Abrir Conectores',
+    openPageAgain: 'Abrir a página de novo',
+    reconnect: 'Reconectar',
+    signedInAsLabel: 'Conectado como',
     providerName: 'Nous',
     providerRowTitle: 'Nous · plano gratuito',
     providerRowPitch: 'Entre com uma conta Nous para desbloquear mais modelos e ferramentas.',
@@ -59,16 +68,13 @@ export const ptOverrides = {
     alreadySignedInHeading: 'Já está conectado.',
     alreadySignedInBody: 'Este Hermes já está conectado a uma conta Nous.',
     signedIn: 'Conectado.',
-    signedInAs: (email) => `Conectado como ${email}`,
     statusLabel: (model) => `Nous \xB7 ${model}`,
     defaultModel: 'Modelo padrão',
     openModelPicker: 'Abrir seletor de modelo',
     otherProviders: 'Outros provedores',
     begin: 'Começar',
     change: 'Alterar',
-    codeBody: 'Digite este código no seu navegador para terminar o login.',
     doNotShare: 'Não compartilhe este código.',
-    copyLink: 'Copiar link',
     dismiss: 'Dispensar',
     notNow: 'Agora não',
     done: 'Pronto',
@@ -76,13 +82,9 @@ export const ptOverrides = {
     errorBody: 'O login não terminou; execute-o de novo.',
     finishingHeading: 'Terminando o login…',
     finishingBody: 'Aprovado no navegador. Coletando os tokens da sua conta.',
-    rejectedBody: 'O login foi rejeitado no navegador. Você continua no free tier.',
-    retiredBody: 'Esta identidade de free tier já foi usada ou expirou; uma nova é configurada na próxima inicialização.',
-    startAgain: 'Começar de novo',
     tryAgain: 'Tentar novamente',
     timedOutHeading: 'Login expirou',
     timedOutBody: 'O código não foi usado a tempo. Você continua no free tier.',
-    supersededBody: 'Um código de login mais novo substituiu este.',
     stripTitle: 'Inferência grátis Nous e conectores agora estão disponíveis.',
     stripBody: 'Abra o seletor de modelo para experimentá-los, ou entre com uma conta Nous.',
     waiting: 'Esperando o login…',
@@ -258,6 +260,8 @@ export const ptOverrides = {
       signInAgain: 'Entrar novamente'
     },
     failure: {
+      webappDescription: 'Execute hermes webapp neste computador para conectar este navegador.',
+      webappTitle: 'Entrar no Hermes',
       title: 'Hermes não conseguiu iniciar',
       description: 'O gateway em segundo plano não subiu. Tente uma das opções de recuperação abaixo. Nada aqui apaga suas conversas ou configurações.',
       remoteTitle: 'Login no gateway remoto necessário',
@@ -919,6 +923,7 @@ export const ptOverrides = {
     importError: 'Não foi possível importar esta conversa.'
   },
   catalog: {
+    install: 'Instalar',
     add: 'Adicionar',
     added: 'Adicionado',
     discover: 'Descobrir',
@@ -1094,6 +1099,29 @@ export const ptOverrides = {
     skillArchivedMessage: 'Restaurável via hermes curator restore.',
     tabPlugins: 'Extensões',
     plugins: {
+      folderAccess: {
+        hint: (name) => `${name} pode ler e alterar arquivos nestas pastas. Revogar vale imediatamente.`,
+        loadFailed: (name) => `Não foi possível carregar as pastas compartilhadas com ${name}.`,
+        pickerButton: 'Permitir acesso',
+        pickerTitle: (name) => `Escolha uma pasta para ${name}`,
+        refusedProtected: (name) => `${name} não pode usar essa pasta: ela guarda configurações, chaves ou dados de plugins do Hermes. Escolha uma pasta sem esses itens.`,
+        revoke: 'Revogar',
+        revokeFailed: (name) => `Não foi possível revogar o acesso à pasta de ${name}`,
+        revokeLabel: (path) => `Revogar acesso a ${path}`,
+        revoked: (name, path) => `${name} não pode mais usar ${path}.`,
+        title: 'Acesso a pastas',
+      },
+      previewScriptAccessLabel: 'Scripts de página',
+      previewScriptAccessNone: 'Pergunta antes de executar scripts em uma página',
+      previewScriptAllow: 'Permitir neste site',
+      previewScriptDeny: 'Não permitir',
+      previewScriptPromptBody: (plugin, origin) => `${plugin} quer executar JavaScript no navegador de pré-visualização em ${origin}.`,
+      previewScriptPromptRevokeHint: 'Vale somente para este site. Você pode revogar em Capacidades ▸ Plugins.',
+      previewScriptPromptRisk: 'Scripts podem ler e alterar tudo naquele site, inclusive páginas de contas em que você está conectado lá.',
+      previewScriptPromptTitle: (plugin) => `Permitir que ${plugin} execute scripts nesta página?`,
+      previewScriptRevoke: (origin) => `Revogar acesso a ${origin}`,
+      previewScriptRevokeUnsaved: (plugin, origin) => `Não foi possível salvar a alteração, então ela vale só até o Hermes reiniciar. ${plugin} está bloqueado em ${origin} por enquanto.`,
+      previewScriptRevoked: (plugin, origin) => `${plugin} não pode mais executar scripts em ${origin}.`,
       agentTitle: 'Plugins do agente',
       agentBlurb: 'Estendem o agente do perfil selecionado — ferramentas, hooks, providers. Vale após reiniciar o gateway.',
       pageBlurb: 'Uma linha por plugin. Um plugin pode estender este app, o agente, ou ambos — cada metade tem seu próprio interruptor.',
@@ -3094,6 +3122,34 @@ export const ptOverrides = {
     localModelNamePlaceholder: 'Nome do modelo (ex.: command-a-plus-05-2026)'
   },
   modelPicker: {
+    included: 'Todos os modelos abaixo estão incluídos',
+    includedUsedUp: 'Uso incluído esgotado',
+    largeFootnote: 'Modelos grandes também consomem seu limite mensal de modelos grandes.',
+    limitNames: {
+      day: 'diário',
+      month: 'mensal',
+      top_tier: 'mensal de modelos grandes',
+      week: 'semanal',
+    },
+    limitReached: (name) => `Limite ${name} atingido`,
+    limitThenCredits: 'modelos pagos agora usam seus créditos (pague pelo uso)',
+    limitThenCreditsLarge: 'Modelos grandes agora usam seus créditos (pague pelo uso)',
+    limitThenWait: 'até lá, somente modelos Free',
+    limitThenWaitLarge: 'Modelos grandes pausados até lá',
+    month: 'Mês',
+    pausedOther: 'pausado',
+    pausedRenewal: 'pausado: renovação não paga',
+    percentUsed: (percent) => `${percent} usado`,
+    resetsIn: (duration) => `repõe em ${duration}`,
+    sectionOther: 'Outros modelos',
+    sectionRecommended: 'Recomendados',
+    today: 'Hoje',
+    topTier: 'Modelos grandes (mensal)',
+    usageLevels: {
+      free: 'Free',
+      top_tier: 'Grande',
+    },
+    week: 'Semana',
     title: 'Trocar modelo',
     current: 'atual:',
     unknown: '(desconhecido)',
@@ -3203,6 +3259,8 @@ export const ptOverrides = {
       offDescription: 'Executar sem prompts de aprovação'
     },
     statusbar: {
+      planUsageTitle: (used, resetsIn) => `${used} do uso do seu plano usado${resetsIn ? ` · repõe em ${resetsIn}` : ''} · abrir Cobrança`,
+      togglePlanUsage: 'Uso do plano',
       unknown: 'desconhecido',
       toggleFreeTier: 'Plano gratuito',
       restart: 'reiniciar',
@@ -3310,6 +3368,11 @@ export const ptOverrides = {
     }
   },
   rightSidebar: {
+    terminalDropControl: (paths) => `Estes nomes contêm caracteres de controle que o shell interpretaria como teclas: ${paths}`,
+    terminalDropControlTitle: 'Não digitado no terminal',
+    terminalDropTooLarge: (names, limit) => `Cada arquivo pode ter até ${limit}. Não enviados: ${names}`,
+    terminalDropTooLargeTitle: 'Grande demais para enviar',
+    terminalDropUploadFailed: (name) => `Não foi possível enviar ${name}`,
     aria: 'Barra lateral direita',
     panelsAria: 'Painéis da barra lateral direita',
     files: 'Sistema de arquivos',
@@ -3411,6 +3474,7 @@ export const ptOverrides = {
       sentMessage: (count) => `${count} entrada${count === 1 ? "" : "s"} de log adicionada${count === 1 ? "" : "s"} ao composer`
     },
     web: {
+      embeddedPreviewHint: 'Alguns sites bloqueiam pré-visualizações incorporadas. Abra a página original em uma aba do navegador.',
       appFailedToBoot: 'App de prévia falhou ao iniciar',
       serverNotFound: 'Servidor não encontrado',
       remoteLoopback: 'Este endereço aponta para a máquina que roda seu agente, não esta. O painel do navegador carrega páginas localmente, então um servidor dev remoto precisa de port forward ou um hostname alcançável.',
@@ -3542,6 +3606,12 @@ export const ptOverrides = {
   },
   assistant: {
     thread: {
+      errorAddCredits: 'Adicionar créditos',
+      errorOpenBillingSettings: 'Abrir configurações de cobrança',
+      errorSwitchModelFailed: 'Não foi possível trocar de modelo',
+      errorSwitchToModel: (model, note) => note ? `Trocar para ${model} (${note})` : `Trocar para ${model}`,
+      errorUseCredits: 'Ativar Continuar com créditos',
+      errorUseCreditsFailed: 'Não foi possível ativar Continuar com créditos',
       errorOauthExpired: (provider) => `Seu login em ${provider} expirou ou foi revogado. Entre de novo para continuar conversando.`,
       errorSignInAgain: (provider) => `Entrar em ${provider} de novo`,
       errorStartNewSession: 'Iniciar nova sessão',
@@ -3614,6 +3684,18 @@ export const ptOverrides = {
         streaming: 'A conexão caiu antes da resposta terminar. Tente de novo para reenviá-la.'
       },
       errorCodes: {
+        launch_credentials_unavailable: {
+          body: 'Esta conversa começou com uma chave de API que foi alterada ou removida depois, então sua mensagem não foi enviada. Uma conversa aberta nunca troca de chave sozinha. Inicie uma nova sessão para usar a chave atual.',
+          title: 'A chave de API desta conversa mudou',
+        },
+        usage_window: {
+          body: 'O uso incluído do seu plano acabou até a reposição. Adicione créditos em /topup para continuar.',
+          title: 'Uso incluído esgotado',
+        },
+        workspace_unavailable: {
+          body: 'A pasta em que esta conversa trabalha foi movida ou excluída, então sua mensagem não foi executada. Recrie a pasta ou use Mover para projeto para dar outra pasta à conversa e tente de novo.',
+          title: 'A pasta desta conversa sumiu',
+        },
         auth: {
           title: (provider) => `${provider} rejeitou seu login`,
           body: (provider) => `As credenciais salvas para ${provider} n\xE3o foram aceitas. Corrija-as nas configura\xE7\xF5es ou troque de provider, e envie sua mensagem de novo.`
@@ -4462,6 +4544,8 @@ export const ptOverrides = {
     }
   },
   firstRun: {
+    slashOffBody: 'Elas voltam a funcionar normalmente quando a configuração termina.',
+    slashOffTitle: 'Comandos de barra desativados durante a configuração',
     beats: {
       name: 'Nome',
       theme: 'Cor de destaque',
