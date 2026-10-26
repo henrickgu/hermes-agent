@@ -18,7 +18,7 @@ import {
   modelPresetServiceTier,
   setModelPreset
 } from '@/store/model-presets'
-import { notifyError } from '@/store/notifications'
+import { notify, notifyError } from '@/store/notifications'
 import {
   $defaultReasoningEffort,
   getCurrentComposerScope,
@@ -214,7 +214,20 @@ export function useModelMenuController({
       failMessage,
       scope: hostScope,
       primary: touchesPrimary,
-      request: requestGateway,
+      // A level picked while a reply streams is the owner's for the next turn, like a model pick.
+      request: async <T>(method: string, params?: Record<string, unknown>) => {
+        const result = await requestGateway<T>(method, params)
+
+        if ((result as { status?: unknown } | undefined)?.status === 'deferred') {
+          notify({
+            id: `model-pick-deferred-${activeSessionId}`,
+            kind: 'info',
+            message: t.shell.modelMenu.pickDeferred(String(params?.value ?? ''))
+          })
+        }
+
+        return result
+      },
       sessionId: activeSessionId,
       isCurrent: dimension => {
         const stamp = stamps.get(dimension)!

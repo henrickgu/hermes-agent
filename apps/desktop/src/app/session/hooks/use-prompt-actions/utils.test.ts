@@ -1,8 +1,10 @@
 import type { AppendMessage } from '@assistant-ui/react'
+import { JsonRpcGatewayError } from '@hermes/shared'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { setRuntimeI18nLocale } from '@/i18n'
 import type { ChatMessage } from '@/lib/chat-messages'
+import { errorRecoveryPlan } from '@/lib/error-surface'
 
 import {
   acquireSubmitInFlight,
@@ -21,6 +23,7 @@ import {
   isSubmitInFlight,
   isTargetSessionBusy,
   markSessionRecentlyInterrupted,
+  ownershipErrorSurface,
   readFileDataUrlForAttach,
   RECENT_INTERRUPT_COOLDOWN_MS,
   releaseSubmitInFlight,
@@ -141,6 +144,16 @@ describe('session error classifiers', () => {
     expect(isSessionBusyError(new Error('session busy'))).toBe(true)
     expect(isSessionNotFoundError(new Error('other'))).toBe(false)
     expect(isSessionBusyError(new Error('other'))).toBe(false)
+  })
+})
+
+describe('ownershipErrorSurface', () => {
+  it('drops Retry for a read-only stored chat: resending reproduces the refusal', () => {
+    const err = new JsonRpcGatewayError('session_read_only', { code: 4001, data: { reason: 'session_read_only' } })
+    const { errorSurface } = ownershipErrorSurface(err)
+
+    expect(errorSurface).toEqual({ layer: 'gateway', code: 'session_read_only', retryable: false })
+    expect(errorRecoveryPlan(errorSurface)).toMatchObject({ retry: false, startNewSession: true })
   })
 })
 
