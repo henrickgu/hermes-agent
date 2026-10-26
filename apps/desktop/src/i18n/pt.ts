@@ -381,6 +381,7 @@ export const ptOverrides = {
       microphoneConstraintsUnsupported: 'Restrições de microfone não são suportadas neste dispositivo.',
       microphoneFailed: 'Falha no microfone',
       microphoneInUse: 'Microfone já está em uso por outro app.',
+      microphoneNeedsHttps: 'O microfone exige uma conexão segura. Abra o Webapp por HTTPS, ou por um túnel SSH para 127.0.0.1, para usá-lo.',
       microphonePermissionDenied: 'Permissão do microfone negada.',
       microphoneStartFailed: 'Não foi possível iniciar a gravação do microfone.',
       microphoneUnsupported: 'Este ambiente não suporta gravação por microfone.',
@@ -1866,6 +1867,7 @@ export const ptOverrides = {
     exportProfile: 'Exportar perfil…',
     imported: 'Perfil importado',
     exported: 'Perfil exportado',
+    exportNeedsHost: name => `O navegador não pode salvar um pacote de perfil. No host do Hermes, execute: hermes profile export ${name}`,
     failedImport: 'Falha ao importar perfil',
     failedExport: 'Falha ao exportar perfil',
     allProfiles: 'Todos os perfis',
@@ -3373,6 +3375,7 @@ export const ptOverrides = {
     terminalDropTooLarge: (names, limit) => `Cada arquivo pode ter até ${limit}. Não enviados: ${names}`,
     terminalDropTooLargeTitle: 'Grande demais para enviar',
     terminalDropUploadFailed: (name) => `Não foi possível enviar ${name}`,
+    terminalDropUnquotable: (shell, paths) => `Não há como digitar estes nomes com segurança no ${shell}: ${paths}`,
     aria: 'Barra lateral direita',
     panelsAria: 'Painéis da barra lateral direita',
     files: 'Sistema de arquivos',
@@ -3795,6 +3798,10 @@ export const ptOverrides = {
         cron_session_read_only: {
           title: 'Este chat pertence a uma tarefa agendada',
           body: 'Ele executa apenas essa tarefa, então sua mensagem não foi executada. Inicie um novo chat para enviá-la.'
+        },
+        session_read_only: {
+          title: 'Esta conversa é somente leitura',
+          body: 'Ela é um histórico salvo que o Hermes pode mostrar, mas não continuar; por isso sua mensagem não foi executada. Inicie uma nova conversa para enviá-la.'
         },
         disk_full: {
           title: 'Disco cheio',
@@ -4360,11 +4367,13 @@ export const ptOverrides = {
     imageAttach: 'Anexo de imagem',
     imageWriteFailed: 'Falha ao gravar imagem no disco.',
     imageAttachFailed: 'Falha ao anexar imagem',
+    attachFailed: 'Falha ao anexar',
     attachImages: 'Anexar imagens',
     clipboard: 'Área de transferência',
     noClipboardImage: 'Nenhuma imagem encontrada na área de transferência',
     clipboardPasteFailed: 'Falha ao colar da área de transferência',
     dropFiles: 'Solte arquivos',
+    dropFilesMore: count => `e mais ${count}`,
     handoff: {
       pickPlatform: 'Escolha um destino',
       success: (platform) => `Transferido para ${platform}. Retome aqui quando quiser.`,
@@ -4824,6 +4833,7 @@ export const ptOverrides = {
             ? `manteve ${theyOn} ferramenta${theyOn === 1 ? '' : 's'} ativada${theyOn === 1 ? '' : 's'} que você desativou`
             : ''
         ].filter(Boolean)
+
         return `${changes.length ? `Outra pessoa ${changes.join(' e ')}. ` : ''}Suas edições continuam na tela; nada foi salvo.`
       },
       conflictReload: 'Carregar a versão da outra pessoa',
