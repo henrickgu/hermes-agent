@@ -1529,9 +1529,6 @@ export const ptOverrides = {
       resume: 'Retomar',
       runNow: 'Executar agora',
       memoryData: 'Dados de memória',
-      memoryDataDesc: 'Arquivos de memória nativos injetados em cada sessão',
-      memoryProvider: (name) => `Provedor ativo: ${name}`,
-      builtinMemory: 'nativo',
       memoryFile: 'Memória do agente (MEMORY.md)',
       userFile: 'Perfil do usuário (USER.md)',
       bytes: (size) => `${size}`,
@@ -1872,6 +1869,7 @@ export const ptOverrides = {
     failedExport: 'Falha ao exportar perfil',
     allProfiles: 'Todos os perfis',
     showAllProfiles: 'Mostrar todos os perfis',
+    notServedHere: 'Não atendido aqui',
     switchToProfile: (name) => `Mudar para ${name}`,
     switchToConnection: (name) => `Mudar para ${name}`,
     switchConnectionFailed: (name) => `N\xE3o foi poss\xEDvel conectar a ${name}`,
@@ -2937,6 +2935,8 @@ export const ptOverrides = {
     checkingShort: 'Verificando…',
     releaseAvailable: tag => `A versão ${tag} está disponível.`,
     versionDetailsTitle: 'Detalhes da versão',
+    versionDetailsClient: 'Este dispositivo',
+    versionDetailsBackend: 'Backend conectado',
     versionDetailsBody: 'Esta instalação é gerenciada fora do app. Atualize-a da mesma forma que a instalou.',
     versionDetailsVersion: 'Versão',
     versionDetailsCommit: 'Commit',
@@ -4908,6 +4908,8 @@ export const ptOverrides = {
     action: 'Manter ativo durante o trabalho'
   },
   promptNotices: {
+    restoredDraftAttachmentsDropped:
+      'Os anexos da sua mensagem não enviada não foram restaurados. Anexe-os de novo antes de enviá-la.',
     mcpReloadDeferred: 'Esta conversa está ocupada: a alteração do MCP será aplicada após o fim do turno e uma nova recarga do MCP, ou quando você reabrir a conversa',
     mcpReloadUnavailable: servers => `Não foi possível conectar: ${servers}`,
     compactedTurnUnavailable:

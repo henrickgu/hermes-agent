@@ -158,6 +158,17 @@ export const ptSettings = {
       desktopSuccess: name => `Plugin de desktop ${name} instalado`,
       agentFailed: 'Falha ao instalar plugin de agente',
       desktopFailed: 'Falha ao instalar plugin de desktop',
+      sourceMoved: sha =>
+        sha
+          ? `O repositório mudou desde a sua revisão. Revise a nova versão (commit ${sha}) antes de instalar.`
+          : 'O repositório mudou desde a sua revisão. Lendo a nova versão…',
+      legacyBackendConfirm:
+        'Este backend é mais antigo que este app, então não pode garantir que a versão que você revisou é a que será instalada: se o repositório mudou desde então, a versão mais nova é a instalada. Atualize o backend para ter essa garantia.',
+      installAnyway: 'Instalar mesmo assim',
+      partialInstall: sha =>
+        sha
+          ? `Só uma parte deste plugin está instalada: a metade do agente está no commit ${sha}, mas a metade do desktop não conseguiu acompanhar porque o repositório mudou desde a sua revisão. Ative Forçar reinstalação em Avançado para substituir as duas metades pela versão exibida, ou cancele para manter apenas a metade do agente.`
+          : 'Só uma parte deste plugin está instalada: a metade do agente está dentro, mas a metade do desktop não conseguiu acompanhar porque o repositório mudou desde a sua revisão. Ative Forçar reinstalação em Avançado para substituir as duas metades pela versão exibida, ou cancele para manter apenas a metade do agente.',
       missingEnv: (name, vars) =>
         `${name} está instalado, mas precisa de uma chave para funcionar: ${vars}. Adicione-a agora para evitar falhas nas ferramentas do plugin.`,
       missingEnvAction: 'Configurar',
@@ -913,6 +924,7 @@ export const ptSettings = {
       pendingOn: 'Salvo. O gateway serve o web app quando reiniciar.',
       restartBusy: 'Salvo. Uma conversa está em andamento, então o gateway não reiniciou. Escolha Reiniciar gateway quando ela terminar.',
       restartFailed: 'Salvo, mas o gateway não conseguiu reiniciar. Escolha Reiniciar gateway para tentar de novo.',
+      restartFailedBecause: reason => `O gateway não conseguiu reiniciar: ${reason}`,
       restartGateway: 'Reiniciar gateway',
       restartNeeded: 'Reinício necessário',
       running: 'Em execução',
@@ -1543,8 +1555,8 @@ export const ptSettings = {
     defaultDirTitle: 'Diretório padrão do projeto',
     defaultDirDesc:
       'Novas sessões começam nesta pasta, a menos que você escolha outra. Deixe sem definir para usar seu diretório pessoal.',
-    defaultDirUpdated:
-      'Diretório padrão do projeto atualizado — inicie um novo chat (Ctrl/⌘+N) para aplicar a alteração',
+    defaultDirUpdated: shortcut =>
+      `Diretório padrão do projeto atualizado — inicie um novo chat${shortcut ? ` (${shortcut})` : ''} para aplicar a alteração`,
     defaultsTo: label => `O padr\xE3o \xE9 ${label}.`,
     change: 'Alterar',
     choose: 'Escolher',
@@ -1770,6 +1782,35 @@ export const ptSettings = {
     warmAria: 'Backends de bot pré-aquecidos',
     idleDesc:
       'Por quanto tempo um backend de bot não usado fica pré-aquecido antes de ser desligado. Aumente isso para que bots que você revisita a cada poucos minutos nunca paguem um cold start.'
+  },
+  memoryLayers: {
+    activeProvider: 'Provedor de memória ativo',
+    selectedProvider: 'Provedor de memória selecionado',
+    selectedDesc: current => `Ainda não ativo: as sessões continuam usando ${current} até esta escolha ser salva.`,
+    builtinMemory: 'somente memória nativa',
+    noProvider: 'Nenhum — somente memória nativa',
+    noProviderDesc:
+      'O Hermes usa apenas a camada nativa abaixo. Escolha um provedor externo em Configurações › Memória e Contexto para adicionar um.',
+    providerDesc: name => `${name} adiciona a própria recuperação de memória a cada sessão, além da camada nativa.`,
+    providerNotReadyDesc: name =>
+      `${name} é o provedor salvo, mas não adiciona recuperação até estar pronto. A camada nativa funciona de qualquer jeito.`,
+    providerUnknownDesc: name => `${name} é o provedor salvo; o Hermes não conseguiu ler se ele está pronto.`,
+    statusUnavailable: 'Status de memória indisponível',
+    statusUnavailableDesc: 'Não foi possível ler qual provedor de memória está ativo, nem se ele está pronto.',
+    retry: 'Tentar de novo',
+    status: {
+      ready: 'pronto',
+      needs_config: 'precisa de configuração',
+      unavailable: 'indisponível',
+      missing: 'não instalado'
+    },
+    builtinLayer: 'Camada nativa',
+    onByDefault: 'Ativo por padrão',
+    on: 'Ativo',
+    off: 'Desativado',
+    onlyFile: file => `somente ${file}`,
+    builtinDesc:
+      'MEMORY.md e USER.md são a memória própria do Hermes, separada de qualquer provedor externo. Ambos entram nas sessões por padrão; os interruptores de memória e perfil de usuário em Configurações › Memória e Contexto desativam cada um. Um provedor soma-se a esta camada; nunca a substitui.'
   },
   customEndpoints: {
     title: 'Endpoints personalizados',

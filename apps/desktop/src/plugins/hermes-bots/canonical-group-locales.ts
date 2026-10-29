@@ -74,6 +74,7 @@ export const CANONICAL_GROUP_LOCALES = {
     turnDeferred: 'Turno adiado',
     memberUnavailable: 'Membro indisponível',
     members: 'Membros',
+    openGroup: 'Abrir chat de grupo',
     refreshGroups: 'Atualizar grupos do gateway',
     loadingGroup: 'Carregando grupo…',
     loadingGroups: 'Carregando grupos do gateway…',
