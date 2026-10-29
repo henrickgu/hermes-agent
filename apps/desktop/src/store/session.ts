@@ -1097,19 +1097,42 @@ export const $messagingTruncated = atom<boolean>(false)
  * install failed closed with SessionOwnerResolutionError even though the row
  * naming its owner was already in memory, one atom over. Concatenation order
  * mirrors lookup priority: recents first (they can carry fresher optimistic
- * connection tags), then the cron and messaging slices.
+ * connection tags), then the cron and messaging slices. Unlisted-draft stubs
+ * ($unlistedSessionOwnerRows) ride last: a real row for the same id always
+ * shadows its stub, so a listed session never resolves off a stale stamp.
  */
+
+/** Drop stubs shadowed by a real row `id` already present in `rows`. Returns
+ *  `rows` untouched (same reference) when there is nothing to append, so
+ *  per-list memo caches keyed on the array identity still hit. */
+function withUnlistedOwnerStubs(rows: SessionInfo[], stubs: readonly SessionInfo[]): SessionInfo[] {
+  if (!stubs.length) {
+    return rows
+  }
+
+  const listed = new Set<string>()
+
+  for (const row of rows) {
+    listed.add(row.id)
+  }
+
+  const visible = stubs.filter(stub => !listed.has(stub.id))
+
+  return visible.length ? [...rows, ...visible] : rows
+}
+
 export function ownerLookupSessionRows(): SessionInfo[] {
   const cron = $cronSessions.get()
   const messaging = $messagingSessions.get()
+  const stubs = $unlistedSessionOwnerRows.get()
 
   // Recents-only stays the common case; keep its array identity (no copy) so
   // per-list memo caches (lineageAliases) keyed on the reference still hit.
   if (!cron.length && !messaging.length) {
-    return $sessions.get()
+    return withUnlistedOwnerStubs($sessions.get(), stubs)
   }
 
-  return [...$sessions.get(), ...cron, ...messaging]
+  return withUnlistedOwnerStubs([...$sessions.get(), ...cron, ...messaging], stubs)
 }
 
 // Whether a profile's last session page was CAPPED by the request limit, keyed
