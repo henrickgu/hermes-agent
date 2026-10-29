@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { getMemoryProviderOAuthStatus, startMemoryProviderOAuth } from '@/hermes'
 import { useI18n } from '@/i18n'
 import { Check, ExternalLink, Loader2 } from '@/lib/icons'
+import { refreshMemoryStatus } from '@/store/memory-status'
 import { notifyError } from '@/store/notifications'
 import type { MemoryProviderOAuthStatus } from '@/types/hermes'
 
@@ -110,6 +111,7 @@ export function MemoryConnect({ profile, provider }: { profile?: string; provide
             setDetail(next.detail || mc.failed)
           } else {
             setPhase('idle')
+            refreshMemoryStatus()
           }
         } catch {
           // Transient poll failure — keep trying until the deadline.
