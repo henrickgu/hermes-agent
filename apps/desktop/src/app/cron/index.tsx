@@ -908,6 +908,7 @@ function CronJobDetail({
   runLive,
   stopping
 }: CronJobDetailProps) {
+  const { t } = useI18n()
   const state = runLive ? 'running' : jobState(job)
   // The pill shows the live run; Pause/Resume acts on the saved schedule state, which a running
   // paused job still has (handlePauseResume reads jobState too).

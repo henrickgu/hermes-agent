@@ -1149,6 +1149,10 @@ const zhHant: KanbanMessages = {
 }
 
 const ptBr: KanbanMessages = {
+  pinBoard: 'Fixar quadro',
+  unpinBoard: 'Desafixar quadro',
+  pinnedBoards: 'Quadros fixados',
+  pinnedBoardsHint: 'Arraste para reordenar ou pressione Alt + Esquerda/Direita',
   switchBoard: 'Trocar de painel',
   nav: 'Kanban',
   openBoard: 'Kanban: Abrir quadro',

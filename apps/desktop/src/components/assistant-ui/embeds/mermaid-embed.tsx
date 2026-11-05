@@ -7,6 +7,7 @@ import type { MathResolver } from 'pele'
 import { useEffect, useState } from 'react'
 
 import { Zoomable } from '@/components/ui/zoomable'
+import { onThemeRepaint } from '@/hooks/use-theme-epoch'
 import { translateNow } from '@/i18n'
 import { copySvgAsPng } from '@/lib/svg-image'
 import { cn } from '@/lib/utils'
