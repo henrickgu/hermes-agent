@@ -565,7 +565,7 @@ def _apply_capabilities(rows: list[dict], *, metadata_config: dict | None = None
     its trimmed scale. The aggregator's ``supported_efforts`` is still NOT forwarded on its own: it
     under-reports levels that work. The two are not in conflict — one reads what the route ADVERTISES,
     the other what it ACCEPTS; the effort menu wants the latter."""
-    from agent.codex_service_tiers import ultrafast_offered
+    from agent.codex_service_tiers import daybreak_offered, ultrafast_offered
     from hermes_cli.models import model_supports_ultrafast, resolve_fast_mode_overrides
 
     try:
@@ -582,6 +582,11 @@ def _apply_capabilities(rows: list[dict], *, metadata_config: dict | None = None
         from agent.reasoning_effort import supported_efforts_for
     except Exception:
         supported_efforts_for = None  # type: assignment
+
+    # Daybreak rides the Responses request; the opt-in codex app-server runtime never sends it.
+    _model_cfg = (metadata_config or {}).get("model")
+    _app_server = isinstance(_model_cfg, dict) and str(
+        _model_cfg.get("openai_runtime") or "").strip().lower() == "codex_app_server"
 
     for row in rows:
         slug = row.get("slug") or ""
@@ -620,6 +625,8 @@ def _apply_capabilities(rows: list[dict], *, metadata_config: dict | None = None
             if fast and model_supports_ultrafast(model) and ultrafast_offered(
                     model, provider=slug, base_url=row.get("api_url")):
                 entry["ultrafast"] = True
+            if not _app_server and daybreak_offered(model, provider=slug, base_url=row.get("api_url")):
+                entry["daybreak"] = True
 
             if reasoning and supported_efforts_for is not None:
                 try:
