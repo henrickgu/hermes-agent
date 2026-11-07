@@ -1798,7 +1798,7 @@ export const BOTS_LOCALES: PluginLocaleBundles = {
   ja,
   zh,
   'zh-hant': zhHant,
-  'pt-br': { canonical: CANONICAL_GROUP_LOCALES['pt-br'] },
+  'pt-br': { canonical: CANONICAL_GROUP_LOCALES['pt-br'], crossGateway: CROSS_GATEWAY_GROUP_LOCALES['pt-br'] },
   ar: { canonical: CANONICAL_GROUP_LOCALES.ar, crossGateway: CROSS_GATEWAY_GROUP_LOCALES.ar },
   ru: { canonical: CANONICAL_GROUP_LOCALES.ru, crossGateway: CROSS_GATEWAY_GROUP_LOCALES.ru },
   fr: { canonical: CANONICAL_GROUP_LOCALES.fr, crossGateway: CROSS_GATEWAY_GROUP_LOCALES.fr },

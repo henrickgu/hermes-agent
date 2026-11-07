@@ -25,6 +25,17 @@ export const CROSS_GATEWAY_GROUP_LOCALES = {
       `Members not saved, and the change already made for ${bot} on ${connection} could not be undone: ${connection} may still have it. The room shows what ${connection} last reported; reconnect it and check the members.`,
     selectionElsewhere: connection => `These bots all live on ${connection}. Add a bot from this connection, or switch to ${connection} to start a group of its bots.`
   },
+  'pt-br': {
+    desktopDriven:
+      'Funciona enquanto este Desktop estiver aberto: bots em outras máquinas respondem pelos próprios gateways, e este Desktop leva as mensagens entre eles.',
+    groupsOffline: (connection, bot) => `${connection} está offline — reconecte para alterar os grupos de ${bot}.`,
+    memberOffline: (connection, bot) => `${connection} está offline — reconecte para remover ${bot}.`,
+    memberSaveFailed: (connection, bot) => `Membros não salvos: ${connection} não aceitou a alteração de ${bot}. Nada foi alterado; tente de novo quando ele estiver acessível.`,
+    memberRollbackFailed: (connection, bot) =>
+      `Membros não salvos, e a alteração já feita para ${bot} em ${connection} não pôde ser desfeita: ${connection} ainda pode tê-la. A sala mostra o que ${connection} informou por último; reconecte e confira os membros.`,
+    selectionElsewhere: (connection) => `Estes bots ficam todos em ${connection}. Adicione um bot desta conexão, ou mude para ${connection} para iniciar um grupo com os bots de lá.`
+  },
+
   ja: {
     desktopDriven:
       'このデスクトップを開いている間だけ動作します。ほかのマシンのボットはそれぞれのゲートウェイから返信し、このデスクトップがメッセージを中継します。',
