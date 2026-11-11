@@ -23,7 +23,7 @@ import { zhHantOverrides } from './zh-hant'
 // locale's own overlay. overlay-gaps.json maps each English key to the locales that
 // lacked it when this check landed. It only ratchets: translating a listed key passes
 // untouched, while a key missing from a locale and not listed fails. Prune it with
-// `OVERLAY_GAPS_UPDATE=1 npx vitest run src/i18n/overlay-completeness.test.ts`.
+// `OVERLAY_GAPS_UPDATE=1 pnpm exec vitest run src/i18n/overlay-completeness.test.ts`.
 // The PT-BR fork adds 512 English keys absent from upstream acc3cada0da86c81efc8aa6c5a291989549ca900
 // (desktop commands, billing, settings and other custom surfaces). Their gaps are recorded
 // only for the eight upstream overlays; PT-BR must remain complete without exemptions.

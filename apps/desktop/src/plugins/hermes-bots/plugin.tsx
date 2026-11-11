@@ -69,7 +69,7 @@ import {
 import { stickyGroupEngine } from './group-engine'
 import { groupWorkspaceOwnerKey } from './group-membership'
 import { annotateOrphanedGroupChatMembers } from './hygiene'
-import { BOTS_LOCALES } from './i18n'
+import { BOTS_LOCALES, botsText } from './i18n'
 import { displayName } from './labels'
 import { startBotRelay, stopBotRelay } from './relay'
 import { $activityToasts } from './roster-actions'
@@ -595,7 +595,7 @@ export default {
             setBotsWorkspaceOwner(
               groupWorkspaceOwnerKey(group),
               null,
-              'New group conversations start in the group composer.'
+              botsText().group.startInComposer()
             )
           } else if (selected) {
             setBotsWorkspaceOwner(botWorkspaceOwnerKey(selected), selected)
