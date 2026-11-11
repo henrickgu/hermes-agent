@@ -20,6 +20,15 @@ export const GROUP_CHAT_ERRORS = {
     attachmentFallback: "attachment",
     pastedImage: "pasted image"
   },
+  'pt-br': {
+    sendRouteRequired: "Enviar para este chat de grupo exige a conexão, o perfil e o ID do chat de grupo dele",
+    savedMessagesUnreadable: "Não foi possível ler as mensagens salvas do chat de grupo",
+    savedMessageUnreadable: "Não foi possível ler uma mensagem salva do chat de grupo",
+    sendNeedsUpdate: "Enviar para este chat de grupo precisa de um Desktop atualizado; reinicie o Hermes Desktop",
+    attachmentTooLarge: name => `${name}: grande demais (máx. 15MB).`,
+    attachmentFallback: "anexo",
+    pastedImage: "imagem colada"
+  },
   'ja': {
     sendRouteRequired: "このグループチャットへの送信には接続、プロファイル、グループチャットIDが必要です",
     savedMessagesUnreadable: "保存されたグループチャットのメッセージを読み込めませんでした",

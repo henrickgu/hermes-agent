@@ -82,7 +82,6 @@ export type BotsMessages = {
   roster: { [K in keyof RosterChromeMessages]: RosterChromeMessages[K] } & {
     search: string
     searchPlaceholder: string
-    newMenuTip: string
     newBotOrGroup: string
     groupChats: string
     emptyTitle: string

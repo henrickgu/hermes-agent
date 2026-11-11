@@ -24,6 +24,17 @@ export const ROSTER_CHROME = {
     currentGateway: "Current gateway",
     hidden: "Hidden"
   },
+  'pt-br': {
+    title: "Bots",
+    toastsOn: "Avisos de atividade ligados — clique para silenciar",
+    toastsOff: "Avisos de atividade desligados — clique para ativar",
+    newMenu: "Novo…",
+    filter: "Filtrar lista",
+    filtersActive: count => `Filtrar lista, ${count} ativos`,
+    allGateways: "Todos os gateways",
+    currentGateway: "Gateway atual",
+    hidden: "Ocultados"
+  },
   'ja': {
     title: "ボット",
     toastsOn: "活動通知オン — クリックでオフ",

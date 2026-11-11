@@ -56,6 +56,7 @@ it.each(['peerJoinUnconfirmed', 'disbandMemberHomeUnknown', 'peerStartWithoutRet
 )
 const bannedTerms = {
   en: /\brooms?\b|gateway[- ]groups?|group driver|canonical|hosted room|RoomLink/iu,
+  'pt-br': /\bsalas?\b|grupos? de chat|bate-papo|canônic/iu,
   ja: /ルーム|部屋|ゲートウェイ(?:の)?グループ|グループの実行機能|正規の(?:グループ|チャット)|ホスト型/iu,
   zh: /房间|网关群组|群组运行程序|规范群|托管房间/iu,
   'zh-hant': /群聊|房間|閘道群組|群組執行程式|規範群|託管房間/iu,

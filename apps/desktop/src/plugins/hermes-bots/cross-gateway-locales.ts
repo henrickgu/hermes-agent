@@ -43,13 +43,20 @@ export const CROSS_GATEWAY_GROUP_LOCALES = {
     selectionElsewhere: connection => `These bots all live on ${connection}. Add a bot from this connection, or switch to ${connection} to start a group of its bots.`
   },
   'pt-br': {
-    desktopDriven:
-      'Funciona enquanto este Desktop estiver aberto: bots em outras máquinas respondem pelos próprios gateways, e este Desktop leva as mensagens entre eles.',
+    checkingPeers: 'Verificando se todo computador deste chat de grupo está pronto…',
+    gatewayMembership: 'A participação fica salva com este chat de grupo no computador dele.',
+    gatewayPeer: (owner, local = false) => `Funciona em ${local ? "este dispositivo" : owner}, inclusive com este Desktop fechado. Só o texto é enviado para bots em outros computadores.`,
+    ownerCannotSeatPeers: (place) => `O Hermes em ${place} ainda não consegue acomodar bots de outros computadores. Atualize o Hermes lá e execute o gateway dele (hermes gateway run), então tente de novo.`,
+    ownerUpdateRequired: (place) => `O Hermes em ${place} é velho demais para executar chats de grupo. Atualize o Hermes lá e tente de novo.`,
+    peerCheckFailed: (connection, local = false) => `Não foi possível verificar ${local ? "este dispositivo" : connection}. Confira se o Hermes está em execução lá e tente de novo.`,
+    peerGatewayChanged: (place) => `${place} agora roda uma instalação do Hermes diferente da qual este bot veio. Reconecte-o e tente de novo.`,
+    peerRouteMissing: 'O computador de um bot selecionado não está conectado. Reconecte-o e tente de novo.',
+    pickBots: (max) => `Escolha de 2 a ${max} bots.`,
     groupsOffline: (connection, bot) => `${connection} está offline — reconecte para alterar os grupos de ${bot}.`,
     memberOffline: (connection, bot) => `${connection} está offline — reconecte para remover ${bot}.`,
     memberSaveFailed: (connection, bot) => `Membros não salvos: ${connection} não aceitou a alteração de ${bot}. Nada foi alterado; tente de novo quando ele estiver acessível.`,
     memberRollbackFailed: (connection, bot) =>
-      `Membros não salvos, e a alteração já feita para ${bot} em ${connection} não pôde ser desfeita: ${connection} ainda pode tê-la. A sala mostra o que ${connection} informou por último; reconecte e confira os membros.`,
+      `Membros não salvos, e a alteração já feita para ${bot} em ${connection} não pôde ser desfeita: ${connection} ainda pode tê-la. O chat de grupo mostra o que ${connection} informou por último; reconecte e confira os membros.`,
     selectionElsewhere: (connection) => `Estes bots ficam todos em ${connection}. Adicione um bot desta conexão, ou mude para ${connection} para iniciar um grupo com os bots de lá.`
   },
 
