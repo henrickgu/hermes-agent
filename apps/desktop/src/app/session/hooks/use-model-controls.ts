@@ -21,6 +21,7 @@ import {
 } from '@/lib/model-pick-pending'
 import { carryReasoningEffort } from '@/lib/reasoning-effort'
 import { getModelPreset } from '@/store/model-presets'
+import { noteQueuedLaunchPick } from '@/store/composer-queued-pick'
 import { notify, notifyError } from '@/store/notifications'
 import { $activeGatewayProfile } from '@/store/profile'
 import {
@@ -31,15 +32,20 @@ import {
   $draftReasoningEffort,
   computeLastUsedSelection,
   consumeExplicitContextSwitch,
+  getComposerModelSelection,
   getComposerSelectionGeneration,
+  getComposerSelectionScope,
   getCurrentComposerScope,
   getCurrentModelSource,
   isRefreshProtectedModel,
   markComposerSelectionManual,
   noteModelSelectionInUse,
+  releaseComposerModelSelection,
   setCurrentModel,
   setCurrentModelSource,
+  setCurrentModelTransient,
   setCurrentProvider,
+  setCurrentProviderTransient,
   setCurrentReasoningEffort,
   setCurrentReasoningEffortWire
 } from '@/store/session'
@@ -428,16 +434,17 @@ export function useModelControls({
         const tileState = touchesPrimary ? undefined : $sessionStates.get()[liveSessionId!]
 
         return {
+          composerSelection: getComposerModelSelection(),
           model: touchesPrimary ? $currentModel.get() : (tileState?.model ?? ''),
           provider: touchesPrimary ? $currentProvider.get() : (tileState?.provider ?? ''),
           reasoningEffortWire: touchesPrimary
             ? $currentReasoningEffortWire.get()
-            : (tileState?.reasoningEffortWire ?? ''),
-          source: getCurrentModelSource()
+            : (tileState?.reasoningEffortWire ?? '')
         }
       }
 
       const before = readSnapshot()
+      const composerScope = getComposerSelectionScope()
       const liveGatewayProfile = cacheProfile || $activeGatewayProfile.get()
 
       // Snapshot the outgoing effort level BEFORE the optimistic paint —
@@ -498,14 +505,14 @@ export function useModelControls({
 
       const restoreSnapshot = (snapshot: ModelPickSnapshot) => {
         if (touchesPrimary) {
-          setCurrentModel(snapshot.model)
-          setCurrentProvider(snapshot.provider)
-          // The setters withdraw the wire stamp on a change; the old route's stamp is still true.
+          setCurrentModel(snapshot.composerSelection.model)
+          setCurrentProvider(snapshot.composerSelection.provider)
+          setCurrentModelSource(snapshot.composerSelection.source)
+          // Restore runtime paint/stamp separately; neither is sticky launch intent.
+          setCurrentModelTransient(snapshot.model)
+          setCurrentProviderTransient(snapshot.provider)
           setCurrentReasoningEffortWire(snapshot.reasoningEffortWire)
-          setCurrentModelSource(snapshot.source)
-        }
-
-        if (liveSessionId) {
+        } else if (liveSessionId) {
           sessionTileDelegate()?.updateSession(liveSessionId, state => ({
             ...state,
             model: snapshot.model,
@@ -539,18 +546,28 @@ export function useModelControls({
       // switch while config.set is in flight means nothing is repainted. The
       // composer selection generation is deliberately not consulted: effort
       // steps and preset edits bump it without touching the model.
-      const pickToken = beginModelPick(liveSessionId, before, {
+      // Per owner: another owner can hold a session with the same id (imports).
+      const pickKey = `${composerScope}\n${liveSessionId}`
+      const pickToken = beginModelPick(pickKey, before, {
         ...before,
         model: selection.model,
         provider: selection.provider,
-        reasoningEffortWire: ''
+        reasoningEffortWire: '',
+        composerSelection: { ...before.composerSelection, model: selection.model, provider: selection.provider, source: 'manual' }
       })
 
       // The snapshot to repaint after this pick failed to apply, or null to leave the paint alone.
       const settleUnapplied = () => {
-        const repaint = settleModelPick(liveSessionId, pickToken, false)
+        const repaint = settleModelPick(pickKey, pickToken, false)
 
-        return repaint && !(touchesPrimary && $activeSessionId.get() !== liveSessionId) ? repaint : null
+        if (repaint && touchesPrimary && $activeSessionId.get() !== liveSessionId) {
+          // Its chat is no longer on screen to repaint, but the failed pick is still the saved one.
+          releaseComposerModelSelection(selection, composerScope)
+
+          return null
+        }
+
+        return repaint
       }
 
       // The PRIMARY profile's main agent lets the gateway decide persistence
@@ -577,7 +594,9 @@ export function useModelControls({
           ...(confirmExpensiveModel ? { confirm_expensive_model: true } : {})
         })
 
-      const finishSwitch = (result: ModelSwitchResponse | undefined) => {
+      const finishSwitch = (result: ModelSwitchResponse | undefined, token: number) => {
+        noteQueuedLaunchPick(liveSessionId, touchesPrimary && result?.deferred ? selection : null, composerScope, token)
+
         // A pick made DURING a turn is queued by the gateway and applied at the
         // next turn start (`deferred`). Re-fetching now would answer with the
         // model still running and repaint the old name over the user's choice —
@@ -656,22 +675,22 @@ export function useModelControls({
               // Register the intended target without publishing it to the
               // view/cache: syncing an optimistic slice can persist the sticky
               // indirectly through the focused session's real state cache.
-              retryToken = beginModelPick(liveSessionId, retryBefore, {
+              retryToken = beginModelPick(pickKey, retryBefore, {
                 ...retryBefore,
                 model: selection.model,
                 provider: selection.provider,
                 reasoningEffortWire: '',
-                source: 'manual'
+                composerSelection: { ...retryBefore.composerSelection, model: selection.model, provider: selection.provider, source: 'manual' }
               })
               retrySeq = registerPendingModelPick(liveSessionId, selection.model, selection.provider)
             },
             requestConfirmed: () => requestSwitch(true),
             finish: result => {
               if (retryToken !== null) {
-                settleModelPick(liveSessionId, retryToken, true)
+                settleModelPick(pickKey, retryToken, true)
               }
 
-              finishSwitch(result)
+              finishSwitch(result, retryToken ?? pickToken)
 
               if (
                 retrySeq !== null && pendingModelPickSeqMatches(liveSessionId, retrySeq) &&
@@ -684,7 +703,7 @@ export function useModelControls({
               }
             },
             rollback: () => {
-              const repaint = retryToken === null ? restored : settleModelPick(liveSessionId, retryToken, false)
+              const repaint = retryToken === null ? restored : settleModelPick(pickKey, retryToken, false)
 
               if (
                 repaint && retrySeq !== null && pendingModelPickSeqMatches(liveSessionId, retrySeq) &&
@@ -699,12 +718,13 @@ export function useModelControls({
         }
 
         const shouldPaint =
-          !isPickSuperseded(liveSessionId, pickToken) &&
+          !isPickSuperseded(pickKey, pickToken) &&
+          getComposerSelectionScope() === composerScope &&
           pendingModelPickSeqMatches(liveSessionId, pendingSeq) &&
           (!touchesPrimary || $activeSessionId.get() === liveSessionId)
 
-        settleModelPick(liveSessionId, pickToken, true)
-        finishSwitch(result)
+        settleModelPick(pickKey, pickToken, true)
+        finishSwitch(result, pickToken)
 
         // An older reply must not repaint a newer selection or a different primary session.
         if (shouldPaint) {
@@ -724,7 +744,7 @@ export function useModelControls({
         // path — they answer `deferred`.
         if (isBusySessionModelSwitch(err)) {
           const shouldPaint =
-            !isPickSuperseded(liveSessionId, pickToken) &&
+            !isPickSuperseded(pickKey, pickToken) &&
             pendingModelPickSeqMatches(liveSessionId, pendingSeq) &&
             (!touchesPrimary || $activeSessionId.get() === liveSessionId)
 
@@ -740,7 +760,7 @@ export function useModelControls({
             return false
           }
 
-          settleModelPick(liveSessionId, pickToken, true)
+          settleModelPick(pickKey, pickToken, true)
           // The pick stays painted and runs at the next turn — the effort
           // pill must follow it now, or it would show the outgoing model's
           // level against a model that no longer uses it. The switch WAS
@@ -758,7 +778,7 @@ export function useModelControls({
         const stillPending = pendingModelPickSeqMatches(liveSessionId, pendingSeq)
 
         const abandoned =
-          isPickSuperseded(liveSessionId, pickToken) || (touchesPrimary && $activeSessionId.get() !== liveSessionId)
+          isPickSuperseded(pickKey, pickToken) || (touchesPrimary && $activeSessionId.get() !== liveSessionId)
 
         const restored = settleUnapplied()
 

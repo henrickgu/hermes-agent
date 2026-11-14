@@ -1609,6 +1609,9 @@ export const ptOverrides = {
       alwaysExternalLinksDesc: "Abre todos os links em que você clicar no navegador do sistema, em vez do navegador integrado. A opção “Abrir no navegador integrado” do menu de contexto continua funcionando.",
       voiceShortcutHintTitle: "Atalho de gravação de voz",
       voiceShortcutHintDesc: "Defina o atalho de gravação de voz em Configurações → Atalhos de teclado (“Iniciar / parar conversa por voz”). A opção voice.record_key vale apenas para a CLI e a TUI.",
+      desktopReadAloudTitle: "Ler respostas em voz alta neste app",
+      desktopReadAloudDesc:
+        "Fala cada resposta concluída no Desktop. Mesma chave do botão do compositor; vale para todas as janelas abertas, e desligar interrompe a resposta no meio da frase. “Ler respostas em voz alta” abaixo vale para mensagens e a CLI.",
     },
     quickEntry: {
       enabledTitle: "Entrada rápida",
@@ -3564,7 +3567,10 @@ export const ptOverrides = {
       backup: "Criar backup",
       backupDesc: "Compacta config, memórias, skills e sessões",
       debugShare: "Compartilhar debug",
-      debugShareDesc: "Envia relatório redigido + logs, gera links compartilháveis (auto-expira em 6h)",
+      debugShareDesc: "Envia um resumo (versões, chaves de config, contagens de erros; sem texto de log), gera link compartilhável (auto-expira em 6h)",
+      debugShareConfirm: "Enviar relatório de diagnóstico para um paste público?",
+      debugShareConfirmDesc:
+        "Envia um resumo para um serviço de paste público: versões do Hermes, Python e sistema, nomes das plataformas e ferramentas conectadas, nomes das chaves de config (sem valores) e contagens de avisos/erros. Não contém linhas de log nem texto de mensagens. Pastes expiram sozinhos após 6 horas; se o paste.rs estiver inacessível, o fallback dpaste.com os mantém públicos por 1 dia, sem exclusão antecipada.",
       debugShareRunning: "Enviando relatório de debug...",
       debugShareLinks: "Links de compartilhamento",
       debugShareFailed: "Falha no compartilhamento de debug",
@@ -3915,6 +3921,14 @@ export const ptOverrides = {
     fieldSkillsPlaceholder: "nomes de skills separados por vírgula (opcional)",
     fieldDeliver: "Entregar em",
     fieldDeliverOnly: "Entregar apenas payload",
+    fieldSignature: "Assinatura",
+    fieldSignatureHint: "Único esquema de assinatura que esta rota aceita. Entregas do GitHub, GitLab e Linear exigem pin próprio.",
+    signatureOptions: {
+      generic: "Genérica (com timestamp)",
+      github: "GitHub",
+      gitlab: "GitLab",
+      linear: "Linear"
+    },
     fieldPrompt: "Instrução",
     fieldPromptPlaceholder: "Instruções para o agente quando este webhook disparar (opcional)",
     nameRequired: "Nome obrigatório",

@@ -100,7 +100,7 @@ export async function desktopSessionCreateParams(
   legacyProfileIntent = false,
   includeComposerSelection = true
 ): Promise<Record<string, unknown>> {
-  // Treat Send as the linearization point for the visible selector state. The
+  // Treat Send as the linearization point for the user's sticky selection. The
   // profile handshake below can yield long enough for background config/model
   // refreshes to finish; reading atoms afterward would silently create the
   // session with a different selection than the one the user submitted.

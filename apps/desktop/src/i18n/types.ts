@@ -1366,6 +1366,8 @@ export interface Translations extends NoticeTranslations {
       attachmentSizeLabel: string
       voiceShortcutHintTitle: string
       voiceShortcutHintDesc: string
+      desktopReadAloudTitle: string
+      desktopReadAloudDesc: string
       poolLimits: {
         warmTitle: string
         warmDesc: string
@@ -2658,6 +2660,8 @@ export interface Translations extends NoticeTranslations {
       backupDesc: string
       debugShare: string
       debugShareDesc: string
+      debugShareConfirm: string
+      debugShareConfirmDesc: string
       debugShareRunning: string
       debugShareLinks: string
       debugShareFailed: string
@@ -2865,6 +2869,9 @@ export interface Translations extends NoticeTranslations {
     fieldSkillsPlaceholder: string
     fieldDeliver: string
     fieldDeliverOnly: string
+    fieldSignature: string
+    fieldSignatureHint: string
+    signatureOptions: Record<string, string>
     fieldPrompt: string
     fieldPromptPlaceholder: string
     nameRequired: string
