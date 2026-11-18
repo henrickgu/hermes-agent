@@ -117,7 +117,7 @@ def _cfgset_model_ok(rid, key, value, warning="", confirm_message="", scope="ses
                confirm_message=confirm_message, scope=scope, **extra)
 
 
-def _stash_pending_model_switch(rid, key, value, session, confirmed, parsed, sid=""):
+def _stash_pending_model_switch(rid, key, value, session, confirmed, parsed):
     """No live swap while a turn streams (agent.switch_model() mutates fields the worker thread
     reads every iteration): stash the pick for the NEXT turn start. Selection guards run HERE (the
     only moment a confirm round-trip is possible; an unconfirmed stashed pick is dropped at turn
@@ -147,52 +147,10 @@ def _stash_pending_model_switch(rid, key, value, session, confirmed, parsed, sid
         pending_warning = _pending_switch_selection_warning(pending_model, guard_provider, agent)
         if pending_warning is not None:
             return _cfgset_model_ok(rid, key, pending_model, pending_warning, pending_warning, deferred=False)
-    # Canonical dry-run resolution: aliases, provider inference,
-    # endpoint and expensive-model confirmation all match the
-    # real switch path, without touching the in-flight agent.
-    with _session_profile_runtime_scope(session):
-        resolved_route = _apply_model_switch(
-            sid,
-            session,
-            value,
-            confirm_expensive_model=confirmed,
-            pin_session_override=False,
-            parsed_flags=parsed,
-            resolve_only=True,
-        )
-    if resolved_route.get("confirm_required"):
-        return _cfgset_model_ok(
-            rid, key,
-            resolved_route.get("value") or pending_model,
-            resolved_route.get("warning") or "",
-            resolved_route.get("confirm_message") or "",
-            scope="session", deferred=False,
-        )
-    pending_model = str(resolved_route.get("model") or pending_model)
-    pending_provider = str(resolved_route.get("provider") or pending_provider)
-    intent_revision = uuid.uuid4().hex
-    resolved_route["revision"] = intent_revision
     # display_*: _session_info shows the user's pick while pending, not the live old model.
     session["pending_model_switch"] = {
-        "revision": intent_revision,
         "raw": value, "confirm_expensive_model": confirmed,
         "display_model": pending_model, "display_provider": pending_provider}
-    # Durable copy: a serve restart between the pick and the
-    # next turn used to silently drop it (GLM→SOL incident) —
-    # rehydrated at turn start, deleted once applied.
-    _persist_pending_model_switch(
-        session, session["pending_model_switch"]
-    )
-    # Durable last-write-wins intent for the separate messaging
-    # gateway. It contains no credentials; the gateway resolves
-    # them inside the owning profile before the next turn.
-    _persist_gateway_model_intent(session, resolved_route)
-    if session.get("agent") is not None:
-        _emit(
-            "session.info",
-            sid,
-            _session_info(session["agent"], session),
-        )
     return _cfgset_model_ok(rid, key, pending_model, deferred=True)
 
 
@@ -230,14 +188,8 @@ def _set_model(rid, params, key, value, session):
         # turn) on the old model: checkmark shows the pick, requests keep the old
         # model. The stash crosses the boundary in the turn frame and the child's
         # turn thread applies it (_apply_pending_model_switch).
-        # Release stale ownership only on this mutating route, under the history
-        # lock. A read-only predicate must not remove a dispatch's ownership pin.
-        if not session.get("running") and session.get("_compute_host_active"):
-            _release_stale_compute_host_ownership(session)
-        # If ownership survived that check, keep deferring even if the host dies
-        # now. A second liveness read could otherwise switch a second local agent.
         if session.get("running") or session.get("_compute_host_active"):
-            return _stash_pending_model_switch(rid, key, value, session, confirmed, parsed_flags, sid=sid)
+            return _stash_pending_model_switch(rid, key, value, session, confirmed, parsed_flags)
         explicit_provider = parsed_flags.explicit_provider
         failed_agent_init = session.get("agent") is None and session.get("agent_error") is not None
         failed_ready = session.get("agent_ready") if failed_agent_init else None

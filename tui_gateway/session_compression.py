@@ -193,170 +193,6 @@ def _sync_agent_compression_with_config(sid: str, session: dict) -> None:
         logger.warning("Could not apply live compression config for %s: %s", sid, e)
 
 
-def _pending_switch_meta_key(session_key: str) -> str:
-    return f"pending_model_switch:{session_key}"
-
-
-def _gateway_model_intent_meta_key(session_key: str) -> str:
-    return f"gateway_model_intent:{session_key}"
-
-
-def _gateway_route_session_key(session: dict, db) -> str | None:
-    """Resolve a mirrored Desktop row to its canonical ``agent:...`` key."""
-    candidate = str(session.get("session_key") or "").strip()
-    if candidate.startswith("agent:"):
-        return candidate
-    if not candidate or db is None or not hasattr(db, "get_session"):
-        return None
-    try:
-        record = db.get_session(candidate) or {}
-    except Exception:
-        logger.debug("failed to resolve gateway routing key", exc_info=True)
-        return None
-    route_key = str(record.get("session_key") or "").strip()
-    return route_key if route_key.startswith("agent:") else None
-
-
-def _persist_gateway_model_intent(session: dict, route: dict) -> None:
-    """Publish the newest non-secret route in the owning profile database."""
-    model = str(route.get("model") or route.get("value") or "").strip()
-    if not model:
-        return
-    payload = {
-        "revision": str(route.get("revision") or uuid.uuid4().hex),
-        "model": model,
-        "provider": str(route.get("provider") or "").strip(),
-        "base_url": str(route.get("base_url") or "").strip(),
-    }
-    with _session_db(session) as db:
-        route_key = _gateway_route_session_key(session, db)
-        if db is not None and route_key:
-            db.set_meta(
-                _gateway_model_intent_meta_key(route_key),
-                json.dumps(payload, separators=(",", ":")),
-            )
-
-
-def _clear_gateway_model_intent(session: dict) -> None:
-    with _session_db(session) as db:
-        route_key = _gateway_route_session_key(session, db)
-        if db is not None and route_key and hasattr(db, "delete_meta"):
-            db.delete_meta(_gateway_model_intent_meta_key(route_key))
-
-
-def _pending_switch_storage_key(session: dict, db) -> str | None:
-    return _gateway_route_session_key(session, db) or str(
-        session.get("session_key") or ""
-    ).strip() or None
-
-
-def _persist_pending_model_switch(session: dict, pending: dict) -> None:
-    # Persist a busy-session switch in the owning profile database.
-    with _session_db(session) as db:
-        storage_key = _pending_switch_storage_key(session, db)
-        if db is None or not storage_key or not hasattr(db, "set_meta"):
-            return
-        try:
-            db.set_meta(
-                _pending_switch_meta_key(storage_key),
-                json.dumps(
-                    {
-                        "revision": str(pending.get("revision") or ""),
-                        "raw": str(pending.get("raw") or ""),
-                        "confirm_expensive_model": bool(
-                            pending.get("confirm_expensive_model")
-                        ),
-                        "display_model": str(pending.get("display_model") or ""),
-                        "display_provider": str(pending.get("display_provider") or ""),
-                    }
-                ),
-            )
-        except Exception:
-            logger.debug("failed to persist pending model switch", exc_info=True)
-
-
-def _clear_persisted_pending_model_switch(
-    session: dict, *, expected_revision: str | None = None
-) -> None:
-    with _session_db(session) as db:
-        storage_key = _pending_switch_storage_key(session, db)
-        if db is None or not storage_key or not hasattr(db, "delete_meta"):
-            return
-        key = _pending_switch_meta_key(storage_key)
-        try:
-            if not expected_revision:
-                db.delete_meta(key)
-                return
-            raw = db.get_meta(key)
-            if not raw:
-                return
-            data = json.loads(raw)
-            if str(data.get("revision") or "") != expected_revision:
-                return
-            db.delete_meta_if_value(key, raw)
-        except Exception:
-            logger.debug("failed to clear persisted pending model switch", exc_info=True)
-
-
-def _migrate_persisted_pending_model_switch(
-    old_key: str, new_key: str, session: dict
-) -> None:
-    # Gateway sessions use a stable agent:... key; local sessions rotate ids.
-    old_key = str(old_key or "").strip()
-    new_key = str(new_key or "").strip()
-    if not old_key or not new_key or old_key == new_key:
-        return
-    with _session_db(session) as db:
-        if _gateway_route_session_key(session, db):
-            return
-        if db is None or not hasattr(db, "get_meta") or not hasattr(db, "set_meta"):
-            return
-        old_meta = _pending_switch_meta_key(old_key)
-        try:
-            value = db.get_meta(old_meta)
-            if not value:
-                return
-            db.set_meta(_pending_switch_meta_key(new_key), value)
-            if hasattr(db, "delete_meta"):
-                db.delete_meta(old_meta)
-        except Exception:
-            logger.debug("failed to migrate persisted pending model switch", exc_info=True)
-
-
-def _rehydrate_pending_model_switch(session: dict) -> None:
-    # Restore a queued switch from the owning profile database.
-    if (
-        session.get("pending_model_switch")
-        or session.get("_pending_model_switch_consuming")
-    ):
-        return
-    with _session_db(session) as db:
-        storage_key = _pending_switch_storage_key(session, db)
-        if db is None or not storage_key or not hasattr(db, "get_meta"):
-            return
-        try:
-            raw_value = db.get_meta(_pending_switch_meta_key(storage_key))
-            if not raw_value:
-                return
-            data = json.loads(raw_value)
-            if not isinstance(data, dict) or not str(data.get("raw") or "").strip():
-                return
-            session["pending_model_switch"] = {
-                "revision": str(data.get("revision") or ""),
-                "raw": str(data.get("raw") or ""),
-                "confirm_expensive_model": bool(data.get("confirm_expensive_model")),
-                "display_model": str(data.get("display_model") or ""),
-                "display_provider": str(data.get("display_provider") or ""),
-            }
-            logger.info(
-                "Rehydrated persisted pending model switch for %s: %s",
-                storage_key,
-                data.get("raw"),
-            )
-        except Exception:
-            logger.debug("failed to rehydrate pending model switch", exc_info=True)
-
-
 def _apply_pending_model_switch(sid: str, session: dict) -> None:
     """Apply a model switch queued (``session["pending_model_switch"]``) while a turn was running. Runs on
     the TURN thread at turn start — nothing in flight — so the in-place swap (client rebuild) is safe. A
@@ -369,34 +205,25 @@ def _apply_pending_model_switch(sid: str, session: dict) -> None:
     if not pending or session.get("agent") is None:
         return
     model = pending.get("display_model") or pending["raw"]
-    session["_pending_model_switch_consuming"] = True
-    text = None
     try:
-        result = _apply_model_switch(
-            sid, session, pending["raw"],
-            confirm_expensive_model=bool(pending.get("confirm_expensive_model")),
-            pending_revision_to_consume=str(pending.get("revision") or "") or None,
-        )
-        if result.get("confirm_required"):
-            detail = result.get("confirm_message") or result.get("warning") or ""
-            logger.warning("Queued model switch to %s dropped for session %s: %s", model, sid, detail.split("\n", 1)[0])
-            current = getattr(session["agent"], "model", "") or "the current model"
-            text = f"Stayed on {current}: switching to {model} needs confirmation. Pick it again to confirm."
-        # A completed switch or rejected unconfirmed pick consumes only THIS revision.
-        # Exceptions keep the durable intent for a later turn; a newer pick must survive.
-        _clear_persisted_pending_model_switch(
-            session, expected_revision=str(pending.get("revision") or "") or None,
-        )
+        result = _apply_model_switch(sid, session, pending["raw"], confirm_expensive_model=bool(pending.get("confirm_expensive_model")))
+        # Honour the expensive-model confirm: drop the switch rather than spend on a model the user
+        # never confirmed.
+        if not result.get("confirm_required"):
+            return
+        detail = result.get("confirm_message") or result.get("warning") or ""
+        logger.warning("Queued model switch to %s dropped for session %s: %s", model, sid, detail.split("\n", 1)[0])
+        current = getattr(session["agent"], "model", "") or "the current model"
+        # One line: the TUI status bar truncates and the Desktop toast collapses newlines. The full
+        # guard text comes back in the confirm prompt when the user picks it again.
+        text = f"Stayed on {current}: switching to {model} needs confirmation. Pick it again to confirm."
     except Exception as e:
         logger.warning("Queued model switch to %s failed for session %s: %s", model, sid, e)
         text = f"Could not switch model: {e}"
-    finally:
-        session.pop("_pending_model_switch_consuming", None)
-    if text is not None:
-        _emit("notification.show", sid, {
-            "text": text.rstrip(), "level": "warn", "kind": "ttl", "ttl_ms": 12000,
-            "key": "model_switch.dropped", "id": "model_switch.dropped"})
-        _emit_session_info(sid, session)
+    _emit("notification.show", sid, {
+        "text": text.rstrip(), "level": "warn", "kind": "ttl", "ttl_ms": 12000,
+        "key": "model_switch.dropped", "id": "model_switch.dropped"})
+    _emit_session_info(sid, session)
 
 
 class CompressionLockHeld(Exception):
@@ -517,14 +344,6 @@ def _sync_session_key_after_compress(
     session["_queued_prompt_generation"] = int(session.get("_queued_prompt_generation", 0)) + 1
     if clear_pending_title:
         session["pending_title"] = None
-    # A queued model switch is persisted under the OLD session id; migrate
-    # the durable copy so the next turn's rehydrate (keyed on the rotated
-    # session_key) still finds it. In-memory copy rides the session dict
-    # unchanged.
-    try:
-        _migrate_persisted_pending_model_switch(old_key, new_session_id, session)
-    except Exception:
-        logger.debug("pending model switch migration failed", exc_info=True)
     if restart_slash_worker:
         with contextlib.suppress(Exception):
             _restart_slash_worker(sid, session)

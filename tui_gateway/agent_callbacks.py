@@ -614,12 +614,6 @@ def _reset_session_agent(sid: str, session: dict) -> dict:
         # resurrect them. Global process state is never touched (see _apply_model_switch).
         for k in ("model_override", "create_reasoning_override", "create_service_tier_override", "one_turn_model_restore"):
             session.pop(k, None)
-        # A queued pick belongs to the OLD conversation too — without this
-        # the durable copy would resurrect it on the fresh session's first
-        # turn.
-        session.pop("pending_model_switch", None)
-        _clear_persisted_pending_model_switch(session)
-        _clear_gateway_model_intent(session)
         new_agent = _rebuild_session_agent(
             sid, session, session_id=session["session_key"],
             platform_override=_session_source(session),

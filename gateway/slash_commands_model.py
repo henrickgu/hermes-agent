@@ -298,20 +298,6 @@ class GatewayModelCommandsMixin:
                 )
             except Exception:
                 logger.debug("Failed to persist session model override", exc_info=True)
-            else:
-                # Custom: a channel-side /model is newer than any queued
-                # Desktop pick for this same route — drop the stale intent.
-                try:
-                    from hermes_state_registry import get_shared_session_db
-
-                    _intent_db = get_shared_session_db()
-                    _intent_db.delete_meta(f"gateway_model_intent:{ctx.session_key}")
-                    _intent_db.delete_meta(f"pending_model_switch:{ctx.session_key}")
-                except Exception:
-                    logger.debug(
-                        "Failed to clear superseded Desktop model intent",
-                        exc_info=True,
-                    )
         self._evict_cached_agent(ctx.session_key)  # next turn builds fresh from the override
         return global_error
 

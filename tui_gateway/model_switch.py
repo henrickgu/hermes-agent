@@ -298,9 +298,7 @@ LARGE_MODEL_NOTICE_KEY = "model.large_notice"
 def _apply_model_switch(
     sid: str, session: dict, raw_input: str, *, confirm_expensive_model: bool = False,
     pin_session_override: bool = True, parsed_flags: Any | None = None,
-    persist_override: bool | None = None, count_switch: bool = True,
-    resolve_only: bool = False,
-    pending_revision_to_consume: str | None = None) -> dict:
+    persist_override: bool | None = None, count_switch: bool = True) -> dict:
     """``count_switch=False``: an internal swap (config adoption, MoA one-shot and its restore), not a
     user's /model pick, so it stays out of the shared-metrics switch count."""
     from hermes_cli.model_switch import parse_model_switch_args, switch_model
@@ -329,11 +327,7 @@ def _apply_model_switch(
         raw_input=model_input, current_provider=current_provider, current_model=current_model,
         current_base_url=current_base_url, current_api_key=current_api_key, is_global=persist_global,
         explicit_provider=explicit_provider, user_providers=user_provs,
-        custom_providers=custom_provs,
-        # Dry-run (queued mid-turn pick): skip network metadata lookups — the
-        # RPC worker must not block seconds on a cold models.dev fetch while a
-        # turn streams; the real switch at turn start re-resolves everything.
-        metadata_allow_network=not resolve_only)
+        custom_providers=custom_provs)
     if not result.success:
         raise ValueError(result.error_message or "model switch failed")
     if persist_global:  # the exact plan, incl. conditional clears: still before any confirm or commit
@@ -345,19 +339,6 @@ def _apply_model_switch(
         confirm = _expensive_model_confirm(result, current_base_url, current_api_key, agent)
         if confirm is not None:
             return confirm
-    if resolve_only:
-        # Resolve/validate through the canonical pipeline without touching the
-        # live agent. Used when a busy turn queues a switch for later and when
-        # publishing a non-secret route intent to the messaging gateway.
-        return {
-            "value": result.new_model,
-            "model": result.new_model,
-            "provider": result.target_provider,
-            "base_url": result.base_url or current_base_url,
-            "api_mode": result.api_mode,
-            "confirm_required": False,
-        }
-
     records_composer_override = (
         pin_session_override and isinstance(session, dict) and not one_turn
         and not persist_global and session.get("follow_profile_config"))
@@ -385,34 +366,6 @@ def _apply_model_switch(
         session["model_override"] = {
             "model": result.new_model, "provider": result.target_provider,
             "base_url": result.base_url, "api_key": result.api_key, "api_mode": result.api_mode}
-        # Publish only the resolved non-secret route. The messaging gateway
-        # consumes this durable intent before each turn and resolves credentials
-        # inside the owning profile scope.
-        _persist_gateway_model_intent(
-            session,
-            {
-                "model": result.new_model,
-                "provider": result.target_provider or "",
-                "base_url": result.base_url or "",
-            },
-        )
-        # A successful immediate pick supersedes an older queue. During queued
-        # application, consume only the revision actually being applied so a
-        # concurrently selected newer model survives.
-        live_pending = session.get("pending_model_switch")
-        if pending_revision_to_consume:
-            if (
-                isinstance(live_pending, dict)
-                and str(live_pending.get("revision") or "")
-                == pending_revision_to_consume
-            ):
-                session.pop("pending_model_switch", None)
-            _clear_persisted_pending_model_switch(
-                session, expected_revision=pending_revision_to_consume
-            )
-        else:
-            session.pop("pending_model_switch", None)
-            _clear_persisted_pending_model_switch(session)
     if persist_global:
         from hermes_cli.model_switch import persist_model_selection
         persist_model_selection(result)
