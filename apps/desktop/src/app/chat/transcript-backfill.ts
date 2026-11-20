@@ -21,6 +21,7 @@ import {
   dropReceiptTurnsThePageHolds
 } from '@/app/chat/transcript-receipt-turns'
 import { transcriptRowIds } from '@/app/session/hooks/use-session-actions/pending-turn-identity'
+import { textWithoutReferenceLines } from '@/components/assistant-ui/reference-kinds'
 import { getOlderSessionMessages, getSessionMessages, type ProfileScope } from '@/hermes'
 import { type ChatMessage, chatMessageText, toChatMessages } from '@/lib/chat-messages'
 import {
@@ -300,6 +301,64 @@ interface StoredRowSlot {
   leading: ChatMessage[]
 }
 
+const toolCallIds = (messages: ChatMessage[]): Set<string> =>
+  new Set(
+    messages.flatMap(message =>
+      message.parts.flatMap(part => (part.type === 'tool-call' && part.toolCallId ? [part.toolCallId] : []))
+    )
+  )
+
+/**
+ * Index of the page's copy of the turn still running in the window, else -1.
+ *
+ * The completion receipt binds the prompt to its stored row only when the turn
+ * settles; until then the optimistic prompt has no row id. A refresh that runs
+ * mid-turn therefore re-reads that prompt (and the rows already flushed for it)
+ * from the page while the window keeps its own live copy, and the overlap merge
+ * used to append the window copy below the page: the prompt and its tool rows
+ * rendered twice although `state.db` held one turn. Tool-call ids are the
+ * turn's identity here — they are unique per call — so a page whose last prompt
+ * has the same text AND shares a call with the window's live tail is that same
+ * turn, and the window (which holds more of it) wins.
+ */
+function pageCopyOfLiveTailTurn(previous: ChatMessage[], refreshedTail: ChatMessage[]): number {
+  const livePrompt = previous.findLastIndex(message => message.role === 'user' && message.rowId === undefined)
+
+  if (livePrompt < 0) {
+    return -1
+  }
+
+  const tail = previous.slice(livePrompt + 1)
+
+  if (!tail.some(message => message.rowId === undefined || message.pending || message.interim)) {
+    return -1
+  }
+
+  const pageRows = new Set(refreshedTail.flatMap(transcriptRowIds))
+
+  // The window's stored rows of this turn must be exactly the page's rows: a
+  // stored row the page does not carry is newer evidence, not a stale copy.
+  if (tail.some(message => message.rowId !== undefined && !pageRows.has(message.rowId))) {
+    return -1
+  }
+
+  const prompt = textWithoutReferenceLines(chatMessageText(previous[livePrompt])).trim()
+  const pagePrompt = refreshedTail.findLastIndex(message => message.role === 'user')
+
+  if (!prompt || pagePrompt < 0) {
+    return -1
+  }
+
+  if (textWithoutReferenceLines(chatMessageText(refreshedTail[pagePrompt])).trim() !== prompt) {
+    return -1
+  }
+
+  const liveCalls = toolCallIds(tail)
+  const pageCalls = toolCallIds(refreshedTail.slice(pagePrompt))
+
+  return [...pageCalls].some(id => liveCalls.has(id)) ? pagePrompt : -1
+}
+
 /**
  * Stored-id merge for a page that overlaps the window but does not anchor in
  * front of it. A row with no stored id travels with the next stored row after
@@ -313,10 +372,24 @@ function mergeOverlappingTail(previous: ChatMessage[], refreshedTail: ChatMessag
     return refreshedTail
   }
 
-  const refreshedIds = new Set(refreshedTail.map(message => message.id))
+  // A refresh that lands inside the running turn re-reads that turn from the
+  // page. The window draws the same turn with more of it, so the page's copy is
+  // superseded (everything older than the turn still travels).
+  const liveTailPageStart = pageCopyOfLiveTailTurn(previous, refreshedTail)
+
+  if (liveTailPageStart === 0) {
+    return previous
+  }
+
+  const page =
+    liveTailPageStart > 0 && sharesDurableRow(previous, refreshedTail.slice(0, liveTailPageStart))
+      ? refreshedTail.slice(0, liveTailPageStart)
+      : refreshedTail
+
+  const refreshedIds = new Set(page.map(message => message.id))
   const refreshedBySource = new Map<number, ChatMessage>()
 
-  for (const message of refreshedTail) {
+  for (const message of page) {
     for (const rowId of transcriptRowIds(message)) {
       refreshedBySource.set(rowId, message)
     }
@@ -325,7 +398,7 @@ function mergeOverlappingTail(previous: ChatMessage[], refreshedTail: ChatMessag
   const byRowId = new Map<number, StoredRowSlot>()
   // A turn the page holds whole is the page's to draw, whatever stored ids
   // its live rows managed to bind (see transcript-receipt-turns).
-  const receiptDrop = dropReceiptTurnsThePageHolds(previous, refreshedTail)
+  const receiptDrop = dropReceiptTurnsThePageHolds(previous, page)
   // Local notices of a dropped turn, keyed by the page row they precede.
   const anchored = new Map<number, ChatMessage[]>()
 
@@ -397,7 +470,7 @@ function mergeOverlappingTail(previous: ChatMessage[], refreshedTail: ChatMessag
     false
   )
 
-  const freshRows = dropPageRowsOfStoppedTurns(previous, dropPageFoldsCutByTheBoundary(previous, refreshedTail))
+  const freshRows = dropPageRowsOfStoppedTurns(previous, dropPageFoldsCutByTheBoundary(previous, page))
   const refreshedTrailing = place(freshRows, true)
 
   const stored = [...byRowId.entries()]
