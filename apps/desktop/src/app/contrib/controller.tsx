@@ -99,6 +99,7 @@ import { isBrowserWindow, isHudWindow } from '@/store/windows'
 
 import { BrowserPopoutShell } from '../chat/browser-popout-shell'
 import type { SessionDragPayload } from '../chat/composer/inline-refs'
+import { NewSessionCreatingNotice } from '../chat/new-session-creating-notice'
 import { watchPreviewTiles } from '../chat/preview-tile'
 import { watchRouteTiles } from '../chat/route-tile'
 import { startSessionDrag } from '../chat/session-drag'
@@ -843,6 +844,7 @@ export function ContribController() {
               renders nothing while none are registered. */}
           <Butterbar />
           <TermsButterbar />
+          <NewSessionCreatingNotice />
           {statusbarVisible && <WiredPane part="statusbar" />}
         </div>
       </ContribWiring>

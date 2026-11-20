@@ -4759,6 +4759,7 @@ export interface Translations extends NoticeTranslations {
     audioReadFailed: string
     sessionUnavailable: string
     createSessionFailed: string
+    newSessionCreating: string
     promptFailed: string
     providerCredentialRequired: string
     emptySlashCommand: string

@@ -413,6 +413,7 @@ export const zhHantChat = {
     audioReadFailed: '無法讀取錄製的音訊',
     sessionUnavailable: '工作階段不可用',
     createSessionFailed: '無法建立新工作階段',
+    newSessionCreating: '正在建立新工作階段…',
     promptFailed: '提示詞傳送失敗',
     providerCredentialRequired: '傳送第一則訊息前請先新增提供方憑證。',
     emptySlashCommand: '空的斜線指令',

@@ -12,6 +12,7 @@ import { createClientSessionState } from '@/lib/chat-runtime'
 import { clearSessionDraft, freshDraftScope } from '@/store/composer'
 import { $defaultProfileRoute, setDefaultProfile } from '@/store/default-profile'
 import { requestGatewayForAgent } from '@/store/gateway'
+import { resetNewSessionCreatesForTests } from '@/store/new-session-create'
 import { $activeGatewayProfile, $newChatConnectionId, $newChatProfile, $newChatRoute } from '@/store/profile'
 import { $projectScope, ALL_PROJECTS } from '@/store/project-scope'
 import * as session from '@/store/session'
@@ -61,7 +62,7 @@ const OLD = { connectionId: 'old-host', profile: 'old-profile' }
 const NEW = { connectionId: 'new-host', profile: 'new-profile' }
 
 /** The real hook, with the window's runtime cache backed by the real store. */
-function mountPlus() {
+function mountActions() {
   const ref = <T,>(current: T) => ({ current })
 
   const updateSessionState = (id: string, updater: (state: ClientSessionState) => ClientSessionState) => {
@@ -93,7 +94,20 @@ function mountPlus() {
     })
   )
 
+  return result
+}
+
+function mountPlus() {
+  const result = mountActions()
+
   return () => openNewSessionTab(result.current.openNewSessionTile)
+}
+
+/** The sidebar "+" over a loaded chat: it calls the tile create directly. */
+function mountOpenTile() {
+  const result = mountActions()
+
+  return (dir: 'center' = 'center') => void result.current.openNewSessionTile(dir, { cwd: null, listed: false })
 }
 
 /** Each session.create answers only when the test releases it. */
@@ -116,6 +130,7 @@ const creates = () => vi.mocked(requestGatewayForAgent).mock.calls.filter(call =
 const flush = () => act(async () => new Promise(resolve => setTimeout(resolve, 0)))
 
 function reset() {
+  resetNewSessionCreatesForTests()
   states.$sessionTiles.get().forEach(tile => states.discardSessionTile(tile.storedSessionId))
   states.$sessionStates.set({})
   tree.$layoutTree.set(null)
@@ -232,5 +247,88 @@ describe('the registered New session "+" action (#145594)', () => {
     plus()
     await flush()
     expect(creates()).toHaveLength(2)
+  })
+})
+
+describe('a direct tile create is single-flight', () => {
+  const createParams = (index: number) => creates()[index][3] as Record<string, unknown>
+
+  it('joins the create already in flight for the same intent instead of minting a twin', async () => {
+    const releases = holdCreates()
+    const openTile = mountOpenTile()
+
+    openTile()
+    await flush()
+    openTile()
+    openTile()
+    await flush()
+
+    expect(creates()).toHaveLength(1)
+
+    await act(async () => releases.forEach(release => release()))
+    await flush()
+
+    expect(states.$sessionTiles.get().map(tile => tile.storedSessionId)).toEqual(['draft-1'])
+  })
+
+  it('a different intent still gets its own session', async () => {
+    vi.mocked(requestGatewayForAgent).mockResolvedValue({
+      info: {},
+      session_id: 'rt',
+      stored_session_id: 'draft'
+    })
+    const result = mountActions()
+
+    void result.current.openNewSessionTile('center', { cwd: '/work/a', listed: false })
+    await flush()
+    void result.current.openNewSessionTile('center', { cwd: '/work/b', listed: false })
+    await flush()
+
+    expect(creates()).toHaveLength(2)
+  })
+
+  it('retries a FAILED create under the same request id, so the retry resumes it', async () => {
+    vi.mocked(requestGatewayForAgent).mockRejectedValueOnce(new Error('request timed out after 30s: session.create'))
+    const openTile = mountOpenTile()
+
+    openTile()
+    await flush()
+
+    vi.mocked(requestGatewayForAgent).mockResolvedValue({ info: {}, session_id: 'rt', stored_session_id: 'draft' })
+    openTile()
+    await flush()
+
+    expect(creates()).toHaveLength(2)
+    expect(createParams(1).request_id).toBe(createParams(0).request_id)
+  })
+
+  it('rotates the request id after a create lands, so the next "+" is a new session', async () => {
+    vi.mocked(requestGatewayForAgent).mockResolvedValue({ info: {}, session_id: 'rt', stored_session_id: 'draft' })
+    const openTile = mountOpenTile()
+
+    openTile()
+    await flush()
+    openTile()
+    await flush()
+
+    expect(creates()).toHaveLength(2)
+    expect(createParams(1).request_id).not.toBe(createParams(0).request_id)
+  })
+
+  it('rotates the id on a refusal: retrying it would keep the same rejection', async () => {
+    vi.mocked(requestGatewayForAgent).mockRejectedValueOnce(
+      new Error('invalid params for session.create: request_id: a resumed request_id must carry the same frozen request')
+    )
+    const openTile = mountOpenTile()
+
+    openTile()
+    await flush()
+
+    vi.mocked(requestGatewayForAgent).mockResolvedValue({ info: {}, session_id: 'rt', stored_session_id: 'draft' })
+    openTile()
+    await flush()
+
+    expect(creates()).toHaveLength(2)
+    expect(createParams(1).request_id).not.toBe(createParams(0).request_id)
   })
 })

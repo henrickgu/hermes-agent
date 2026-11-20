@@ -44,6 +44,12 @@ import { $gatewaySwitching } from '@/store/gateway-switch'
 import { clearSessionGoal } from '@/store/goals'
 import { $pinnedSessionIds } from '@/store/layout'
 import { getModelPreset } from '@/store/model-presets'
+import {
+  beginNewSessionCreate,
+  createIdWorthReusing,
+  newSessionCreateKey,
+  type NewSessionCreateOutcome
+} from '@/store/new-session-create'
 import { clearNotifications, notify, notifyError } from '@/store/notifications'
 import { adoptDraftPreviewTabs, prunePreviewTabsForSession } from '@/store/preview'
 import {
@@ -1014,6 +1020,21 @@ export function useSessionActions({
     ) => {
       const listed = options?.listed ?? true
 
+      // Every fresh-tile caller (sidebar "+" over a loaded chat, split drops,
+      // ⌘T, the tab strip, project drags) lands here, so this is where repeated
+      // clicks are resolved: the create already in flight for this intent is
+      // joined instead of starting a second one, and a retry after a failure
+      // reuses its request id (the backend derives the session id from it, so
+      // the retry resumes that create rather than minting a twin). Acquired
+      // synchronously, before the first await, or two fast clicks both pass.
+      const createAttempt = beginNewSessionCreate(newSessionCreateKey(dir, options))
+
+      if ('joined' in createAttempt) {
+        return createAttempt.joined
+      }
+
+      let createOutcome: NewSessionCreateOutcome = 'settled'
+
       try {
         // A tile anchored at a project path belongs to the profile the project
         // tree is rendered under — the same owner the fresh-draft "+" pins
@@ -1117,7 +1138,7 @@ export function useSessionActions({
             options?.route === null || defaultTarget?.route === null,
             workspaceScope.workspaceMode !== 'bots'
           )),
-          request_id: randomUuid()
+          request_id: createAttempt.requestId
         }
 
         // Same lease chain as createBackendSessionForSend: owner socket held
@@ -1214,7 +1235,14 @@ export function useSessionActions({
           broadcastSessionsChanged()
         }
       } catch (error) {
+        // A retry under the same id only makes sense when the first attempt
+        // died on the wire; a refusal must rotate the id (see the store).
+        createOutcome = createIdWorthReusing(error) ? 'retry' : 'settled'
         notifyError(error, copy.createSessionFailed)
+      } finally {
+        // Releases the latch on every path, including the early return above:
+        // keeping it would leave the "+" dead until the window reloads.
+        createAttempt.finish(createOutcome)
       }
     },
     [copy, requestGateway, updateSessionState]
