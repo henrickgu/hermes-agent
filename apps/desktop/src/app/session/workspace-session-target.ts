@@ -10,8 +10,9 @@ import {
   setCurrentCwd,
   setNewChatWorkspaceTarget
 } from '@/store/session'
+import { openSessionTile } from '@/store/session-states'
 
-interface WorkspaceSessionOptions {
+export interface WorkspaceSessionOptions {
   activeSessionIdRef: MutableRefObject<string | null>
   followActiveSessionCwd?: (cwd: string) => void | Promise<void>
   onExplicitWorkspace?: (cwd: string) => void
@@ -99,6 +100,32 @@ export function startWorkspaceSession({
         setCurrentBranch('')
       }
     })
+}
+
+/**
+ * "New session" while a chat is already in front: hand main over to the fresh
+ * draft and keep that chat as a tab.
+ *
+ * The eager path (`openNewSessionTile`) can only draw its tab once the backend
+ * answers `session.create` — measured at ~0.9s idle and several seconds while
+ * the gateway is busy, all of it dead air on a click. Main's fresh draft is the
+ * cheap path that already exists: it paints at once and the session is created
+ * by its first message (the composer's create intent). Nothing is discarded:
+ * the chat that was in front becomes a tab, where its runtime keeps streaming.
+ *
+ * `openSessionTile` refuses to tile the session main is showing, and the draft
+ * above clears that selection synchronously — so the handoff lands even though
+ * the same chat was main a moment ago.
+ */
+export function handOffMainToDraft({
+  previousStoredSessionId,
+  ...session
+}: WorkspaceSessionOptions & { previousStoredSessionId: null | string }): void {
+  startWorkspaceSession(session)
+
+  if (previousStoredSessionId) {
+    openSessionTile(previousStoredSessionId, 'center')
+  }
 }
 
 /** The folder is on the owner's machine: resolve it there, and leave this window's project scope

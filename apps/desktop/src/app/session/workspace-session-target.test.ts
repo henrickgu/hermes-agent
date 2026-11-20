@@ -12,10 +12,16 @@ import {
   setCurrentCwd,
   setNewChatWorkspaceTarget
 } from '@/store/session'
+import { openSessionTile } from '@/store/session-states'
 
 import { deferred } from '../../test/deferred'
 
-import { startWorkspaceSession } from './workspace-session-target'
+import { handOffMainToDraft, startWorkspaceSession } from './workspace-session-target'
+
+vi.mock('@/store/session-states', async original => ({
+  ...(await original<Record<string, unknown>>()),
+  openSessionTile: vi.fn()
+}))
 
 describe('startWorkspaceSession', () => {
   afterEach(() => {
@@ -128,5 +134,48 @@ describe('startWorkspaceSession', () => {
     $activeGatewayProfile.set('personal')
 
     expect($newChatProfile.get()).toBe('work')
+  })
+})
+
+describe('handOffMainToDraft', () => {
+  afterEach(() => {
+    vi.mocked(openSessionTile).mockClear()
+    vi.restoreAllMocks()
+  })
+
+  it('hands main to the draft first, then keeps the chat that was in front as a tab', () => {
+    const startFreshSessionDraft = vi.fn()
+
+    handOffMainToDraft({
+      activeSessionIdRef: { current: 'runtime-a' },
+      path: null,
+      previousStoredSessionId: 'stored-a',
+      requestGateway: vi.fn(),
+      startFreshSessionDraft
+    })
+
+    // The draft is what makes the click instant: no session.create before it.
+    expect(startFreshSessionDraft).toHaveBeenCalledTimes(1)
+    expect(openSessionTile).toHaveBeenCalledWith('stored-a', 'center')
+    // openSessionTile refuses the session main is showing, so the draft must
+    // have been handed over first (same tick, in this order).
+    expect(vi.mocked(startFreshSessionDraft).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(openSessionTile).mock.invocationCallOrder[0]!
+    )
+  })
+
+  it('opens just the draft when main held no stored session', () => {
+    const startFreshSessionDraft = vi.fn()
+
+    handOffMainToDraft({
+      activeSessionIdRef: { current: null },
+      path: null,
+      previousStoredSessionId: null,
+      requestGateway: vi.fn(),
+      startFreshSessionDraft
+    })
+
+    expect(startFreshSessionDraft).toHaveBeenCalledTimes(1)
+    expect(openSessionTile).not.toHaveBeenCalled()
   })
 })

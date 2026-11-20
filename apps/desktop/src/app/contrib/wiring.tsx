@@ -26,7 +26,7 @@ import { DesktopOnboardingOverlay } from '@/components/onboarding'
 import { firstRunIntro } from '@/components/onboarding/first-run/kickoff'
 import { OnboardingEnd } from '@/components/onboarding/onboarding-end'
 import { $newSessionTabAction, registerPaneCloser } from '@/components/pane-shell/tree/store'
-import { setWorkspaceScope } from '@/components/pane-shell/workspace-scope'
+import { $workspaceMode, setWorkspaceScope } from '@/components/pane-shell/workspace-scope'
 import { FloatingPet } from '@/components/pet/floating-pet'
 import { RemoteDisplayBanner } from '@/components/remote-display-banner'
 import { SendDiagnosticsHost } from '@/components/send-diagnostics-dialog'
@@ -144,7 +144,7 @@ import { useSessionActions } from '../session/hooks/use-session-actions'
 import { useSessionListActions } from '../session/hooks/use-session-list-actions'
 import { useSessionStateCache } from '../session/hooks/use-session-state-cache'
 import { useTranscriptPeerSync } from '../session/hooks/use-transcript-peer-sync'
-import { startWorkspaceSession } from '../session/workspace-session-target'
+import { handOffMainToDraft, startWorkspaceSession } from '../session/workspace-session-target'
 import { PluginInstallModal } from '../settings/plugin-install-modal'
 import { useOverlayRouting } from '../shell/hooks/use-overlay-routing'
 import { useWindowControlsOverlayWidth } from '../shell/hooks/use-window-controls-overlay-width'
@@ -599,6 +599,27 @@ export function ContribWiring({ children }: { children: ReactNode }) {
       setWorkspaceScope('sessions')
 
       if (options?.openTab && mainChatOccupied(activeSessionIdRef.current, $selectedStoredSessionId.get())) {
+        const previous = $selectedStoredSessionId.get()
+
+        // A draft costs nothing, an eager create costs ~1s (more while the
+        // gateway is busy) before the tab can even appear. Bot Mode has no
+        // main/tile split — its chats are always tiles — so the handoff would
+        // strand the bot chat there and it keeps the eager create.
+        if ($workspaceMode.get() !== 'bots') {
+          handOffMainToDraft({
+            activeSessionIdRef,
+            followActiveSessionCwd,
+            onExplicitWorkspace: restoreWorktree,
+            owner,
+            path,
+            previousStoredSessionId: previous,
+            requestGateway,
+            startFreshSessionDraft
+          })
+
+          return
+        }
+
         void openNewSessionTile('center', {
           cwd: path,
           listed: false,
