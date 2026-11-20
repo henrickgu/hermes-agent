@@ -3,6 +3,7 @@ import { useStore } from '@nanostores/react'
 import { type MutableRefObject, useCallback, useEffect, useRef } from 'react'
 import type { NavigateFunction } from 'react-router'
 
+import { adoptPrimedTranscript, primeRouteTranscript } from '@/app/chat/route-transcript-paint'
 import { NO_PROJECT_ID } from '@/app/chat/sidebar/projects/workspace-groups'
 import {
   extendRefreshPageToOverlap,
@@ -1282,6 +1283,8 @@ export function useSessionActions({
       const routeToken = getRouteToken()
       resumeRequestRef.current = requestId
       const resumedSameSelectedSession = selectedStoredSessionIdRef.current === storedSessionId
+      const latencyStart = performance.now()
+      console.error(`[open-latency #6] resume-entry ${storedSessionId.slice(0, 18)}`)
 
       // A route change is drift only when it leads AWAY from this session. A
       // caller that navigates and resumes in one tick (branch → child) starts
@@ -1451,6 +1454,16 @@ export function useSessionActions({
 
       const sessionRestScope = transcriptRestScope(ownerRoute, storedForProfile, ambientConnectionId)
       provisional.paint(sessionRestScope)
+
+      // One read for both consumers: the route paint may already own it, and
+      // the prefetch below adopts whatever this call started. Idempotent by
+      // (session, owner scope); skipped exactly where the prefetch is skipped
+      // (a watch window mirrors live, an authoritative snapshot ships rows).
+      if (!isWatchWindow() && !options?.authoritativeSnapshot) {
+        primeRouteTranscript(storedSessionId, sessionRestScope)
+      }
+
+      console.error(`[open-latency #7] resolved-profile ${(performance.now() - latencyStart).toFixed(0)}ms`)
 
       await openResumeGateway(resolvedConnectionId, ownerRoute, sessionProfile)
 
@@ -2094,7 +2107,8 @@ export function useSessionActions({
         const prefetchPromise =
           watchWindow || options?.authoritativeSnapshot
             ? null
-            : getLatestSessionMessages(storedSessionId, sessionRestScope)
+            : (adoptPrimedTranscript(storedSessionId, sessionRestScope) ??
+              getLatestSessionMessages(storedSessionId, sessionRestScope))
 
         let resumeRuntimeBaselineMessages: ChatMessage[] = []
         const resumeStartedAt = Date.now() / 1000
@@ -2172,10 +2186,12 @@ export function useSessionActions({
           // The overlap reads await; skip painting if this resume went stale.
           if (isCurrentResume() && !chatMessageArraysEquivalent($messages.get(), localSnapshot)) {
             setMessages(localSnapshot)
+            console.error(`[open-latency #8] resume-paint ${(performance.now() - latencyStart).toFixed(0)}ms`)
           }
         }
 
         const resumed = await resumePromise
+        console.error(`[open-latency #9] attach ${(performance.now() - latencyStart).toFixed(0)}ms`)
 
         const reread = await rereadPageAfterResumeBarrier(resumed, prefetchedPage, storedSessionId, sessionRestScope)
 

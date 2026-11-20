@@ -77,6 +77,7 @@ import { shouldShowIntro } from './intro-visibility'
 import { ProfileTag } from './profile-tag'
 import { ResumeExhaustedOverlay } from './resume-exhausted-overlay'
 import { isRouteSessionMismatch } from './route-session-state'
+import { useRouteTranscriptPaint } from './route-transcript-paint'
 import { useRuntimeMessageRepository } from './runtime-repository'
 import { ScrollToBottomButton } from './scroll-to-bottom-button'
 import { useSessionView } from './session-view'
@@ -626,6 +627,10 @@ const ChatViewContent = memo(function ChatViewContent({
   // A tile IS its session â€” no route involved, never "mismatched".
   const routedSessionId = isPrimary ? routeSessionId(location.pathname) : selectedSessionId
   const isRoutedSessionView = Boolean(routedSessionId)
+
+  // Paint-first: the stored transcript goes up as soon as the route lands,
+  // independent of the attach (`session.resume`) — see the module comment.
+  useRouteTranscriptPaint({ enabled: isPrimary, routedSessionId, transcriptEmpty: messagesEmpty })
 
   // The URL points at a session the store hasn't loaded yet (sidebar / cmd-K /
   // direct nav). Derived in render so the swap reads instantly: the same frame
