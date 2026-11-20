@@ -773,18 +773,32 @@ def _resume_guard(ctx: _Resume) -> dict | None:
 
 
 def _resume_reuse_live(ctx: _Resume, sid: str, session: dict) -> dict:
-    """Reattach an already-live session under the resume lock (held across the client-gone check,
-    transport attach and reap cancel so grace expiry is atomic). _live_session_payload ATTACHES this
-    caller alongside the client(s) already streaming instead of taking the slot from them."""
+    """Reattach an already-live session: the client-gone check and the reap cancel run under the
+    resume lock (grace expiry is atomic); the PAYLOAD build does not.
+
+    ``_session_resume_lock`` is PROCESS-WIDE and only the resume path takes it. Building the
+    payload takes the session's own ``history_lock`` and, without ``omit_messages``, reads the
+    stored lineage — so a running turn persisting a large row while a client opens its chat held
+    every other resume in the process for the duration, and the Desktop gave up at its 30 s
+    request budget (#open-latency). One slow session must never serialize the others."""
     with _session_resume_lock:
-        return _resume_reuse_live_locked(ctx, sid, session)
+        if (refusal := _reattach_refusal(ctx.rid, sid, session)) is not None:
+            return refusal
+        _cancel_ws_orphan_reap(sid)  # unconditionally: the fast path must never race the reap Timer
+    return _resume_reuse_live_payload(ctx, sid, session)
 
 
 def _resume_reuse_live_locked(ctx: _Resume, sid: str, session: dict) -> dict:
-    """Reuse with _session_resume_lock already held (including the eager double-check)."""
+    """Reuse with ``_session_resume_lock`` already held — the EAGER double-check path only (the
+    Desktop never asks for ``eager_build``), so the payload stays inside the lock there."""
     if (refusal := _reattach_refusal(ctx.rid, sid, session)) is not None:
         return refusal
-    _cancel_ws_orphan_reap(sid)  # unconditionally: the fast path must never race the reap Timer
+    _cancel_ws_orphan_reap(sid)
+    return _resume_reuse_live_payload(ctx, sid, session)
+
+
+def _resume_reuse_live_payload(ctx: _Resume, sid: str, session: dict) -> dict:
+    """The reuse payload, built OUTSIDE ``_session_resume_lock`` (see ``_resume_reuse_live``)."""
     payload = _live_session_payload(sid, session, cols=ctx.cols, touch=True, omit_messages=ctx.omit_messages,
                                     transport=current_transport() or _stdio_transport,
                                     inline_images=ctx.inline_images)
@@ -955,6 +969,8 @@ def _resume_eager(ctx: _Resume) -> dict:
 def _(rid, params: dict) -> dict:
     if not (target := params.get("session_id", "")):
         return _err(rid, 4006, "session_id required")
+    started_at = time.perf_counter()
+    branch = "unknown"
     ctx = _Resume(rid, params, target)
     # Profile scope: a DEDICATED handle we own until the agent takes it; else the shared launch db.
     ctx.db, ctx.owns_db = _profile_session_db(ctx.profile_home)
@@ -972,15 +988,29 @@ def _(rid, params: dict) -> dict:
         with _session_resume_lock:  # fast path: reuse a session live IN THIS PROFILE, never another's
             live = _find_live_session_by_key(ctx.target, ctx.profile_home)
         if live is not None:
+            branch = "reuse"
             return _resume_reuse_live(ctx, *live)
         from persistence.conversation.sessions import session_yolo_enabled
         from tools.approval_yolo import restore_session_yolo  # a fresh backend starts with an empty set
         restore_session_yolo(ctx.target, session_yolo_enabled((ctx.found or {}).get("model_config")))
         if ctx.lazy:
+            branch = "lazy"
             return _resume_lazy(ctx)
-        return _resume_eager(ctx) if ctx.eager_build else (
-            _resume_deferred(ctx) if ctx.defer_history else _resume_cold(ctx))
+        if ctx.eager_build:
+            branch = "eager"
+            return _resume_eager(ctx)
+        if ctx.defer_history:
+            branch = "deferred"
+            return _resume_deferred(ctx)
+        branch = "cold"
+        return _resume_cold(ctx)
     finally:
+        # A resume the Desktop waited 30 s for must leave a number behind: the transcript paint is
+        # REST and stays fast, so a slow attach here is the control plane, not the history.
+        elapsed = time.perf_counter() - started_at
+        if elapsed > 2.0:
+            logger.warning("[open-latency] session.resume slow %.1fs branch=%s target=%s",
+                           elapsed, branch, ctx.target[:24])
         # A dedicated profile store this resume still owns is released here; its handle beside it with it.
         if ctx.owns_db and ctx.db is not None:
             with contextlib.suppress(Exception):
