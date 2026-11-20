@@ -4,7 +4,9 @@
 
 import json
 import logging
+import re
 import urllib.request
+from datetime import datetime
 
 from hermes_cli.urllib_security import open_credentialed_url
 from providers import get_provider_profile, register_provider
@@ -14,6 +16,27 @@ logger = logging.getLogger(__name__)
 
 _COMMANDCODE_BASE = "https://api.commandcode.ai/provider/v1"
 _COMMANDCODE_MODELS_URL = f"{_COMMANDCODE_BASE}/models"
+_SUBSCRIPTION_LIMIT = re.compile(r"\breached your (?:5-hour|weekly|monthly) usage limit\b", re.I)
+_ZONED_RESET = re.compile(r"\bresets at (\d{4}-\d{2}-\d{2}t\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:z|[+-]\d{2}:\d{2}))\b", re.I)
+
+
+def _classify_api_error(error, *, status_code, message, **context):
+    """Only a NAMED subscription window is terminal; ``RATE_LIMITED`` alone is ordinary throttling.
+
+    ``ProviderProfile`` is a dataclass whose ``classify_api_error`` field defaults to ``None``, so the
+    hook has to be passed to the constructor — a subclass method with that name is shadowed by the
+    instance attribute ``__init__`` writes.
+    """
+    if status_code != 429 or not _SUBSCRIPTION_LIMIT.search(message or ""):
+        return None
+    details = {"usage_window": True, "quota_exhausted": True}
+    if match := _ZONED_RESET.search(message):
+        try:
+            details["reset_at"] = datetime.fromisoformat(match[1].upper()).timestamp()
+        except ValueError:
+            pass  # The provider's own reset text remains visible even if its timestamp is invalid.
+    return {"reason": "billing", "retryable": False, "should_fallback": False,
+            "should_rotate_credential": False, "error_context": details}
 
 
 class CommandCodeProfile(ProviderProfile):
@@ -83,6 +106,7 @@ commandcode = CommandCodeProfile(
         "xiaomi/mimo-v2.5-pro", "google/gemini-3.5-flash", "gpt-5.5",
     ),
     default_aux_model="deepseek/deepseek-v4-flash",
+    classify_api_error=_classify_api_error,
 )
 
 commandcode_anthropic = CommandCodeAnthropicProfile(
@@ -93,6 +117,7 @@ commandcode_anthropic = CommandCodeAnthropicProfile(
     signup_url="https://commandcode.ai/", base_url=_COMMANDCODE_BASE, models_url=_COMMANDCODE_MODELS_URL,
     fallback_models=("claude-sonnet-4-6", "claude-opus-4-7", "claude-haiku-4-5-20251001"),
     default_aux_model="claude-haiku-4-5-20251001",
+    classify_api_error=_classify_api_error,
 )
 
 register_provider(commandcode)

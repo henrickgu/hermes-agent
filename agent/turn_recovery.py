@@ -663,6 +663,9 @@ def recover_after_classification(
     strip → Anthropic OAuth 1M-beta disable → per-provider 401 credential refresh →
     format-recovery strips.
     Returns ``(retry_now, recovered_with_pool)``; the latter feeds the Nous rate-limit guard."""
+    if status_code == 429 and not classified.retryable and (classified.error_context or {}).get("usage_window"):
+        # A named subscription window is not recoverable by rotating or refreshing a credential.
+        return False, False
     from agent.conversation_loop import _is_nous_inference_route
 
     # The credit-limited 402 clamp runs before pool rotation, which would bench a credential
