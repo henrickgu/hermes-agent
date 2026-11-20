@@ -276,10 +276,12 @@ def _install_session_record_factory() -> None:
         sid = getattr(_session_context, "session_id", None)
         record.session_tag = f" [{sid}]" if sid else ""  # type: ignore[attr-defined]
         # QueueListener formats on its own thread, after the profile-scoped
-        # ContextVar is gone; keep the resolved home on the record so a
-        # multiplex desktop ticker can route to the job owner's files (#97489).
+        # ContextVar is gone; snapshot the home here but let the listener's
+        # profile router resolve it. Filesystem resolution per record can block
+        # the gateway loop on Windows, even when no profile router is enabled.
         try:
-            record.hermes_home = str(get_hermes_home().resolve())  # type: ignore[attr-defined]
+            home = get_hermes_home()
+            record.hermes_home = str(home.absolute())  # type: ignore[attr-defined]
         except Exception:
             record.hermes_home = ""  # type: ignore[attr-defined]
         return record

@@ -110,8 +110,8 @@ def test_repeated_setup_routes_records_once(hermes_home, mode, component, config
 
 
 class TestSetupLogging:
-    def test_profile_routing_follows_context_home(self, hermes_home, tmp_path):
-        """Desktop multiplex cron records are written to their owning profile."""
+    def test_profile_routing_follows_context_home(self, hermes_home, tmp_path, monkeypatch):
+        """Profile log routing resolves the path off the thread producing the record."""
         from hermes_constants import reset_hermes_home_override, set_hermes_home_override
 
         profile_home = tmp_path / "profile-b"
@@ -122,6 +122,16 @@ class TestSetupLogging:
         ) is True
 
         logger = logging.getLogger("cron.scheduler.profile-routing-test")
+        producer = threading.get_ident()
+        resolve = Path.resolve
+        producer_resolutions = []
+
+        def observe_resolution(path, *args, **kwargs):
+            if threading.get_ident() == producer and path == profile_home:
+                producer_resolutions.append(path)
+            return resolve(path, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "resolve", observe_resolution)
         token = set_hermes_home_override(profile_home)
         try:
             logger.info("profile-routed cron record")
@@ -129,6 +139,7 @@ class TestSetupLogging:
             reset_hermes_home_override(token)
         hermes_logging.flush_log_queue()
 
+        assert not producer_resolutions
         assert "profile-routed cron record" in (
             profile_home / "logs" / "agent.log"
         ).read_text(encoding="utf-8-sig")
