@@ -1027,7 +1027,32 @@ export function ContribWiring({ children }: { children: ReactNode }) {
   }, [])
 
   // The tab-strip "+" and ⌘T share one action (see `openNewSessionTab`).
-  const openNewSessionTab = useCallback(() => openNewSessionTabAction(openNewSessionTile), [openNewSessionTile])
+  //
+  // With a chat in front this is the same gesture as the sidebar "+": the user
+  // wants a new session, and waiting ~1s (more under load) for `session.create`
+  // before anything appears is what made it feel stuck. Hand main over to the
+  // cheap draft and keep the chat that was in front as a tab — the draft costs
+  // nothing and its session is created by the first message. A blank main (or a
+  // bot workspace) keeps the old tab behavior below.
+  const openNewSessionTab = useCallback(() => {
+    const previous = $selectedStoredSessionId.get()
+
+    if ($workspaceMode.get() !== 'bots' && mainChatOccupied(activeSessionIdRef.current, previous)) {
+      handOffMainToDraft({
+        activeSessionIdRef,
+        followActiveSessionCwd,
+        onExplicitWorkspace: restoreWorktree,
+        path: '',
+        previousStoredSessionId: previous,
+        requestGateway,
+        startFreshSessionDraft
+      })
+
+      return
+    }
+
+    openNewSessionTabAction(openNewSessionTile)
+  }, [activeSessionIdRef, openNewSessionTile, requestGateway, startFreshSessionDraft])
 
   // Archive the selected session (rebindable `session.archive` hotkey).
   const archiveSelectedSession = useCallback(() => {
