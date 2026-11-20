@@ -8,6 +8,7 @@ staleness state).
 
 import base64
 import errno
+import hashlib
 import json
 import logging
 import os
@@ -118,6 +119,23 @@ def _apply_char_budget(result_dict: dict, content: str, offset: int, total_lines
 
 # Above this size, a wide read (limit > 200) gets a hint toward targeted reads.
 _LARGE_FILE_HINT_BYTES = 512_000
+
+
+def _log_read_budget(result_dict: dict, resolved_path, max_chars: int) -> None:
+    """One structured line per read: how much was returned, whether the char cap bound it, and the
+    continuation offset. The path goes in as a short hash — re-reads of the same file are countable
+    without putting file names (client data) into the logs. Feeds PLANO-medicao-40k.md."""
+    try:
+        digest = hashlib.sha1(str(resolved_path).encode("utf-8", "replace")).hexdigest()[:12]
+        capped = result_dict.get("truncated_by") == "bytes"
+        logger.info(
+            "read_file budget path_hash=%s chars=%d cap=%d capped=%d next_offset=%s",
+            digest, len(result_dict.get("content") or ""), max_chars, int(capped),
+            result_dict.get("next_offset", "-") if capped else "-",
+        )
+    except Exception:
+        logger.debug("read_file budget log failed", exc_info=True)
+
 
 def _file_ops_uses_host_paths(file_ops) -> bool:
     """True when *file_ops* targets the host filesystem (only then may we stat paths
@@ -491,6 +509,7 @@ def _read_extracted_document(path: str, _resolved, offset: int, limit: int, task
     max_chars = _get_max_read_chars()
     if len(result_dict["content"]) > max_chars:
         _apply_char_budget(result_dict, result_dict["content"], offset, total_lines, max_chars)
+    _log_read_budget(result_dict, _resolved, max_chars)
     if result_dict["content"]:
         rendered = result_dict["content"]
         result_dict["content"] = redact_sensitive_text(
@@ -722,6 +741,7 @@ def read_file_tool(path: str, offset: int = 1, limit: int = DEFAULT_READ_LIMIT, 
             result.content = _apply_char_budget(
                 result_dict, result.content or "", offset,
                 result_dict.get("total_lines", "unknown"), max_chars)
+        _log_read_budget(result_dict, resolved_str, max_chars)
         redacted = False
         if result.content:
             unredacted = result.content

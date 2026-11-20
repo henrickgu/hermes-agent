@@ -795,5 +795,62 @@ class TestWriteInvalidatesDedup(unittest.TestCase):
 
 
 
+# ---------------------------------------------------------------------------
+# read_file budget log (measurement, PLANO-medicao-40k.md)
+# ---------------------------------------------------------------------------
+
+def test_read_budget_log_hashes_path_and_names_the_cap(caplog, tmp_path):
+    from tools.file_tools import _log_read_budget
+
+    result = {"content": "x" * 120, "truncated": True, "truncated_by": "bytes", "next_offset": 7}
+    with caplog.at_level("INFO", logger="tools.file_tools"):
+        _log_read_budget(result, tmp_path / "cliente-123.py", 40)
+
+    text = caplog.text
+    assert "read_file budget" in text
+    assert "chars=120" in text and "cap=40" in text
+    assert "capped=1" in text and "next_offset=7" in text
+    assert "path_hash=" in text
+    # O caminho nunca entra em claro: dado de cliente não vai para o log.
+    assert "cliente-123" not in text
+
+
+def test_read_budget_log_marks_uncapped_reads(caplog):
+    from tools.file_tools import _log_read_budget
+
+    with caplog.at_level("INFO", logger="tools.file_tools"):
+        _log_read_budget({"content": "abc", "truncated": False}, "C:/x/y.py", 40)
+
+    text = caplog.text
+    assert "capped=0" in text and "next_offset=-" in text
+
+
+def test_read_file_tool_emits_budget_line_when_the_cap_binds(monkeypatch, caplog, tmp_path):
+    """Wiring: the real read path logs the budget line with the continuation offset."""
+    target = tmp_path / "grande.py"
+    body = ("z" * 200 + "\n") * 40
+    target.write_text(body, encoding="utf-8")
+
+    class _FakeResult:
+        content = body
+
+        def to_dict(self):
+            return {"content": body, "total_lines": 40, "file_size": len(body)}
+
+    fake_ops = MagicMock(env=None)
+    fake_ops.read_file = lambda path, offset=1, limit=500: _FakeResult()
+    monkeypatch.setattr("tools.file_tools._get_file_ops", lambda task_id=None: fake_ops)
+    monkeypatch.setattr("tools.file_tools._get_max_read_chars", lambda: 1000)
+
+    with caplog.at_level("INFO", logger="tools.file_tools"):
+        result = json.loads(read_file_tool(str(target), offset=1, limit=40, task_id="t-budget-log"))
+
+    assert result["truncated_by"] == "bytes"
+    assert result["next_offset"] > 1
+    text = caplog.text
+    assert "read_file budget" in text and "cap=1000" in text and "capped=1" in text
+    assert str(target) not in text  # caminho em claro nunca
+
+
 if __name__ == "__main__":
     unittest.main()
