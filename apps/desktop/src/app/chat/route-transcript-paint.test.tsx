@@ -8,7 +8,7 @@ import type * as HermesApi from '@/hermes'
 import type * as ChatMessages from '@/lib/chat-messages'
 import { $messages, setMessages, setSelectedStoredSessionId } from '@/store/session'
 
-import { adoptPrimedTranscript, primeRouteTranscript, useRouteTranscriptPaint } from './route-transcript-paint'
+import { useRouteTranscriptPaint } from './route-transcript-paint'
 
 const pathnameRef = { current: sessionRoute('session-a') }
 
@@ -122,20 +122,4 @@ describe('useRouteTranscriptPaint', () => {
     expect(readTail).not.toHaveBeenCalled()
   })
 
-  it('shares one read with the resume that follows the click', async () => {
-    const scope = { connectionId: 'local', profile: 'default' }
-    const read = primeRouteTranscript('session-a', scope)
-    const adopted = adoptPrimedTranscript('session-a', scope)
-
-    expect(adopted).toBe(read)
-    expect(adoptPrimedTranscript('session-a', scope)).toBeNull()
-    await read.catch(() => undefined)
-  })
-
-  it('refuses to hand the resume a read primed for another owner', async () => {
-    const read = primeRouteTranscript('session-a', { connectionId: 'local', profile: 'work' })
-
-    expect(adoptPrimedTranscript('session-a', { connectionId: 'local', profile: 'default' })).toBeNull()
-    await read.catch(() => undefined)
-  })
 })

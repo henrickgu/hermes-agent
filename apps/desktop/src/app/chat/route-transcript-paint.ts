@@ -8,82 +8,9 @@ import { ambientOwnerConnectionId } from '@/api/client'
 import { getLatestSessionMessages } from '@/hermes'
 import { toChatMessages } from '@/lib/chat-messages'
 import { $messages, $selectedStoredSessionId, setMessages } from '@/store/session'
-import type { SessionMessagesResponse } from '@/types/hermes'
 
-type RestScope = ReturnType<typeof transcriptRestScope>
-
-const PRIMED_TTL_MS = 30_000
-
-interface PrimedRead {
-  at: number
-  promise: Promise<SessionMessagesResponse>
-  scopeKey: string
-}
-
-// One read per session, shared between the route paint and the resume that
-// follows it: the route cannot wait for the resume (that is an attach: row
-// repairs, session info, agent pre-warm — 0.5-7 s measured on this machine),
-// and the resume must not pay for a second copy of the page it is about to
-// graft onto the same snapshot.
-const primedReads = new Map<string, PrimedRead>()
-
-const scopeKey = (scope: RestScope) => JSON.stringify(scope ?? null)
-
-/**
- * Start (or join) the transcript read for `storedSessionId`.
- *
- * With no explicit scope the caller wants whatever the stored row's own owner
- * is — the same scope `transcriptRestScope` hands the resume, so both callers
- * land on ONE request.
- */
-export function primeRouteTranscript(storedSessionId: string, scope?: RestScope): Promise<SessionMessagesResponse> {
-  const now = Date.now()
-
-  for (const [id, entry] of primedReads) {
-    if (now - entry.at > PRIMED_TTL_MS) {
-      primedReads.delete(id)
-    }
-  }
-
-  const resolvedScope =
-    scope ?? transcriptRestScope(undefined, cachedSessionRow(storedSessionId), ambientOwnerConnectionId() ?? '')
-  const key = scopeKey(resolvedScope)
-  const existing = primedReads.get(storedSessionId)
-
-  if (existing && existing.scopeKey === key) {
-    return existing.promise
-  }
-
-  const promise = getLatestSessionMessages(storedSessionId, resolvedScope).catch(error => {
-    primedReads.delete(storedSessionId)
-
-    throw error
-  })
-
-  primedReads.set(storedSessionId, { at: now, promise, scopeKey: key })
-
-  return promise
-}
-
-/**
- * Take the in-flight read a resume is about to use, but only when it targets
- * the same owner. A mismatch (another profile / connection) leaves the primed
- * read to the route paint and makes the caller issue its own scoped read.
- */
-export function adoptPrimedTranscript(
-  storedSessionId: string,
-  scope: RestScope
-): Promise<SessionMessagesResponse> | null {
-  const entry = primedReads.get(storedSessionId)
-
-  if (!entry) {
-    return null
-  }
-
-  primedReads.delete(storedSessionId)
-
-  return entry.scopeKey === scopeKey(scope) ? entry.promise : null
-}
+const scopeFor = (storedSessionId: string) =>
+  transcriptRestScope(undefined, cachedSessionRow(storedSessionId), ambientOwnerConnectionId() ?? '')
 
 /**
  * Paint the stored transcript the moment the route lands, without waiting for
@@ -123,7 +50,7 @@ export function useRouteTranscriptPaint({
     // desktop.log (`[renderer console:main]`).
     console.error(`[open-latency #1] arm ${routedSessionId.slice(0, 18)}`)
 
-    void primeRouteTranscript(routedSessionId)
+    void getLatestSessionMessages(routedSessionId, scopeFor(routedSessionId))
       .then(page => {
         if (cancelled) {
           return

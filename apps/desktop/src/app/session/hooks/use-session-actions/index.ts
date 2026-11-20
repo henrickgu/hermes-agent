@@ -3,7 +3,6 @@ import { useStore } from '@nanostores/react'
 import { type MutableRefObject, useCallback, useEffect, useRef } from 'react'
 import type { NavigateFunction } from 'react-router'
 
-import { adoptPrimedTranscript, primeRouteTranscript } from '@/app/chat/route-transcript-paint'
 import { NO_PROJECT_ID } from '@/app/chat/sidebar/projects/workspace-groups'
 import {
   extendRefreshPageToOverlap,
@@ -246,6 +245,16 @@ import {
   upsertOptimisticSession,
   upsertUnlistedSessionOwner
 } from './utils'
+
+// The warm-cache VIEW GATE is retired. It hid every cached row of the session being opened
+// until the persisted refresh proved it (#73646: a switch must not paint a compressed/old
+// tail). In practice it blanked a transcript the user was already looking at: click → flash of
+// the right conversation → loader → the same conversation back with fresh row identities,
+// which reflowed the text. Those rows are this session's OWN history, and the refresh below
+// replaces them wholesale, so the worst case without the gate is one stale tail visible for
+// that refresh. Kept as a switch so the gate can be re-armed if a stale tail ever wins over
+// the flicker.
+const WARM_TRANSCRIPT_VIEW_GATE: boolean = false
 
 interface SessionActionsOptions {
   activeSessionId: string | null
@@ -1454,15 +1463,6 @@ export function useSessionActions({
 
       const sessionRestScope = transcriptRestScope(ownerRoute, storedForProfile, ambientConnectionId)
       provisional.paint(sessionRestScope)
-
-      // One read for both consumers: the route paint may already own it, and
-      // the prefetch below adopts whatever this call started. Idempotent by
-      // (session, owner scope); skipped exactly where the prefetch is skipped
-      // (a watch window mirrors live, an authoritative snapshot ships rows).
-      if (!isWatchWindow() && !options?.authoritativeSnapshot) {
-        primeRouteTranscript(storedSessionId, sessionRestScope)
-      }
-
       console.error(`[open-latency #7] resolved-profile ${(performance.now() - latencyStart).toFixed(0)}ms`)
 
       await openResumeGateway(resolvedConnectionId, ownerRoute, sessionProfile)
@@ -1555,9 +1555,12 @@ export function useSessionActions({
           const suppressUnprovenWarmTranscript =
             !resumedSameSelectedSession && shouldRefreshPersistedTranscript && !hasValidProvenance
 
-          let releaseHeldTranscriptView = suppressUnprovenWarmTranscript
-            ? holdSessionTranscriptView?.(cachedRuntimeId)
-            : undefined
+          // The SUPPRESSION (what the resume says about unproven history, incl. the clarify
+          // landing) stays as it is; only the VIEW GATE that blanked the screen is retired.
+          let releaseHeldTranscriptView =
+            WARM_TRANSCRIPT_VIEW_GATE && suppressUnprovenWarmTranscript
+              ? holdSessionTranscriptView?.(cachedRuntimeId)
+              : undefined
 
           const releaseTranscriptView = () => {
             releaseHeldTranscriptView?.()
@@ -2107,8 +2110,7 @@ export function useSessionActions({
         const prefetchPromise =
           watchWindow || options?.authoritativeSnapshot
             ? null
-            : (adoptPrimedTranscript(storedSessionId, sessionRestScope) ??
-              getLatestSessionMessages(storedSessionId, sessionRestScope))
+            : getLatestSessionMessages(storedSessionId, sessionRestScope)
 
         let resumeRuntimeBaselineMessages: ChatMessage[] = []
         const resumeStartedAt = Date.now() / 1000

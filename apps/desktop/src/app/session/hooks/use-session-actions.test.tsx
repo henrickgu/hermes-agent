@@ -4692,7 +4692,7 @@ describe('resumeSession warm-cache mapping integrity', () => {
     expect(answerableClarifyRows(settled?.messages)).toHaveLength(1)
   })
 
-  it('keeps the snapshot clarify row visible while unproven history stays suppressed (#108718)', async () => {
+  it('paints the warm cache and the snapshot clarify row while the refresh is in flight (#108718)', async () => {
     const { persistedTranscript, resumePromise, viewSyncs } = await resumeClarifyBeforeHydration({
       messages: [
         { id: 'cached-user', role: 'user', parts: [{ type: 'text', text: 'help me choose' }] },
@@ -4707,8 +4707,10 @@ describe('resumeSession warm-cache mapping integrity', () => {
     const preHydration = viewSyncs.find(syncedState => syncedState.needsInput)
 
     expect(answerableClarifyRows(preHydration?.messages)).toHaveLength(1)
-    expect(preHydration?.messages.some(message => message.id === 'cached-user')).toBe(false)
-    expect(preHydration?.messages.some(message => message.id === 'cached-assistant')).toBe(false)
+    // The retired view gate hid these rows until the refresh proved them; now they stay painted,
+    // which is what the user was already looking at when they clicked.
+    expect(preHydration?.messages.some(message => message.id === 'cached-user')).toBe(true)
+    expect(preHydration?.messages.some(message => message.id === 'cached-assistant')).toBe(true)
 
     persistedTranscript.resolve({ messages: [], session_id: 'stored-A' } as never)
     await resumePromise
@@ -5722,7 +5724,7 @@ describe('resumeSession warm-cache mapping integrity', () => {
     expect(sessionStateByRuntimeIdRef.current.get('rt-A')?.messages[0]?.id).toBe('user-optimistic')
   })
 
-  it('never publishes a tail-only warm cache before the full persisted history', async () => {
+  it('paints the warm tail immediately and lets the persisted history replace it', async () => {
     const cachedState = clientState('stored-1')
     cachedState.messages = [
       {
@@ -5798,10 +5800,12 @@ describe('resumeSession warm-cache mapping integrity', () => {
       )
     )
 
+    // Paint-first: the warm tail the user already saw is published immediately instead of being
+    // hidden behind the retired view gate. The persisted page below is what replaces it.
     expect(
-      publications.filter(snapshot => snapshot.latest && !snapshot.older),
-      `Tail-only warm-cache publication escaped before persisted authority: ${JSON.stringify(publications)}`
-    ).toEqual([])
+      publications.some(snapshot => snapshot.latest && !snapshot.older),
+      `warm tail never painted: ${JSON.stringify(publications)}`
+    ).toBe(true)
 
     persistedAuthority.resolve({
       messages: [
@@ -5816,9 +5820,9 @@ describe('resumeSession warm-cache mapping integrity', () => {
 
     expect(publications.some(snapshot => snapshot.latest && snapshot.older)).toBe(true)
     expect(
-      publications.filter(snapshot => snapshot.latest && !snapshot.older),
-      `Tail-only warm-cache publication escaped: ${JSON.stringify(publications)}`
-    ).toEqual([])
+      publications.at(-1),
+      `the persisted history must own the view after it lands: ${JSON.stringify(publications)}`
+    ).toEqual({ latest: true, older: true })
   })
 
   it('keeps the runtime elapsed anchor when a warm-cached session is reselected', async () => {
