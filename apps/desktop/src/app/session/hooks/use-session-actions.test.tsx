@@ -117,6 +117,7 @@ import type { ClientSessionState } from '../../types'
 import { pinnedOwnerCount, pinnedStoredSessionIdsForOwner, releaseStoredSessionPins } from './session-context-drift'
 import { applySessionInfoStatePatch, sessionInfoStatePatch } from './use-message-stream/utils'
 import { captureSteeringSession } from './use-prompt-actions/steering-session'
+import { clearTranscriptTails } from '@/store/transcript-tail-cache'
 import { useSessionActions } from './use-session-actions'
 import {
   createPersistedDisplayTranscriptProvenance,
@@ -285,6 +286,12 @@ function Harness({
 
   return null
 }
+
+// The transcript tail cache is module state: a page saved by one test painted the NEXT test's
+// open, so an identity/no-rebuild assertion saw a grafted array instead of the painted one.
+beforeEach(() => {
+  clearTranscriptTails()
+})
 
 describe('desktop branch creation idempotency', () => {
   afterEach(() => {
@@ -1976,16 +1983,21 @@ describe('resumeSession failure recovery', () => {
 
     const requestGateway = vi.fn(async (method: string) => {
       if (method === 'session.resume') {
+        // The shared channel re-delivers `open_requests` to the handler, which parks the card;
+        // the resume only reconciles what is parked (the pending_clarify field is gone).
+        setClarifyRequest({
+          questions: [{ choices: ['safe', 'fast'], multiSelect: false, qid: 'q0', question: 'Which path?' }],
+          receivedAt: Date.now(),
+          requestId: 'req-resumed',
+          sessionId: 'runtime-1'
+        })
+
         return {
           info: {},
           message_count: 2,
           messages: [],
           messages_omitted: true,
-          pending_clarify: {
-            choices: ['safe', 'fast'],
-            question: 'Which path?',
-            request_id: 'req-resumed'
-          },
+          open_requests: [{ id: 'req-resumed', method: 'clarify', params: {} }],
           resumed: 'stored-1',
           running: true,
           session_id: 'runtime-1',
@@ -2041,19 +2053,23 @@ describe('resumeSession failure recovery', () => {
 
     const requestGateway = vi.fn(async (method: string) => {
       if (method === 'session.resume') {
+        setClarifyRequest({
+          lockedAnswers: { q0: 'Blue' },
+          questions: [
+            { choices: ['Blue', 'Red'], multiSelect: false, qid: 'q0', question: 'Color?' },
+            { choices: ['Small', 'Large'], multiSelect: false, qid: 'q1', question: 'Size?' }
+          ],
+          receivedAt: Date.now(),
+          requestId: 'req-batch-resumed',
+          sessionId: 'runtime-1'
+        })
+
         return {
           info: {},
           message_count: 2,
           messages: [],
           messages_omitted: true,
-          pending_clarify: {
-            answers: { q0: 'Blue' },
-            questions: [
-              { choices: ['Blue', 'Red'], qid: 'q0', question: 'Color?' },
-              { choices: ['Small', 'Large'], qid: 'q1', question: 'Size?' }
-            ],
-            request_id: 'req-batch-resumed'
-          },
+          open_requests: [{ id: 'req-batch-resumed', method: 'clarify', params: {} }],
           resumed: 'stored-1',
           running: true,
           session_id: 'runtime-1',
@@ -4513,16 +4529,19 @@ describe('resumeSession warm-cache mapping integrity', () => {
 
     const requestGateway = vi.fn(async (method: string) => {
       if (method === 'session.activate') {
+        setClarifyRequest({
+          questions: [{ choices: ['safe', 'fast'], multiSelect: false, qid: 'q0', question: 'Which path?' }],
+          receivedAt: Date.now(),
+          requestId: 'req-warm',
+          sessionId: 'rt-A'
+        })
+
         return {
           info: {},
           message_count: 2,
           messages: [],
           messages_omitted: true,
-          pending_clarify: {
-            choices: ['safe', 'fast'],
-            question: 'Which path?',
-            request_id: 'req-warm'
-          },
+          open_requests: [{ id: 'req-warm', method: 'clarify', params: {} }],
           resumed: 'stored-A',
           running: true,
           session_id: 'rt-A',
