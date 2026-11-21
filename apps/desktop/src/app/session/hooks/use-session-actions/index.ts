@@ -2038,13 +2038,25 @@ export function useSessionActions({
       provisional.paint(sessionRestScope)
       const cachedTailPaint = provisional.messages
 
-      // The reconciler's notion of "what was already on screen": a durable
-      // cached paint is provisional, not history — report empty so the
-      // authoritative transcript replaces it wholesale.
-      const viewMessagesForReconcile = (): ChatMessage[] => {
+      // The reconciler's notion of "what was already on screen". A durable cached paint is
+      // provisional, not history — so a page that does NOT carry every painted row replaces it
+      // wholesale. A page that DOES carry all of them (the common tail refresh) is grafted onto
+      // the paint instead: replacing 8 rows with the same 8 plus 25 older ones remounts the
+      // visible turns and rides the text, which is exactly the jump the open still showed.
+      const viewMessagesForReconcile = (page?: SessionMessagesResponse): ChatMessage[] => {
         const current = $messages.get()
 
-        return cachedTailPaint !== null && current === cachedTailPaint ? [] : current
+        if (cachedTailPaint === null || current !== cachedTailPaint) {
+          return current
+        }
+
+        if (!page) {
+          return []
+        }
+
+        const pageIds = new Set(toChatMessages(page.messages).map(message => message.id))
+
+        return current.every(message => pageIds.has(message.id)) ? current : []
       }
 
       // A history load is not a live turn. Do not mark the incoming session
@@ -2166,8 +2178,8 @@ export function useSessionActions({
         // and never rebuilds the transcript a second time.
         if (prefetchedResult && isCurrentResume()) {
           const previousMessages = resumedSameSelectedSession
-            ? preserveLocalPendingTurnMessages(viewMessagesForReconcile(), resumeStartMessages)
-            : viewMessagesForReconcile()
+            ? preserveLocalPendingTurnMessages(viewMessagesForReconcile(prefetchedResult), resumeStartMessages)
+            : viewMessagesForReconcile(prefetchedResult)
 
           // Tail page + previously backfilled prefix (same-session re-resume).
           prefetchedPage = await graftTranscriptPage(prefetchedResult, previousMessages, storedSessionId, sessionRestScope)
