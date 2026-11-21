@@ -1292,8 +1292,6 @@ export function useSessionActions({
       const routeToken = getRouteToken()
       resumeRequestRef.current = requestId
       const resumedSameSelectedSession = selectedStoredSessionIdRef.current === storedSessionId
-      const latencyStart = performance.now()
-      console.error(`[open-latency #6] resume-entry ${storedSessionId.slice(0, 18)}`)
 
       // A route change is drift only when it leads AWAY from this session. A
       // caller that navigates and resumes in one tick (branch → child) starts
@@ -1454,7 +1452,6 @@ export function useSessionActions({
 
       const sessionRestScope = transcriptRestScope(ownerRoute, storedForProfile, ambientConnectionId)
       provisional.paint(sessionRestScope)
-      console.error(`[open-latency #7] resolved-profile ${(performance.now() - latencyStart).toFixed(0)}ms`)
 
       await openResumeGateway(resolvedConnectionId, ownerRoute, sessionProfile)
 
@@ -2191,12 +2188,10 @@ export function useSessionActions({
           // The overlap reads await; skip painting if this resume went stale.
           if (isCurrentResume() && !chatMessageArraysEquivalent($messages.get(), localSnapshot)) {
             setMessages(localSnapshot)
-            console.error(`[open-latency #8] resume-paint ${(performance.now() - latencyStart).toFixed(0)}ms`)
           }
         }
 
         const resumed = await resumePromise
-        console.error(`[open-latency #9] attach ${(performance.now() - latencyStart).toFixed(0)}ms`)
 
         const reread = await rereadPageAfterResumeBarrier(resumed, prefetchedPage, storedSessionId, sessionRestScope)
 

@@ -1689,19 +1689,7 @@ export const markSessionRead = (storedSessionId: string | null | undefined) => {
   $unreadFinishedSessionIds.set($unreadFinishedSessionIds.get().filter(id => !familyIds.has(id)))
 }
 
-export const setMessages = (next: Updater<ChatMessage[]>) => {
-  // Temporary open-path probe: a full clear or a big jump is a paint/clear transition, while
-  // the per-token stream only grows by one row. Remove with the [open-latency] probes.
-  const before = $messages.get().length
-
-  updateAtom($messages, next)
-
-  const after = $messages.get().length
-
-  if (after === 0 || Math.abs(after - before) > 10) {
-    console.error(`[open-latency #10] messages ${before}->${after}`)
-  }
-}
+export const setMessages = (next: Updater<ChatMessage[]>) => updateAtom($messages, next)
 export const setFreshDraftReady = (next: Updater<boolean>) => updateAtom($freshDraftReady, next)
 
 // The fresh-draft identity lives in store/composer.ts with the draft stash it

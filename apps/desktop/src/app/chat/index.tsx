@@ -689,11 +689,6 @@ const ChatViewContent = memo(function ChatViewContent({
 
   const threadLoading = threadLoadingState(loadingSession, busy, awaitingResponse, lastVisibleIsUser)
 
-  // Temporary open-path probe (removed with the [open-latency] markers).
-  useEffect(() => {
-    console.error(`[open-latency #11] loader=${String(threadLoading)} messagesEmpty=${String(messagesEmpty)}`)
-  }, [messagesEmpty, threadLoading])
-
   const showChatBar = useShowChatBar({
     loadingSession,
     resumeExhausted,
