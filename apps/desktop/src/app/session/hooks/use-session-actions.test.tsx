@@ -108,6 +108,7 @@ import {
 import { $sessionSeenCounts, $unreadFinishedMarkers } from '@/store/session-unread'
 import { $subagentsBySession, type SubagentProgress } from '@/store/subagents'
 import { $retainedTodosBySession, $todosBySession, clearSessionTodos } from '@/store/todos'
+import { clearTranscriptTails } from '@/store/transcript-tail-cache'
 
 import sessionResumeActiveTurn from '../../../../../../tests/fixtures/session-resume-active-turn.json'
 import { deferred } from '../../../test/deferred'
@@ -117,7 +118,6 @@ import type { ClientSessionState } from '../../types'
 import { pinnedOwnerCount, pinnedStoredSessionIdsForOwner, releaseStoredSessionPins } from './session-context-drift'
 import { applySessionInfoStatePatch, sessionInfoStatePatch } from './use-message-stream/utils'
 import { captureSteeringSession } from './use-prompt-actions/steering-session'
-import { clearTranscriptTails } from '@/store/transcript-tail-cache'
 import { useSessionActions } from './use-session-actions'
 import {
   createPersistedDisplayTranscriptProvenance,
@@ -290,7 +290,30 @@ function Harness({
 // The transcript tail cache is module state: a page saved by one test painted the NEXT test's
 // open, so an identity/no-rebuild assertion saw a grafted array instead of the painted one.
 beforeEach(() => {
+  // localStorage carries module state between tests in this file too: the in-flight turn
+  // journal and the owner hints both survive a test and re-inject rows/owners into the next
+  // one (the resume then painted 2 journal rows nobody asked for).
+  window.localStorage.clear()
   clearTranscriptTails()
+})
+
+// New-chat / composer atoms are reset inside the first describe only, so every other suite
+// inherited whatever the previous one left ("New Chat pinned", draft model/provider seeding).
+// Reset them globally, the same way that describe does.
+afterEach(() => {
+  cleanup()
+  $newChatProfile.set(null)
+  $newChatRoute.set(null)
+  $activeGatewayProfile.set('default')
+  $projectScope.set(ALL_PROJECTS)
+  $projectTree.set([])
+  $currentCwd.set('')
+  $currentFastMode.set(false)
+  $currentModel.set('')
+  $currentProvider.set('')
+  setCurrentModelSource('')
+  $draftReasoningEffort.set('')
+  setNewChatWorkspaceTarget(undefined)
 })
 
 describe('desktop branch creation idempotency', () => {
