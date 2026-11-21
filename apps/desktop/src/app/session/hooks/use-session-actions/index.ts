@@ -1429,21 +1429,12 @@ export function useSessionActions({
         provisional.paint(transcriptRestScope(ownerRoute, listedStored, ambientConnectionId))
       }
 
-      // An unbound warm target whose transcript is already persisted-display
-      // authority paints now, display-only, instead of waiting out the awaits
-      // below; the fast path re-proves it against the resolved owner before
-      // binding. An unproven warm cache can be a compressed runtime tail, so it
-      // keeps the loader (#73646).
+      // Paint the warm cache the user already saw before the awaits below, proven or not: the
+      // view gate that used to hide it is retired (see WARM_TRANSCRIPT_VIEW_GATE), and holding
+      // the paint until after `resolveStoredSession` commits an empty frame first — the loader
+      // flash on a switch. The refresh below replaces whatever turns out stale.
       if (warmAtEntry && !foregroundIsTarget && listedStored) {
-        const entryProvenance = createPersistedDisplayTranscriptProvenance({
-          lineageRootId: listedStored._lineage_root_id ?? null,
-          scope: transcriptRestScope(ownerRoute, listedStored, ambientConnectionId),
-          storedSessionId
-        })
-
-        if (hasPersistedDisplayTranscriptProvenance(warmAtEntry.state, entryProvenance)) {
-          setMessages(warmAtEntry.state.messages)
-        }
+        setMessages(warmAtEntry.state.messages)
       }
 
       const storedForProfile = await resolveStoredSession(storedSessionId, ownerRoute)
