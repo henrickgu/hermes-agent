@@ -67,6 +67,7 @@ import {
   getSessionOwnerHint,
   knownSessionOwner,
   ownerLookupSessionRows,
+  resetComposerSelectionScope,
   sessionMatchesStoredId,
   setActiveSessionId,
   setActiveSessionStoredIdRotation,
@@ -289,12 +290,18 @@ function Harness({
 
 // The transcript tail cache is module state: a page saved by one test painted the NEXT test's
 // open, so an identity/no-rebuild assertion saw a grafted array instead of the painted one.
-beforeEach(() => {
+beforeEach(async () => {
+  // Let the previous test's trailing microtasks (tail save, journal write) land before the
+  // reset: clearing first let a late save re-seed the cache for the test that followed.
+  await new Promise(resolve => setTimeout(resolve, 0))
   // localStorage carries module state between tests in this file too: the in-flight turn
   // journal and the owner hints both survive a test and re-inject rows/owners into the next
   // one (the resume then painted 2 journal rows nobody asked for).
   window.localStorage.clear()
   clearTranscriptTails()
+  // The composer's sticky (model/provider/effort) reads through a module-level scope; a
+  // registry-scoped test leaves it behind and the next one reads a key nobody wrote.
+  resetComposerSelectionScope()
 })
 
 // New-chat / composer atoms are reset inside the first describe only, so every other suite
@@ -304,6 +311,9 @@ afterEach(() => {
   cleanup()
   $newChatProfile.set(null)
   $newChatRoute.set(null)
+  // A registry descriptor left behind makes the harness reconcile the pinned route away,
+  // so the next test's targetProfile never reaches session.create.
+  setConnection(() => null)
   $activeGatewayProfile.set('default')
   $projectScope.set(ALL_PROJECTS)
   $projectTree.set([])
@@ -1707,12 +1717,12 @@ describe('createBackendSessionForSend profile routing', () => {
       await handle!.createBackendSessionForSend()
     })
 
-    expect(requestGatewayForAgent).toHaveBeenCalledWith(
-      'source-a',
-      'default',
-      'session.create',
-      expect.objectContaining({ profile: 'backend-default', source: 'desktop' })
-    )
+    // Read the call instead of matching the whole argument list: the gateway call grew
+    // trailing options (spawn priority), and toHaveBeenCalledWith compares arity too.
+    const createCall = vi.mocked(requestGatewayForAgent).mock.calls[0]
+
+    expect(createCall?.slice(0, 3)).toEqual(['source-a', 'default', 'session.create'])
+    expect(createCall?.[3]).toMatchObject({ profile: 'backend-default', source: 'desktop' })
     expect(ambientRequest).not.toHaveBeenCalledWith('session.create', expect.anything())
   })
 

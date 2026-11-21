@@ -1544,6 +1544,11 @@ export function clearComposerSelectionOwner(): void {
   rescopeComposerSelection(null)
 }
 
+/** Back to the legacy single-backend scope (no registry suffix). */
+export function resetComposerSelectionScope(): void {
+  rescopeComposerSelection('')
+}
+
 export const setConnection = (next: Updater<HermesConnection | null>) => {
   updateAtom($connection, next)
   // Repoint connection-scoped persistence (pins, manual session order,
