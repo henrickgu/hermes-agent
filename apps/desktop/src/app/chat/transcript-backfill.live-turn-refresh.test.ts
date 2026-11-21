@@ -103,4 +103,57 @@ describe('tail refresh over a still-running turn', () => {
 
     expect(texts(merged).filter(text => text === 'Hermes, vamos seguir com a correção.')).toHaveLength(2)
   })
+
+  it('draws the prompt once when the page ends at it and the turn has no tool rows yet', () => {
+    // Re-reading the running session (switch back) returns a page that ends at
+    // the prompt: the turn has not flushed any tool row. The page also starts
+    // above the window's first row, so the overlap merge runs.
+    const pageEndingAtThePrompt = toChatMessages([
+      { id: 90, role: 'assistant', content: 'older context', timestamp: 90 },
+      rows[0],
+      rows[1],
+      rows[2]
+    ])
+
+    const merged = graftRefreshedTailOntoBackfill(pageEndingAtThePrompt, [
+      ...toChatMessages([rows[1]]),
+      {
+        id: 'user-submission-1',
+        role: 'user',
+        parts: [{ type: 'text', text: 'Hermes, vamos seguir com a correção.' }],
+        pending: true
+      },
+      // message.start already opened the reply bubble; no tool row is flushed.
+      { id: 'assistant-stream-1', role: 'assistant', parts: [], pending: true }
+    ])
+
+    expect(texts(merged).filter(text => text === 'Hermes, vamos seguir com a correção.')).toHaveLength(1)
+  })
+
+  it('still draws a repeated prompt twice when an unflushed reply separates the turns', () => {
+    const pageEndingAtThePrompt = toChatMessages([
+      { id: 90, role: 'assistant', content: 'older context', timestamp: 90 },
+      rows[0],
+      rows[1],
+      rows[2]
+    ])
+
+    const merged = graftRefreshedTailOntoBackfill(pageEndingAtThePrompt, [
+      ...toChatMessages([rows[1]]),
+      {
+        id: 'assistant-stream-1',
+        role: 'assistant',
+        parts: [{ type: 'text', text: 'resposta ainda nao gravada' }],
+        pending: true
+      },
+      {
+        id: 'user-submission-2',
+        role: 'user',
+        parts: [{ type: 'text', text: 'Hermes, vamos seguir com a correção.' }],
+        pending: true
+      }
+    ])
+
+    expect(texts(merged).filter(text => text === 'Hermes, vamos seguir com a correção.')).toHaveLength(2)
+  })
 })

@@ -356,7 +356,47 @@ function pageCopyOfLiveTailTurn(previous: ChatMessage[], refreshedTail: ChatMess
   const liveCalls = toolCallIds(tail)
   const pageCalls = toolCallIds(refreshedTail.slice(pagePrompt))
 
-  return [...pageCalls].some(id => liveCalls.has(id)) ? pagePrompt : -1
+  if ([...pageCalls].some(id => liveCalls.has(id))) {
+    return pagePrompt
+  }
+
+  // A turn that has not flushed a tool row yet has no call id to share with the
+  // page — reopening the running session used to leave the page's prompt and
+  // the optimistic bubble side by side for the whole tool run. When the page
+  // ENDS exactly at its prompt (nothing of the turn persisted after it) and the
+  // live prompt is the row right after the boundary both sides still hold, the
+  // two copies are the same turn: the optimistic prompt has not been bound yet,
+  // but no other row can sit between the stored tail and it.
+  if (
+    pagePrompt === refreshedTail.length - 1 &&
+    promptFollowsSharedBoundary(previous, livePrompt, refreshedTail)
+  ) {
+    return pagePrompt
+  }
+
+  return -1
+}
+
+/**
+ * True when the live prompt comes right after a row the page also carries.
+ * Rows in between (a reply still unflushed, say) make the match unsafe: the
+ * window may be showing a NEW turn with the same text, not the page's prompt.
+ */
+function promptFollowsSharedBoundary(
+  previous: ChatMessage[],
+  livePrompt: number,
+  refreshedTail: ChatMessage[]
+): boolean {
+  const boundary = previous[livePrompt - 1]
+
+  if (!boundary) {
+    return false
+  }
+
+  const pageIds = new Set(refreshedTail.map(message => message.id))
+  const pageRows = new Set(refreshedTail.flatMap(transcriptRowIds))
+
+  return pageIds.has(boundary.id) || transcriptRowIds(boundary).some(id => pageRows.has(id))
 }
 
 /**
