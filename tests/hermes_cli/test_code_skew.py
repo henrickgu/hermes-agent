@@ -43,6 +43,54 @@ class TestDetectCodeSkew:
 
 
 
+def test_renderer_commit_keeps_the_gateway_current(tmp_path, monkeypatch):
+    from subprocess import check_output
+
+    from hermes_cli import version_info
+    from hermes_cli.gateway_runtime import GatewayDiscovery, GatewayEndpoint
+    from hermes_cli.gateway_runtime_cli import _verdict_payload
+
+    def git(*args):
+        return check_output(
+            ["git", "-c", "user.name=Hermes Test", "-c", "user.email=hermes@example.invalid", *args],
+            cwd=tmp_path, text=True,
+        ).strip()
+
+    git("init", "--quiet")
+    gateway = tmp_path / "gateway.py"
+    gateway.write_text("backend = 1", encoding="utf-8")
+    git("add", ".")
+    git("commit", "--quiet", "-m", "initial gateway")
+    original = git("rev-parse", "HEAD")
+    monkeypatch.setattr(code_skew, "_PROJECT_ROOT", tmp_path)
+    monkeypatch.setattr(code_skew, "_fingerprint", lambda: f"git:ref:{git('rev-parse', 'HEAD')}")
+    code_skew.record_boot_fingerprint()
+    monkeypatch.setattr(version_info, "get_code_identity", lambda: {"sha": git("rev-parse", "HEAD")})
+    discovery = GatewayDiscovery("ready", GatewayEndpoint(
+        profile_id="default", instance_id="test", authority_epoch=1, runtime_protocol=1,
+        api_origin="http://127.0.0.1:1234", supervisor="none", capabilities=frozenset(),
+        code_sha=original,
+    ))
+
+    renderer = tmp_path / "apps/desktop/src/view.ts"
+    renderer.parent.mkdir(parents=True)
+    renderer.write_text("export const view = 2", encoding="utf-8")
+    git("add", ".")
+    git("commit", "--quiet", "-m", "edit the renderer")
+    assert code_skew.detect_code_skew() is None
+    verdict = _verdict_payload(discovery)
+    assert verdict["backend_code_unchanged"] is True
+    assert verdict["endpoint"]["code_sha"] == original
+    assert verdict["client_code_sha"] == git("rev-parse", "HEAD")
+
+    gateway.write_text("backend = 2", encoding="utf-8")
+    git("add", ".")
+    git("commit", "--quiet", "-m", "edit the gateway")
+    assert code_skew.detect_code_skew() == (original[:10], git("rev-parse", "HEAD")[:10])
+    assert "backend_code_unchanged" not in _verdict_payload(discovery)
+    assert not code_skew.backend_code_unchanged("0" * 40, git("rev-parse", "HEAD"))
+
+
 class TestShort:
 
     def test_keeps_unresolved_marker(self):

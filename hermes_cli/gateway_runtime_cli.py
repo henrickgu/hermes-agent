@@ -21,11 +21,15 @@ def _verdict_payload(result) -> dict:
     payload = asdict(result)
     if result.endpoint:
         payload["endpoint"]["capabilities"] = sorted(result.endpoint.capabilities)
-    # The code THIS client (and any gateway it starts) runs, resolved exactly like the owner's
-    # ``endpoint.code_sha``: a client that sees them differ is attached to a gateway that
-    # outlived ``hermes update`` and must restart it rather than re-attach.
+    # Keep both commit identities intact. Only a proven renderer-only difference lets
+    # Desktop keep the running gateway. Older clients can ignore this additional field.
+    from gateway.code_skew import backend_code_unchanged
     from hermes_cli.version_info import get_code_identity
-    payload["client_code_sha"] = get_code_identity().get("sha")
+
+    client_sha = get_code_identity().get("sha")
+    payload["client_code_sha"] = client_sha
+    if result.endpoint and backend_code_unchanged(result.endpoint.code_sha, client_sha):
+        payload["backend_code_unchanged"] = True
     return payload
 
 

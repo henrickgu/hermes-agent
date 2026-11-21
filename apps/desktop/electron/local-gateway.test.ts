@@ -243,6 +243,36 @@ test('a stale owner this window restarts is attached in its restart wait before 
   expect(restarted).toEqual(['default'])
 })
 
+test('a renderer-only revision change keeps the ready gateway attached', async () => {
+  const endpoint = { profile_id: '/h', instance_id: 'existing', authority_epoch: 1, runtime_protocol: 1, api_origin: 'http://127.0.0.1:1234', capabilities: ['session-authority-v1'], supervisor: 'none', code_sha: 'old' }
+  const ensure = vi.fn(async () => ({
+    code: 0,
+    stdout: JSON.stringify({ state: 'ready', endpoint, client_code_sha: 'new', backend_code_unchanged: true })
+  }))
+  const restart = vi.fn(async () => null)
+
+  await expect(ensureLocalGateway(ensure, undefined, restart)).resolves.toMatchObject({ gatewayEndpoint: endpoint })
+  expect(restart).not.toHaveBeenCalled()
+  expect(ensure).toHaveBeenCalledTimes(1)
+})
+
+test.each([
+  { code: 7, stdout: '', stderr: 'hermes gateway ensure timed out' },
+  { code: 5, stdout: JSON.stringify({ state: 'starting', reason_code: 'deadline', endpoint: null }) }
+])('a timed-out probe during a gateway restart reconnects to the replacement (%j)', async timeout => {
+  const endpoint = { profile_id: '/h', instance_id: 'old', authority_epoch: 1, runtime_protocol: 1, api_origin: 'http://127.0.0.1:1234', capabilities: ['session-authority-v1'], supervisor: 'none', code_sha: 'old' }
+  const replacement = { ...endpoint, instance_id: 'new', code_sha: 'new' }
+  const ensure = vi.fn()
+    .mockResolvedValueOnce({ code: 0, stdout: JSON.stringify({ state: 'ready', endpoint, client_code_sha: 'new' }) })
+    .mockResolvedValueOnce(timeout)
+    .mockResolvedValueOnce({ code: 0, stdout: JSON.stringify({ state: 'ready', endpoint: replacement, client_code_sha: 'new' }) })
+  const restart = vi.fn(async () => ({ done: Promise.resolve() }))
+
+  await expect(ensureLocalGateway(ensure, undefined, restart)).resolves.toMatchObject({ gatewayEndpoint: replacement })
+  expect(restart).toHaveBeenCalledTimes(1)
+  expect(ensure).toHaveBeenCalledTimes(3)
+})
+
 test('an ensure child that never reached the protocol boundary is diagnosed from stderr, not as a JSON parse error', async () => {
   // `main`'s hermes has no `gateway ensure` subcommand: argparse usage on stderr, nothing on stdout.
   const legacy = { code: 2, stdout: '', stderr: "usage: hermes gateway [-h] ...\nhermes gateway: 'ensure' is not a `hermes gateway` command.\nRun `hermes gateway --help` to see all commands.\n" }

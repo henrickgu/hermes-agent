@@ -159,8 +159,10 @@ export function parseGatewayEnsureOutput(result: { code: number; stdout: string;
 
 /** `{ gateway, client }` commits when a ready owner provably runs other code than the ensure
  *  client (a gateway that outlived `hermes update` answers model calls 503 "Restart required");
- *  null when they match or either side cannot name its code. */
+ *  null when the CLI confirms the backend tree matches or either side cannot name its code. */
 export function staleGatewayCode(payload: Record<string, any>): { gateway: string; client: string } | null {
+  if (payload?.backend_code_unchanged === true) {return null}
+
   const gateway = payload?.endpoint?.code_sha
   const client = payload?.client_code_sha
 
@@ -201,12 +203,25 @@ async function reensureDuringRestart(
   staleInstance: string
 ): Promise<{ result: { code: number; stdout: string; stderr?: string }; payload: Record<string, any> }> {
   let finished = false
+  let retriedDeadline = false
   void done.then(() => { finished = true })
 
   for (;;) {
     const last = finished
     const result = await run()
+    const clientTimedOut = result.code !== 0 && !result.stdout.trim()
+      && result.stderr?.trimEnd().split(/\r?\n/).at(-1) === 'hermes gateway ensure timed out'
+    // The restart command returns after spawning the replacement. A slow Windows start
+    // can cross one probe deadline and be ready for the next one.
+    if (clientTimedOut && !retriedDeadline) {
+      retriedDeadline = true
+      continue
+    }
     const payload = parseGatewayEnsureOutput(result)
+    if (last && !retriedDeadline && payload.state === 'starting' && payload.reason_code === 'deadline') {
+      retriedDeadline = true
+      continue
+    }
     const restartWait = isRestartWait(payload)
     const replaced = payload.state === 'ready' && payload.endpoint?.instance_id !== staleInstance
 
