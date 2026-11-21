@@ -36,6 +36,7 @@ vi.mock('@/store/starmap', () => ({ reloadOpenStarmapGraph: vi.fn(), resetStarma
 
 const {
   $activeGatewayProfile,
+  $gatewaySwapTarget,
   $profiles,
   ensureGatewayProfile,
   invalidateProfileListFetches,
@@ -136,6 +137,18 @@ describe('ensureGatewayProfile → $connection sync (#46651)', () => {
     expect(getConnection).not.toHaveBeenCalled()
     expect(ensureGatewayForProfile).not.toHaveBeenCalled()
     expect($connection.get()?.mode).toBe('remote')
+  })
+
+  it('skips the profile wake when the host has a single profile and its socket is open', async () => {
+    // Fresh relaunch: one profile exists but the route atom has not caught up yet, so the old
+    // gate ran the whole wake path and painted "Acordando default..." over a ready chat.
+    $profiles.set([profile('default', true)])
+    $activeGatewayProfile.set('')
+
+    await ensureGatewayProfile('default')
+
+    expect(ensureGatewayForProfile).not.toHaveBeenCalled()
+    expect($gatewaySwapTarget.get()).toBeNull()
   })
 
   it('reconnects when the target profile is active but its gateway socket is closed', async () => {

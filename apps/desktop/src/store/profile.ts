@@ -652,6 +652,20 @@ export async function ensureGatewayProfile(
       return false
     }
 
+    // ONE profile on this host means there is nothing to swap TO: the single socket already
+    // serves `target`, and the atom just hasn't caught up (fresh relaunch, first open). Without
+    // this the first session opened after a restart ran the whole wake path and painted
+    // "Acordando default…" over a chat that was ready.
+    const soleProfile = $profiles.get()
+
+    if (
+      soleProfile.length === 1 &&
+      normalizeProfileKey(soleProfile[0]?.name) === target &&
+      $gateway.get()?.connectionState === 'open'
+    ) {
+      return true
+    }
+
     if (normalizeProfileKey($activeGatewayProfile.get()) !== target || $gateway.get()?.connectionState !== 'open') {
       return false
     }
