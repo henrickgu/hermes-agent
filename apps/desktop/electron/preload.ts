@@ -505,6 +505,7 @@ contextBridge.exposeInMainWorld('hermesDesktop', {
   readDir: dirPath => ipcRenderer.invoke('hermes:fs:readDir', dirPath),
   gitRoot: startPath => ipcRenderer.invoke('hermes:fs:gitRoot', startPath),
   revealPath: targetPath => ipcRenderer.invoke('hermes:fs:reveal', targetPath),
+  openWith: targetPath => ipcRenderer.invoke('hermes:fs:openWith', targetPath),
   openDir: dirPath => ipcRenderer.invoke('hermes:fs:openDir', dirPath),
   desktopPluginsRoot: () => ipcRenderer.invoke('hermes:fs:desktopPluginsRoot'),
   reconcileDesktopPlugins: async () => (await ipcRenderer.invoke('hermes:fs:reconcileDesktopPlugins')).published,

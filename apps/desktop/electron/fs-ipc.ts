@@ -3,6 +3,7 @@
 // roots + git installs, rename/write/trash, and the plugin SDK's folder-scoped
 // file door. Extracted from main.ts; path hardening, HERMES_HOME resolution,
 // and the git binary stay injected.
+import { spawn } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 
@@ -23,6 +24,7 @@ import {
 import { DESKTOP_PROFILE_NAME_RE } from './desktop-profile'
 import { readDirForIpc } from './fs-read-dir'
 import { gitRootForIpc } from './git-root'
+import { openWithChooser } from './open-with'
 import { registerPluginFilesIpc } from './plugin-files-ipc'
 
 export interface FsIpcDeps {
@@ -112,6 +114,31 @@ export function registerFsIpc({
       const error = await shell.openPath(path.normalize(dir))
 
       return error ? { ok: false, error } : { ok: true }
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  })
+
+  // "Open with…": the OS program chooser for one local FILE (the shell's own
+  // dialog, the entry Explorer offers). The path is resolved through the same
+  // hardened door as every other file IPC; a missing target answers instead of
+  // opening an empty chooser. Platforms without that dialog answer
+  // `unsupported` and the renderer hides the item.
+  ipcMain.handle('hermes:fs:openWith', async (_event, targetPath) => {
+    const target = String(targetPath || '').trim()
+
+    if (!target) {
+      return { ok: false, error: 'no path' }
+    }
+
+    try {
+      const local = resolveRequestedPathForIpc(target, { purpose: 'Open file with' })
+
+      if (!fs.existsSync(local)) {
+        return { ok: false, error: 'missing' }
+      }
+
+      return openWithChooser(local, { platform: process.platform, spawn })
     } catch (error) {
       return { ok: false, error: error instanceof Error ? error.message : String(error) }
     }

@@ -408,6 +408,12 @@ export interface Translations extends NoticeTranslations {
     revealFileManager: string
     revealInSidebar: string
     copyPath: string
+    openFile: string
+    openWith: string
+    saveAs: string
+    copyContent: string
+    contentCopied: string
+    moreActions: string
     copyRelativePath: string
     download: string
     downloadSaved: string

@@ -530,6 +530,9 @@ declare global {
       revealPath?: (path: string) => Promise<boolean>
       // Open a DIRECTORY (created if missing) in the OS file manager.
       openDir?: (path: string) => Promise<{ ok: boolean; error?: string }>
+      // "Open with…": the OS program chooser for one local file (Windows shell
+      // dialog). Answers `unsupported` on platforms without that dialog.
+      openWith?: (path: string) => Promise<{ ok: boolean; error?: string }>
       // Local Desktop runtime-plugin root (<HERMES_HOME>/desktop-plugins),
       // resolved by Electron independently of the connected backend (#66899).
       // Created on demand; returns the normalized absolute path.
