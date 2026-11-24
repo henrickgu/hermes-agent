@@ -111,7 +111,12 @@ export function chatPartsEquivalent(aPart: ChatMessage['parts'][number], bPart: 
     const aCall = aPart as { argsText?: string; toolCallId?: string; toolName?: string; result?: unknown }
     const bCall = bPart as { argsText?: string; toolCallId?: string; toolName?: string; result?: unknown }
 
-    if (aCall.toolCallId !== bCall.toolCallId || aCall.toolName !== bCall.toolName) {
+    if (
+      aCall.toolCallId !== bCall.toolCallId ||
+      aCall.toolName !== bCall.toolName ||
+      aPart.sourceToolCallId !== bPart.sourceToolCallId ||
+      aPart.resultSourceRowId !== bPart.resultSourceRowId
+    ) {
       return false
     }
 

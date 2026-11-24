@@ -3,7 +3,10 @@ import { isLiveTailReplyId } from '@/lib/spoken-reply'
 
 /** A hydrated bubble can contain several source rows, including the final reply. */
 export function transcriptRowIds(message: ChatMessage): number[] {
-  const ids = message.parts.flatMap(part => (part.sourceRowId !== undefined ? [part.sourceRowId] : []))
+  const ids = message.parts.flatMap(part => [
+    ...(part.sourceRowId !== undefined ? [part.sourceRowId] : []),
+    ...(part.resultSourceRowId !== undefined ? [part.resultSourceRowId] : [])
+  ])
 
   return message.rowId === undefined ? ids : [message.rowId, ...ids]
 }

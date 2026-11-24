@@ -19,6 +19,7 @@ export {
   textPart
 } from './parts'
 export type { UnspokenTurnSpeech } from './parts'
+export { reconcileSplitToolResults } from './reconcile-split-tool-results'
 export {
   branchGroupForUser,
   isLocalSystemNotice,

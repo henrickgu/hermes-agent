@@ -3,8 +3,9 @@ import { atom } from 'nanostores'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { type SessionView, SessionViewProvider } from '@/app/chat/session-view'
+import { mergeOlderTranscriptPage } from '@/app/chat/transcript-backfill'
 import { I18nProvider } from '@/i18n/context'
-import type { ChatMessage } from '@/lib/chat-messages'
+import { type ChatMessage, toChatMessages } from '@/lib/chat-messages'
 import { $activeSessionId } from '@/store/session'
 import { $subagentsBySession, clearSessionSubagents, upsertSubagent } from '@/store/subagents'
 
@@ -55,6 +56,42 @@ afterEach(() => {
 })
 
 describe('delegate card fade', () => {
+  it('renders a page-split dispatch once without a phantom running card', () => {
+    const args = { tasks: [{ goal: 'Build backend' }, { goal: 'Build interface' }] }
+
+    const earlier = toChatMessages([
+      { id: 1, role: 'user', content: 'Build', timestamp: 1001 },
+      { id: 2, role: 'assistant', content: '', timestamp: 1002, tool_calls: [
+        { id: 'build', type: 'function', function: { name: 'delegate_task', arguments: JSON.stringify(args) } }
+      ] }
+    ])
+
+    const tail = toChatMessages([
+      { id: 3, role: 'tool', tool_name: 'delegate_task', tool_call_id: 'build', timestamp: 1003,
+        content: JSON.stringify({ status: 'dispatched', goals: ['Build backend', 'Build interface'] }) },
+      { id: 4, role: 'assistant', content: 'Delivered', timestamp: 1004 }
+    ])
+
+    const calls = mergeOlderTranscriptPage(tail, earlier).flatMap(message =>
+      message.parts.filter(part => part.type === 'tool-call')
+    )
+
+    const { container, queryAllByRole, queryByLabelText } = render(
+      <I18nProvider configClient={null} initialLocale="en">
+        <SessionViewProvider value={view()}>
+          {calls.map((part, index) => part.type === 'tool-call' && (
+            <DelegateTool args={part.args} key={index} result={part.result} toolCallId={part.toolCallId} />
+          ))}
+        </SessionViewProvider>
+      </I18nProvider>
+    )
+
+    expect(container.querySelectorAll('[data-delegate-card]')).toHaveLength(1)
+    expect(queryAllByRole('button', { name: 'Build backend' })).toHaveLength(1)
+    expect(queryAllByRole('button', { name: 'Build interface' })).toHaveLength(1)
+    expect(queryByLabelText('Running')).toBeNull()
+  })
+
   // Scaffold opacity opens a stacking context. The activity ticker is a
   // transformed reel clipped to one line; when the mark sat on the wrapper
   // around both, the reel's clip degraded and every old activity line painted

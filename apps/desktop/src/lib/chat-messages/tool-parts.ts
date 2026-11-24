@@ -1058,6 +1058,7 @@ export function toolPartFromStoredCall(
   return {
     type: 'tool-call',
     toolCallId: id,
+    sourceToolCallId: id,
     toolName,
     args: args as never,
     argsText: Object.keys(args).length ? JSON.stringify(args) : '',
@@ -1126,6 +1127,7 @@ export function applyStoredToolResultToParts(
     ...existing,
     completedAt: toolMessage.timestamp,
     storedResultToolName: toolName,
+    resultSourceRowId: toolMessage.row_id ?? (typeof toolMessage.id === 'number' ? toolMessage.id : undefined),
     result: parseStoredToolResult(content),
     toolResultMetadata: storedToolResultMetadata(toolMessage),
     isError: false
@@ -1148,8 +1150,10 @@ export function storedToolMessagePart(toolMessage: SessionMessage, fallbackIndex
   return {
     type: 'tool-call',
     toolCallId: toolMessage.tool_call_id || `stored-tool-message-${fallbackIndex}`,
+    sourceToolCallId: toolMessage.tool_call_id || undefined,
     toolName: name,
     unpairedStoredToolResult: true,
+    sourceRowId: toolMessage.row_id ?? (typeof toolMessage.id === 'number' ? toolMessage.id : undefined),
     args: args as never,
     argsText: Object.keys(args).length ? JSON.stringify(args) : '',
     timestamp: toolMessage.timestamp,

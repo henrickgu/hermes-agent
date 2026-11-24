@@ -22,7 +22,7 @@ import {
 } from '@/app/chat/transcript-receipt-turns'
 import { transcriptRowIds } from '@/app/session/hooks/use-session-actions/pending-turn-identity'
 import { getOlderSessionMessages, getSessionMessages, type ProfileScope } from '@/hermes'
-import { type ChatMessage, chatMessageText, toChatMessages } from '@/lib/chat-messages'
+import { type ChatMessage, chatMessageText, reconcileSplitToolResults, toChatMessages } from '@/lib/chat-messages'
 import {
   recordTranscriptBackfillPage,
   tailStateFromPage,
@@ -115,10 +115,8 @@ export function mergeOlderTranscriptPage(existing: ChatMessage[], olderPage: Cha
       existingRowIndices.set(message.rowId, index)
     }
 
-    for (const part of message.parts) {
-      if (part.sourceRowId !== undefined) {
-        existingPartRowIndices.set(part.sourceRowId, index)
-      }
+    for (const row of transcriptRowIds(message)) {
+      existingPartRowIndices.set(row, index)
     }
 
     existingIdIndices.set(message.id, index)
@@ -194,7 +192,7 @@ export function mergeOlderTranscriptPage(existing: ChatMessage[], olderPage: Cha
     }
   }
 
-  return merged
+  return reconcileSplitToolResults(merged)
 }
 
 /**
@@ -425,6 +423,10 @@ function mergeOverlappingTail(previous: ChatMessage[], refreshedTail: ChatMessag
 }
 
 export function graftRefreshedTailOntoBackfill(refreshedTail: ChatMessage[], previous: ChatMessage[]): ChatMessage[] {
+  return reconcileSplitToolResults(graftRefreshedTail(refreshedTail, previous))
+}
+
+function graftRefreshedTail(refreshedTail: ChatMessage[], previous: ChatMessage[]): ChatMessage[] {
   if (refreshedTail.length === 0 || previous.length === 0) {
     return refreshedTail
   }
